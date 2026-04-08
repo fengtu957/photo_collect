@@ -1,19 +1,36 @@
+const BASE_URL = 'http://localhost:8000/api/v1';
+
 interface CloudFunctionResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
 }
 
-export async function callFunction<T = any>(
-  name: string,
-  data: any = {}
-): Promise<CloudFunctionResult<T>> {
+export async function request<T = any>(
+  url: string,
+  options: WechatMiniprogram.RequestOption = {}
+): Promise<T> {
+  const token = wx.getStorageSync('token');
+
   try {
-    const res = await wx.cloud.callFunction({ name, data });
-    return res.result as CloudFunctionResult<T>;
+    const res = await wx.request({
+      url: BASE_URL + url,
+      header: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+        ...options.header
+      },
+      ...options
+    });
+
+    if (res.statusCode !== 200) {
+      throw new Error('请求失败');
+    }
+
+    return res.data as T;
   } catch (err: any) {
-    console.error(`云函数 ${name} 调用失败:`, err);
-    return { success: false, error: err.errMsg || '网络错误' };
+    console.error(`请求失败:`, err);
+    throw err;
   }
 }
 
