@@ -6,27 +6,24 @@ export async function request<T = any>(
 ): Promise<T> {
   const token = wx.getStorageSync('token');
 
-  try {
-    const res = await wx.request({
-      url: BASE_URL + url,
-      method: options.method || 'GET',
-      data: options.data,
-      header: {
-        'Authorization': token ? `Bearer ${token}` : '',
-        'Content-Type': 'application/json',
-        ...options.header
-      }
-    });
-
-    if (res.statusCode !== 200) {
-      throw new Error('请求失败');
+  const res = await wx.request({
+    url: BASE_URL + url,
+    method: options.method || 'GET',
+    data: options.data,
+    header: {
+      'Authorization': token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json',
+      ...options.header
     }
+  });
 
-    return res.data as T;
-  } catch (err: any) {
-    console.error(`请求失败:`, err);
-    throw err;
+  console.log('请求响应:', res);
+
+  if (!res.data) {
+    throw new Error('请求失败: 无响应数据');
   }
+
+  return res.data as T;
 }
 
 export function showError(message: string) {
