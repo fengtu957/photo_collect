@@ -6,7 +6,7 @@
 
 **架构:** 微信小程序原生 + TypeScript + 微信云开发（云函数 + 云数据库 + 云存储），使用 Skyline 渲染引擎。管理员创建任务并分享，参与者通过分享卡片进入填写信息并拍摄上传，AI 异步评估照片质量，管理员可导出数据。
 
-**技术栈:** 微信小程序、TypeScript、微信云开发、通义千问-VL API、VKSession 人脸检测
+**技术栈:** 微信小程序、TypeScript、微信云开发、通义千问-VL API
 
 ---
 
@@ -806,29 +806,26 @@ git commit -m "feat: 实现信息填写页面"
 
 ---
 
-### Task 13: 创建相机组件（复用参考项目）
+### Task 13: 创建相机组件（简化实现）
 
 **Files:**
 - Create: `miniprogram/components/camera-capture/`
-- Reference: `other/pages/camera/`
 
 - [ ] **Step 1: 创建组件**
 
 右键 `miniprogram/components` → 新建 Component → 命名为 `camera-capture`
 
-- [ ] **Step 2: 复用相机逻辑**
+- [ ] **Step 2: 实现简化的拍摄逻辑**
 
-从 `other/pages/camera/index.js` 复用以下功能：
+使用 `<camera>` 组件和 `wx.chooseMedia`：
 1. camera 组件配置
-2. VKSession 人脸检测
-3. 拍照功能
-4. 前后摄像头切换
+2. 拍照功能
+3. 前后摄像头切换
+4. 相册选择
 
-- [ ] **Step 3: 简化实现**
+- [ ] **Step 3: 移除人脸检测**
 
-1. 移除不需要的功能（美颜、滤镜等）
-2. 保留核心功能：人脸检测、拍照、相册选择
-3. 降低检测频率到 500ms
+不使用 VKSession（避免资质要求），依赖 AI 评估保证照片质量
 
 - [ ] **Step 4: 实现组件接口**
 
@@ -849,7 +846,7 @@ Component({
 
 ```bash
 git add miniprogram/components/camera-capture/
-git commit -m "feat: 添加相机组件（复用参考项目）"
+git commit -m "feat: 添加相机组件（简化实现）"
 ```
 
 ---
@@ -872,8 +869,8 @@ git commit -m "feat: 添加相机组件（复用参考项目）"
 - [ ] **Step 3: 实现全屏相机布局**
 
 1. 全屏 camera-capture 组件
-2. 中央人脸识别框
-3. 底部工具栏（相册、拍照、切换）
+2. 底部工具栏（相册、拍照、切换）
+3. 简化界面，无人脸识别框
 
 - [ ] **Step 4: 更新 app.json**
 
@@ -1330,8 +1327,8 @@ git commit -m "ui: UI优化（加载状态、空状态、错误提示）"
 ### 技术要点
 
 1. **云开发环境**: 使用微信云开发，无需自建服务器
-2. **人脸检测**: 复用 other/camera 的 VKSession 实现
-3. **AI 评估**: 异步调用通义千问-VL，不阻塞提交流程
+2. **简化拍摄**: 使用 camera 组件，移除人脸检测（避免资质要求）
+3. **AI 评估**: 异步调用通义千问-VL，评估照片质量并给出建议
 4. **实时推送**: 使用云数据库实时监听获取评估结果
 5. **文件管理**: 30天过期策略，导出后可选删除
 
