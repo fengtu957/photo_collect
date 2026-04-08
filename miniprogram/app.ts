@@ -1,8 +1,18 @@
 // app.ts
 import { login } from './services/auth';
 
-App<IAppOption>({
-  globalData: {},
+interface IAppGlobalData {
+  userInfo?: WechatMiniprogram.UserInfo;
+  customFields: any[];
+}
+
+interface ICustomAppOption {
+  globalData: IAppGlobalData;
+  autoLogin(): void;
+}
+
+App<ICustomAppOption>({
+  globalData: { customFields: [] },
   onLaunch() {
     this.autoLogin();
   },

@@ -1,0 +1,20 @@
+<view class="container">
+  <view class="task-info">
+    <text class="title">{{task.title}}</text>
+    <text class="desc">{{task.description}}</text>
+    <text class="deadline">截止时间: {{task.deadline}}</text>
+  </view>
+
+  <view class="submissions">
+    <text class="section-title">提交列表</text>
+    <view class="submission-item" wx:for="{{submissions}}" wx:key="id">
+      <image class="photo" src="{{item.photoUrl}}" mode="aspectFill" />
+      <view class="info">
+        <text class="status">{{item.status === 'approved' ? '已通过' : item.status === 'rejected' ? '未通过' : '待审核'}}</text>
+        <text class="feedback" wx:if="{{item.feedback}}">{{item.feedback}}</text>
+      </view>
+    </view>
+  </view>
+
+  <button class="upload-btn" bindtap="goToUpload">上传照片</button>
+</view>

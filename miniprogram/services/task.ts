@@ -8,7 +8,7 @@ export async function createTask(params: CreateTaskParams) {
   });
 }
 
-export async function getTasks() {
+export async function listTasks() {
   return request<Task[]>('/tasks', { method: 'GET' });
 }
 

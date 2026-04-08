@@ -21,7 +21,7 @@ func NewTaskService(uc *biz.TaskUsecase) *TaskService {
 func (s *TaskService) CreateTask(w http.ResponseWriter, r *http.Request) {
 	var task data.Task
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		Error(w, 1002, err.Error())
 		return
 	}
 
@@ -29,34 +29,31 @@ func (s *TaskService) CreateTask(w http.ResponseWriter, r *http.Request) {
 	task.UserID = userID
 
 	if err := s.uc.CreateTask(context.Background(), &task); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		Error(w, 1003, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"id": task.ID.Hex()})
+	Success(w, map[string]interface{}{"id": task.ID.Hex()})
 }
 
 func (s *TaskService) GetTask(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	task, err := s.uc.GetTask(context.Background(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		Error(w, 1004, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(task)
+	Success(w, task)
 }
 
 func (s *TaskService) ListTasks(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	tasks, err := s.uc.ListTasks(context.Background(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		Error(w, 1005, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tasks)
+	Success(w, tasks)
 }

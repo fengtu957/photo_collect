@@ -7,7 +7,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/backend/cmd/server",
-      "envFile": "${workspaceFolder}/backend/.env"
+      "envFile": "${workspaceFolder}/backend/.env.example"
     }
   ]
 }

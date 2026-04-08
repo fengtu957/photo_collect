@@ -1,22 +1,18 @@
 {
   "pages": [
+    "pages/task-list/task-list",
+    "pages/task-create/task-create",
+    "pages/task-detail/task-detail",
+    "pages/photo-upload/photo-upload",
+    "pages/custom-fields/custom-fields",
+    "pages/field-edit/field-edit",
     "pages/index/index",
     "pages/logs/logs"
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationStyle": "custom"
+    "navigationBarTitleText": "照片采集",
+    "navigationBarBackgroundColor": "#ffffff"
   },
-  "style": "v2",
-  "rendererOptions": {
-    "skyline": {
-      "defaultDisplayBlock": true,
-      "disableABTest": true,
-      "sdkVersionBegin": "3.0.0",
-      "sdkVersionEnd": "15.255.255"
-    }
-  },
-  "componentFramework": "glass-easel",
-  "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "sitemapLocation": "sitemap.json"
 }

@@ -1,0 +1,66 @@
+<scroll-view scroll-y style="height: 100vh;">
+  <view class="form">
+    <view class="section">
+      <text class="label">任务标题 *</text>
+      <input class="input" placeholder="请输入任务标题" bindinput="onInput" data-field="title" value="{{form.title}}" adjust-position="{{false}}" />
+    </view>
+
+    <view class="section">
+      <text class="label">任务描述</text>
+      <textarea class="textarea" placeholder="请输入任务描述" bindinput="onInput" data-field="description" value="{{form.description}}" adjust-position="{{false}}" />
+    </view>
+
+    <view class="section">
+      <text class="label">照片规格</text>
+      <view class="row">
+        <view class="row-item">
+          <text class="sub-label">规格名称</text>
+          <input class="input" placeholder="如：一寸" bindinput="onSpecInput" data-field="name" value="{{form.photo_spec.name}}" adjust-position="{{false}}" />
+        </view>
+      </view>
+      <view class="row">
+        <view class="row-item">
+          <text class="sub-label">宽(mm)</text>
+          <input class="input" type="number" placeholder="25" bindinput="onSpecInput" data-field="width" value="{{form.photo_spec.width}}" adjust-position="{{false}}" />
+        </view>
+        <view class="row-item">
+          <text class="sub-label">高(mm)</text>
+          <input class="input" type="number" placeholder="35" bindinput="onSpecInput" data-field="height" value="{{form.photo_spec.height}}" adjust-position="{{false}}" />
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="label">开始时间</text>
+      <view class="time-row">
+        <picker mode="date" bindchange="onStartDateChange" class="time-picker">
+          <view class="picker">{{startDate || '选择日期'}}</view>
+        </picker>
+        <picker mode="time" bindchange="onStartTimeChange" class="time-picker">
+          <view class="picker">{{startTime || '选择时间'}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="label">截止时间 *</text>
+      <view class="time-row">
+        <picker mode="date" bindchange="onEndDateChange" class="time-picker">
+          <view class="picker">{{endDate || '选择日期'}}</view>
+        </picker>
+        <picker mode="time" bindchange="onEndTimeChange" class="time-picker">
+          <view class="picker">{{endTime || '选择时间'}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="section" bindtap="goToCustomFields">
+      <view class="row-link">
+        <text class="label">自定义采集信息</text>
+        <text class="link-meta">{{form.custom_fields.length > 0 ? form.custom_fields.length + '项' : '未设置'}} ›</text>
+      </view>
+    </view>
+
+    <button class="submit-btn" bindtap="onSubmit">创建任务</button>
+  </view>
+</scroll-view>

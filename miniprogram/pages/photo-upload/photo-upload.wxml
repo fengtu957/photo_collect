@@ -1,0 +1,8 @@
+<view class="container">
+  <view class="preview" wx:if="{{photoPath}}">
+    <image class="photo" src="{{photoPath}}" mode="aspectFit" />
+  </view>
+
+  <button class="choose-btn" bindtap="choosePhoto">选择照片</button>
+  <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath}}">提交</button>
+</view>

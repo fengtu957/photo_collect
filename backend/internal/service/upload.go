@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"net/http"
 )
 
@@ -15,6 +14,5 @@ func NewUploadService(qiniu *QiniuService) *UploadService {
 
 func (s *UploadService) GetUploadToken(w http.ResponseWriter, r *http.Request) {
 	token := s.qiniu.GetUploadToken()
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": token})
+	Success(w, map[string]string{"token": token})
 }

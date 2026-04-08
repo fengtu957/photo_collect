@@ -1,0 +1,35 @@
+<view class="page">
+  <view class="section">
+    <view class="type-row" bindtap="showTypeMenu">
+      <text class="type-text">{{typeLabel}}</text>
+      <text class="type-arrow">∨</text>
+    </view>
+    <view class="input-wrap">
+      <input class="input" placeholder="输入名称" bindinput="onInput" data-field="label" value="{{field.label}}" adjust-position="{{false}}" />
+    </view>
+    <view class="input-wrap">
+      <input class="input" placeholder="说明（选填）" bindinput="onInput" data-field="placeholder" value="{{field.placeholder}}" adjust-position="{{false}}" />
+    </view>
+    <text class="hint" wx:if="{{field.type === 'text' || field.type === 'number'}}">待参与者输入</text>
+
+    <view wx:if="{{field.type === 'select' || field.type === 'multiselect'}}">
+      <view class="option-item" wx:for="{{field.options}}" wx:key="index">
+        <view class="del-icon" catchtap="removeOption" data-index="{{index}}">−</view>
+        <input class="option-input" placeholder="选项 {{index + 1}}" value="{{item}}" bindinput="onOptionInput" data-index="{{index}}" />
+      </view>
+      <text class="add-option" bindtap="addOption">添加选项</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="required-row">
+      <text class="required-text">设置为必填</text>
+      <switch checked="{{field.required}}" bindchange="onRequiredChange" />
+    </view>
+  </view>
+
+  <view class="footer">
+    <button class="btn-cancel" bindtap="cancel">取消</button>
+    <button class="btn-save" bindtap="save">保存</button>
+  </view>
+</view>

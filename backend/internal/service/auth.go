@@ -69,14 +69,13 @@ func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
 
 	session, err := s.Code2Session(req.Code)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		Error(w, 1001, err.Error())
 		return
 	}
 
 	token, _ := s.GenerateToken(session.OpenID)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	Success(w, map[string]string{
 		"token":  token,
 		"openid": session.OpenID,
 	})

@@ -1,29 +1,50 @@
-const BASE_URL = 'http://localhost:8000/api/v1';
+const BASE_URL = 'http://192.168.31.154:8000/api/v1';
 
-export async function request<T = any>(
+interface ApiResponse<T> {
+  code: number;
+  message: string;
+  data?: T;
+}
+
+export function request<T = any>(
   url: string,
   options: Partial<WechatMiniprogram.RequestOption> = {}
 ): Promise<T> {
   const token = wx.getStorageSync('token');
 
-  const res = await wx.request({
-    url: BASE_URL + url,
-    method: options.method || 'GET',
-    data: options.data,
-    header: {
-      'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json',
-      ...options.header
-    }
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: BASE_URL + url,
+      method: options.method || 'GET',
+      data: options.data,
+      header: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+        ...options.header
+      },
+      success: (res) => {
+        console.log('完整响应:', res);
+        console.log('响应数据:', res.data);
+
+        if (!res.data) {
+          reject(new Error('无响应数据'));
+          return;
+        }
+
+        const apiRes = res.data as ApiResponse<T>;
+
+        if (apiRes.code !== 0) {
+          reject(new Error(apiRes.message || '请求失败'));
+          return;
+        }
+
+        resolve(apiRes.data as T);
+      },
+      fail: (err) => {
+        reject(new Error(err.errMsg || '网络请求失败'));
+      }
+    });
   });
-
-  console.log('请求响应:', res);
-
-  if (!res.data) {
-    throw new Error('请求失败: 无响应数据');
-  }
-
-  return res.data as T;
 }
 
 export function showError(message: string) {

@@ -1,0 +1,74 @@
+.container {
+  padding: 20rpx;
+}
+
+.task-info {
+  background: white;
+  padding: 24rpx;
+  border-radius: 8rpx;
+  margin-bottom: 20rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.desc {
+  font-size: 28rpx;
+  color: #666;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.deadline {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.submission-item {
+  display: flex;
+  background: white;
+  padding: 20rpx;
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.photo {
+  width: 120rpx;
+  height: 160rpx;
+  border-radius: 8rpx;
+  margin-right: 20rpx;
+}
+
+.info {
+  flex: 1;
+}
+
+.status {
+  font-size: 28rpx;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.feedback {
+  font-size: 24rpx;
+  color: #666;
+  display: block;
+}
+
+.upload-btn {
+  background: #07c160;
+  color: white;
+  margin-top: 20rpx;
+}

@@ -50,9 +50,8 @@ export interface Task {
 export interface CreateTaskParams {
   title: string;
   description: string;
-  photoSpec: PhotoSpec;
-  startTime: Date;
-  endTime: Date;
-  customFields: CustomField[];
-  storageConfig?: Partial<StorageConfig>;
+  photo_spec: PhotoSpec;
+  start_time: string;
+  end_time: string;
+  custom_fields: CustomField[];
 }

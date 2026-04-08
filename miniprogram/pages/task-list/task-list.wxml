@@ -1,0 +1,25 @@
+<scroll-view scroll-y style="height: 100vh;">
+  <view class="list">
+    <view class="card" wx:for="{{tasks}}" wx:key="id">
+      <view class="card-top">
+        <text class="card-title">{{item.title}}</text>
+      </view>
+      <view class="card-mid">
+        <text class="card-line">规格：{{item.description}}</text>
+        <text class="card-line">创建日期：{{item.created_at}}</text>
+        <text class="card-line">截止日期：{{item.end_time}}</text>
+      </view>
+      <view class="card-bot">
+        <text class="card-count">👥 {{item.stats.total_submissions || 0}}</text>
+        <view class="card-actions">
+          <text class="btn-text" catchtap="viewList" data-id="{{item.id}}">📋 照片列表</text>
+          <text class="btn-text" catchtap="goToUpload" data-id="{{item.id}}">📷 拍照</text>
+        </view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{tasks.length === 0}}">暂无任务</view>
+  </view>
+  <view style="height: 120rpx;"></view>
+</scroll-view>
+
+<view class="fab" bindtap="goToCreate">+ 创建采集活动</view>

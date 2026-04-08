@@ -1,6 +1,13 @@
 import { request } from '../utils/request';
 import { Submission, SubmitPhotoParams } from '../types/submission';
 
+export async function createSubmission(params: SubmitPhotoParams) {
+  return request<{ id: string }>('/submissions', {
+    method: 'POST',
+    data: params
+  });
+}
+
 export async function submitPhoto(params: SubmitPhotoParams) {
   return request<{ id: string }>('/submissions', {
     method: 'POST',
@@ -9,6 +16,10 @@ export async function submitPhoto(params: SubmitPhotoParams) {
 }
 
 export async function getSubmissions(taskId: string) {
+  return request<Submission[]>(`/tasks/${taskId}/submissions`, { method: 'GET' });
+}
+
+export async function listSubmissions(taskId: string) {
   return request<Submission[]>(`/tasks/${taskId}/submissions`, { method: 'GET' });
 }
 
