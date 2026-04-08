@@ -1,17 +1,6 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:6
-    container_name: photo-mongodb
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-    volumes:
-      - mongodb_data:/data/db
-
   minio:
     image: minio/minio
     container_name: photo-minio
@@ -31,15 +20,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MONGODB_URI: mongodb://admin:password@mongodb:27017
+      MONGODB_URI: mongodb://root:QU8p10Vs3A5r2MqD@47.108.149.4:30017/photo?replicaSet=rs0&retryWrites=false
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       QWEN_API_KEY: ${QWEN_API_KEY}
     depends_on:
-      - mongodb
       - minio
 
 volumes:
-  mongodb_data:
   minio_data:
