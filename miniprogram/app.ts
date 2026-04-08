@@ -6,12 +6,11 @@ App<IAppOption>({
   onLaunch() {
     this.autoLogin();
   },
-  async autoLogin() {
-    try {
-      await login();
+  autoLogin() {
+    login().then(() => {
       console.log('登录成功');
-    } catch (err) {
+    }).catch((err) => {
       console.error('登录失败:', err);
-    }
+    });
   }
 })
