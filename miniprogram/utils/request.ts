@@ -1,26 +1,21 @@
 const BASE_URL = 'http://localhost:8000/api/v1';
 
-interface CloudFunctionResult<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
 export async function request<T = any>(
   url: string,
-  options: WechatMiniprogram.RequestOption = {}
+  options: Partial<WechatMiniprogram.RequestOption> = {}
 ): Promise<T> {
   const token = wx.getStorageSync('token');
 
   try {
     const res = await wx.request({
       url: BASE_URL + url,
+      method: options.method || 'GET',
+      data: options.data,
       header: {
         'Authorization': token ? `Bearer ${token}` : '',
         'Content-Type': 'application/json',
         ...options.header
-      },
-      ...options
+      }
     });
 
     if (res.statusCode !== 200) {
