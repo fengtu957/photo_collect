@@ -11,7 +11,8 @@ Page({
     startTime: '',
     endTime: '',
     isCreator: false,
-    currentUserId: ''
+    currentUserId: '',
+    mySubmissionId: ''  // 当前用户在该任务中的提交ID
   },
 
   onLoad(options: any) {
@@ -35,7 +36,6 @@ Page({
       const startTime = task.start_time ? formatTime(String(task.start_time)) : '';
       const endTime = task.end_time ? formatTime(String(task.end_time)) : '';
 
-      // 获取当前用户openid判断是否为创建者（用于前端显示）
       const currentOpenid = wx.getStorageSync('openid') || '';
       const isCreator = task.user_id === currentOpenid;
 
@@ -44,13 +44,17 @@ Page({
         createdAtFormatted: s.created_at ? formatTime(String(s.created_at)) : ''
       }));
 
+      // 找出当前用户自己的提交ID
+      const mySubmission = (submissions || []).find((s: any) => s.user_id === currentOpenid);
+
       this.setData({
         task,
         submissions: formattedSubmissions,
         startTime,
         endTime,
         isCreator,
-        currentUserId: currentOpenid
+        currentUserId: currentOpenid,
+        mySubmissionId: (mySubmission && mySubmission.id) || ''
       });
     } catch (err: any) {
       showError(err.message || '加载失败');
@@ -58,7 +62,12 @@ Page({
   },
 
   goToUpload() {
-    wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}` });
+    // 创建者：始终新建；非创建者：有提交则编辑，否则新建
+    if (!this.data.isCreator && this.data.mySubmissionId) {
+      wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${this.data.mySubmissionId}` });
+    } else {
+      wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}` });
+    }
   },
 
   editSubmission(e: any) {

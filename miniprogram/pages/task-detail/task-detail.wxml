@@ -111,6 +111,6 @@
 
   <!-- 上传按钮 -->
   <view class="fab" bindtap="goToUpload">
-    <text>上传照片</text>
+    <text>{{!isCreator && mySubmissionId ? '编辑提交' : '上传照片'}}</text>
   </view>
 </view>
