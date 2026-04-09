@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type TaskRepo struct {
@@ -39,7 +40,9 @@ func (r *TaskRepo) FindByID(ctx context.Context, id string) (*Task, error) {
 }
 
 func (r *TaskRepo) FindByUserID(ctx context.Context, userID string) ([]*Task, error) {
-	cursor, err := r.data.DB().Collection("tasks").Find(ctx, bson.M{"user_id": userID})
+	// 按创建时间倒序排列
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.data.DB().Collection("tasks").Find(ctx, bson.M{"user_id": userID}, opts)
 	if err != nil {
 		return nil, err
 	}
