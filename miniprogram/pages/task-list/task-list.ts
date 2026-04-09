@@ -1,4 +1,5 @@
 import { listTasks } from '../../services/task';
+import { listSubmissions } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime } from '../../utils/time';
 
@@ -35,8 +36,22 @@ Page({
     wx.navigateTo({ url: `/pages/task-detail/task-detail?id=${e.currentTarget.dataset.id}` });
   },
 
-  goToUpload(e: any) {
-    wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${e.currentTarget.dataset.id}` });
+  async goToUpload(e: any) {
+    const taskId = e.currentTarget.dataset.id;
+    wx.showLoading({ title: '检查中...' });
+    try {
+      const subs = await listSubmissions(taskId);
+      wx.hideLoading();
+      if (subs && subs.length > 0) {
+        // 已有提交，直接进入编辑模式
+        wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${taskId}&submissionId=${(subs[0] as any).id}` });
+      } else {
+        wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${taskId}` });
+      }
+    } catch (err: any) {
+      wx.hideLoading();
+      showError(err.message || '加载失败');
+    }
   }
 });
 
