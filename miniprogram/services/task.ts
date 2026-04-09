@@ -15,3 +15,7 @@ export async function listTasks() {
 export async function getTask(id: string) {
   return request<Task>(`/tasks/${id}`, { method: 'GET' });
 }
+
+export async function deleteTask(id: string) {
+  return request<null>(`/tasks/${id}`, { method: 'DELETE' });
+}

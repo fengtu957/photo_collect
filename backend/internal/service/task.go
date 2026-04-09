@@ -52,6 +52,23 @@ func (s *TaskService) GetTask(w http.ResponseWriter, r *http.Request) {
 	Success(w, task)
 }
 
+func (s *TaskService) DeleteTask(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1006, "unauthorized")
+		return
+	}
+
+	if err := s.uc.DeleteTask(context.Background(), id, userID); err != nil {
+		Error(w, 1007, err.Error())
+		return
+	}
+
+	Success(w, nil)
+}
+
 func (s *TaskService) ListTasks(w http.ResponseWriter, r *http.Request) {
 	// 从 context 中获取用户 ID（由 JWT 中间件注入）
 	userID, ok := r.Context().Value(UserIDKey).(string)

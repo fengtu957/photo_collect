@@ -73,3 +73,12 @@ func (r *TaskRepo) FindByIDs(ctx context.Context, ids []primitive.ObjectID) ([]*
 	}
 	return tasks, nil
 }
+
+func (r *TaskRepo) Delete(ctx context.Context, id string) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	_, err = r.data.DB().Collection("tasks").DeleteOne(ctx, bson.M{"_id": objID})
+	return err
+}

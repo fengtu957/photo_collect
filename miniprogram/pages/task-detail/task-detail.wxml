@@ -109,8 +109,14 @@
     </view>
   </view>
 
-  <!-- 上传按钮 -->
-  <view class="fab" bindtap="goToUpload">
-    <text>{{!isCreator && mySubmissionId ? '编辑提交' : '上传照片'}}</text>
+  <!-- 创建者：双按钮底栏 -->
+  <view class="footer" wx:if="{{isCreator}}">
+    <view class="btn-danger" bindtap="deleteActivity">删除活动</view>
+    <view class="btn-primary" bindtap="goToUpload">上传照片</view>
+  </view>
+
+  <!-- 非创建者：单 FAB -->
+  <view class="fab" wx:else bindtap="goToUpload">
+    <text>{{mySubmissionId ? '编辑提交' : '上传照片'}}</text>
   </view>
 </view>

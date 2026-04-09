@@ -283,3 +283,39 @@
   font-size: 32rpx;
   box-shadow: 0 8rpx 24rpx rgba(25,137,250,0.4);
 }
+
+/* 创建者底栏 */
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  padding: 20rpx;
+  background: white;
+  gap: 20rpx;
+  box-shadow: 0 -2rpx 8rpx rgba(0,0,0,0.1);
+}
+
+.btn-danger {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: 44rpx;
+  font-size: 32rpx;
+  background: #fff0f0;
+  color: #ff4444;
+  border: 1rpx solid #ffcccc;
+}
+
+.btn-primary {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: 44rpx;
+  font-size: 32rpx;
+  background: #1989fa;
+  color: white;
+}

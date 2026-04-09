@@ -1,4 +1,4 @@
-import { getTask } from '../../services/task';
+import { getTask, deleteTask } from '../../services/task';
 import { listSubmissions } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime } from '../../utils/time';
@@ -73,5 +73,24 @@ Page({
   editSubmission(e: any) {
     const submissionId = e.currentTarget.dataset.id;
     wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${submissionId}` });
+  },
+
+  deleteActivity() {
+    wx.showModal({
+      title: '确认删除',
+      content: '删除后活动及所有提交记录将无法恢复，确认删除？',
+      confirmText: '删除',
+      confirmColor: '#ff4444',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await deleteTask(this.data.taskId);
+          wx.showToast({ title: '删除成功', icon: 'success' });
+          setTimeout(() => wx.navigateBack(), 1500);
+        } catch (err: any) {
+          wx.showToast({ title: err.message || '删除失败', icon: 'none' });
+        }
+      }
+    });
   }
 });

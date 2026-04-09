@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"errors"
 	"photo-backend/internal/data"
 	"sort"
 
@@ -73,4 +74,18 @@ func (uc *TaskUsecase) ListTasks(ctx context.Context, userID string) ([]*data.Ta
 	}
 
 	return all, nil
+}
+
+func (uc *TaskUsecase) DeleteTask(ctx context.Context, id string, userID string) error {
+	task, err := uc.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if task == nil {
+		return errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return errors.New("无权限删除此任务")
+	}
+	return uc.repo.Delete(ctx, id)
 }
