@@ -88,6 +88,7 @@
   </view>
 
   <!-- 提交按钮 -->
+  <view class="footer-placeholder"></view>
   <view class="footer">
     <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath}}">
       {{isEditMode ? '更新' : '提交'}}

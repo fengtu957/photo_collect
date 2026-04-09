@@ -7,44 +7,31 @@ export interface PhotoSpec {
 
 export interface CustomField {
   id: string;
-  type: 'text' | 'select';
+  type: 'text' | 'number' | 'select' | 'multiselect';
   label: string;
   required: boolean;
   options?: string[];
   placeholder?: string;
 }
 
-export interface StorageConfig {
-  retentionDays: number;
-  expirationDate: Date;
-  autoDeleteAfterExport: boolean;
-}
-
-export interface ExportConfig {
-  nameTemplate: string;
-  includeOriginal: boolean;
-}
-
 export interface TaskStats {
-  totalSubmissions: number;
-  lastSubmitTime?: Date;
+  total_submissions: number;
+  last_submit_time?: string;
 }
 
 export interface Task {
-  _id: string;
-  _openid: string;
+  id: string;
+  user_id: string;
   title: string;
   description: string;
-  photoSpec: PhotoSpec;
-  startTime: Date;
-  endTime: Date;
+  photo_spec: PhotoSpec;
+  start_time: string;
+  end_time: string;
   enabled: boolean;
-  customFields: CustomField[];
+  custom_fields: CustomField[];
   stats: TaskStats;
-  storageConfig: StorageConfig;
-  exportConfig: ExportConfig;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CreateTaskParams {

@@ -3,7 +3,7 @@ import { listSubmissions } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime } from '../../utils/time';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 2;
 
 function formatSubmissions(list: any[], customFields: any[]) {
   const fieldLabelMap: Record<string, string> = {};

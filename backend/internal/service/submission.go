@@ -65,6 +65,28 @@ func (s *SubmissionService) UpdateSubmission(w http.ResponseWriter, r *http.Requ
 	Success(w, map[string]interface{}{"id": id})
 }
 
+func (s *SubmissionService) GetSubmission(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 2006, "unauthorized")
+		return
+	}
+
+	submission, err := s.uc.GetSubmission(context.Background(), id, userID)
+	if err != nil {
+		Error(w, 2007, err.Error())
+		return
+	}
+
+	if submission.Photo.URL != "" {
+		submission.Photo.URL = s.qiniuSvc.GetFileURL(submission.Photo.URL)
+	}
+
+	Success(w, submission)
+}
+
 func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 	taskID := mux.Vars(r)["taskId"]
 
@@ -98,4 +120,3 @@ func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Reque
 
 	Success(w, result)
 }
-

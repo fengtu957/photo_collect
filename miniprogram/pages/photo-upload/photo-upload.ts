@@ -1,7 +1,36 @@
 import { getTask } from '../../services/task';
 import { getUploadToken } from '../../services/upload';
-import { createSubmission, updateSubmission, listSubmissions } from '../../services/submission';
+import { createSubmission, getSubmission, updateSubmission } from '../../services/submission';
 import { showError, showSuccess, showLoading, hideLoading } from '../../utils/request';
+
+function isRemoteUrl(path: string): boolean {
+  return path.indexOf('http://') === 0 || path.indexOf('https://') === 0;
+}
+
+function extractFileKey(fileUrl: string): string {
+  if (!fileUrl) return '';
+
+  const queryIndex = fileUrl.indexOf('?');
+  const urlWithoutQuery = queryIndex >= 0 ? fileUrl.slice(0, queryIndex) : fileUrl;
+  const protocolIndex = urlWithoutQuery.indexOf('://');
+
+  if (protocolIndex < 0) {
+    return decodeURIComponent(urlWithoutQuery.replace(/^\/+/, ''));
+  }
+
+  const pathIndex = urlWithoutQuery.indexOf('/', protocolIndex + 3);
+  if (pathIndex < 0) return '';
+
+  return decodeURIComponent(urlWithoutQuery.slice(pathIndex + 1));
+}
+
+function isEmptyFieldValue(value: any): boolean {
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+
+  return value === undefined || value === null || value === '';
+}
 
 Page({
   data: {
@@ -9,6 +38,7 @@ Page({
     submissionId: '',
     task: null as any,
     photoPath: '',
+    photoKey: '',
     customData: {} as Record<string, any>,
     isEditMode: false
   },
@@ -44,15 +74,14 @@ Page({
 
   async loadSubmission() {
     try {
-      const submissions = await listSubmissions(this.data.taskId);
-      const submission = submissions.find((s: any) => s.id === this.data.submissionId);
+      const submission = await getSubmission(this.data.submissionId);
+      const photoUrl = (submission.photo && submission.photo.url) || '';
 
-      if (submission) {
-        this.setData({
-          customData: submission.custom_data || {},
-          photoPath: submission.photo.url || ''
-        });
-      }
+      this.setData({
+        customData: submission.custom_data || {},
+        photoPath: photoUrl,
+        photoKey: extractFileKey(photoUrl)
+      });
     } catch (err: any) {
       showError(err.message || '加载提交数据失败');
     }
@@ -65,7 +94,10 @@ Page({
       sizeType: ['original'],
       sourceType: ['album', 'camera'],
       success: (res) => {
-        this.setData({ photoPath: res.tempFiles[0].tempFilePath });
+        this.setData({
+          photoPath: res.tempFiles[0].tempFilePath,
+          photoKey: ''
+        });
       }
     });
   },
@@ -101,11 +133,22 @@ Page({
     const task = this.data.task;
     if (task && task.custom_fields) {
       for (const field of task.custom_fields) {
-        if (field.required && !this.data.customData[field.id]) {
+        if (field.required && isEmptyFieldValue(this.data.customData[field.id])) {
           showError(`请填写${field.label}`);
           return;
         }
       }
+    }
+
+    if (this.data.isEditMode && isRemoteUrl(this.data.photoPath)) {
+      if (!this.data.photoKey) {
+        showError('当前照片信息无效，请重新选择照片');
+        return;
+      }
+
+      showLoading('提交中...');
+      this.saveSubmission(this.data.photoKey);
+      return;
     }
 
     showLoading('上传中...');
@@ -132,32 +175,8 @@ Page({
             return;
           }
 
-          // 3. 提交到后端（使用正确的数据结构）
-          const submitFunc = this.data.isEditMode ? updateSubmission : createSubmission;
-          const submitParams = this.data.isEditMode
-            ? [this.data.submissionId, {
-                task_id: this.data.taskId,
-                photo: {
-                  url: key
-                },
-                custom_data: this.data.customData
-              }]
-            : [{
-                task_id: this.data.taskId,
-                photo: {
-                  url: key
-                },
-                custom_data: this.data.customData
-              }];
-
-          submitFunc(...submitParams as any).then(() => {
-            hideLoading();
-            showSuccess(this.data.isEditMode ? '更新成功' : '提交成功');
-            setTimeout(() => wx.navigateBack(), 1500);
-          }).catch((err: any) => {
-            hideLoading();
-            showError(err.message || '提交失败');
-          });
+          // 3. 提交到后端
+          this.saveSubmission(key);
         },
         fail: (err) => {
           console.error('七牛云上传失败:', err);
@@ -168,6 +187,29 @@ Page({
     }).catch((err: any) => {
       hideLoading();
       showError(err.message || '获取上传凭证失败');
+    });
+  },
+
+  saveSubmission(photoKey: string) {
+    const params = {
+      task_id: this.data.taskId,
+      photo: {
+        url: photoKey
+      },
+      custom_data: this.data.customData
+    };
+
+    const submitPromise = this.data.isEditMode
+      ? updateSubmission(this.data.submissionId, params)
+      : createSubmission(params);
+
+    submitPromise.then(() => {
+      hideLoading();
+      showSuccess(this.data.isEditMode ? '更新成功' : '提交成功');
+      setTimeout(() => wx.navigateBack(), 1500);
+    }).catch((err: any) => {
+      hideLoading();
+      showError(err.message || '提交失败');
     });
   }
 });

@@ -1,5 +1,5 @@
 import { request } from '../utils/request';
-import { Submission, SubmitPhotoParams } from '../types/submission';
+import { Submission, SubmissionListResponse, SubmitPhotoParams } from '../types/submission';
 
 export async function createSubmission(params: SubmitPhotoParams) {
   return request<{ id: string }>('/submissions', {
@@ -15,6 +15,10 @@ export async function updateSubmission(id: string, params: SubmitPhotoParams) {
   });
 }
 
+export async function getSubmission(id: string) {
+  return request<Submission>(`/submissions/${id}`, { method: 'GET' });
+}
+
 export async function submitPhoto(params: SubmitPhotoParams) {
   return request<{ id: string }>('/submissions', {
     method: 'POST',
@@ -23,7 +27,7 @@ export async function submitPhoto(params: SubmitPhotoParams) {
 }
 
 export async function listSubmissions(taskId: string, page: number = 1, limit: number = 20) {
-  return request<{ list: Submission[], total: number, has_more: boolean }>(
+  return request<SubmissionListResponse>(
     `/tasks/${taskId}/submissions?page=${page}&limit=${limit}`,
     { method: 'GET' }
   );

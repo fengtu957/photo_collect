@@ -1,22 +1,18 @@
 export interface PhotoInfo {
-  originalUrl: string;
-  originalFileId: string;
-  fileSize: number;
+  url: string;
+  file_size: number;
   width: number;
   height: number;
-  expiresAt: Date;
   deleted: boolean;
-  deletedAt?: Date;
-  deletedReason?: string;
 }
 
 export interface AIEvaluationBreakdown {
-  clarity: number;
-  lighting: number;
-  angle: number;
-  background: number;
-  expression: number;
-  composition: number;
+  clarity?: number;
+  lighting?: number;
+  angle?: number;
+  background?: number;
+  expression?: number;
+  composition?: number;
 }
 
 export interface AIEvaluation {
@@ -25,26 +21,32 @@ export interface AIEvaluation {
   issues: string[];
   suggestions: string[];
   breakdown: AIEvaluationBreakdown;
-  evaluatedAt?: Date;
+  evaluated_at?: string;
   error?: string;
 }
 
 export interface UserInfo {
-  nickName: string;
-  avatarUrl: string;
+  nick_name: string;
+  avatar_url: string;
 }
 
 export interface Submission {
-  _id: string;
-  _openid: string;
-  taskId: string;
-  userInfo: UserInfo;
-  customData: Record<string, string | string[]>;
+  id: string;
+  task_id: string;
+  user_id: string;
+  user_info: UserInfo;
+  custom_data: Record<string, string | string[]>;
   photo: PhotoInfo;
-  aiEvaluation: AIEvaluation;
+  ai_evaluation: AIEvaluation;
   status: 'draft' | 'submitted' | 'rejected';
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubmissionListResponse {
+  list: Submission[];
+  total: number;
+  has_more: boolean;
 }
 
 export interface SubmitPhotoParams {

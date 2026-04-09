@@ -23,6 +23,9 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 	if err != nil {
 		return err
 	}
+	if task == nil {
+		return errors.New("任务不存在")
+	}
 
 	// 非创建者限制唯一提交
 	if task.UserID != sub.UserID {
@@ -52,6 +55,9 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 	if err != nil {
 		return err
 	}
+	if task == nil {
+		return errors.New("任务不存在")
+	}
 
 	// 权限检查：只有提交者本人或任务创建者可以更新
 	if existing.UserID != userID && task.UserID != userID {
@@ -71,6 +77,30 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 	return uc.repo.Update(ctx, id, sub)
 }
 
+func (uc *SubmissionUsecase) GetSubmission(ctx context.Context, id string, userID string) (*data.Submission, error) {
+	submission, err := uc.repo.FindByID(ctx, id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.New("提交记录不存在")
+		}
+		return nil, err
+	}
+
+	task, err := uc.taskRepo.FindByID(ctx, submission.TaskID.Hex())
+	if err != nil {
+		return nil, err
+	}
+	if task == nil {
+		return nil, errors.New("任务不存在")
+	}
+
+	if submission.UserID != userID && task.UserID != userID {
+		return nil, errors.New("无权限查看此提交")
+	}
+
+	return submission, nil
+}
+
 type SubmissionListResult struct {
 	List    []*data.Submission `json:"list"`
 	Total   int64              `json:"total"`
@@ -81,6 +111,9 @@ func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string,
 	task, err := uc.taskRepo.FindByID(ctx, taskID)
 	if err != nil {
 		return nil, err
+	}
+	if task == nil {
+		return nil, errors.New("任务不存在")
 	}
 
 	var list []*data.Submission

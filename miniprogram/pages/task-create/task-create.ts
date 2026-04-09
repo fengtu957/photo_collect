@@ -27,7 +27,13 @@ Page({
   },
 
   onSpecInput(e: any) {
-    this.setData({ [`form.photo_spec.${e.currentTarget.dataset.field}`]: e.detail.value });
+    const field = e.currentTarget.dataset.field;
+    const value = e.detail.value;
+    this.setData({
+      [`form.photo_spec.${field}`]: field === 'width' || field === 'height'
+        ? Number(value || 0)
+        : value
+    });
   },
 
   onStartDateChange(e: any) {
