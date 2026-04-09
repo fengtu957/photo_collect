@@ -11,11 +11,12 @@ import (
 )
 
 type SubmissionService struct {
-	uc *biz.SubmissionUsecase
+	uc      *biz.SubmissionUsecase
+	qiniuSvc *QiniuService
 }
 
-func NewSubmissionService(uc *biz.SubmissionUsecase) *SubmissionService {
-	return &SubmissionService{uc: uc}
+func NewSubmissionService(uc *biz.SubmissionUsecase, qiniuSvc *QiniuService) *SubmissionService {
+	return &SubmissionService{uc: uc, qiniuSvc: qiniuSvc}
 }
 
 func (s *SubmissionService) CreateSubmission(w http.ResponseWriter, r *http.Request) {
@@ -79,6 +80,13 @@ func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		Error(w, 2003, err.Error())
 		return
+	}
+
+	// 转换 photo.url 从 key 到完整的签名 URL
+	for i := range subs {
+		if subs[i].Photo.URL != "" {
+			subs[i].Photo.URL = s.qiniuSvc.GetFileURL(subs[i].Photo.URL)
+		}
 	}
 
 	Success(w, subs)
