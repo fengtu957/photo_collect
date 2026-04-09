@@ -44,15 +44,9 @@
         <text class="nickname">{{item.user_info.nick_name}}</text>
         <text class="time">{{item.createdAtFormatted}}</text>
       </view>
-      <view class="status-badge status-{{item.status}}">
-        {{item.status === 'submitted' ? '已提交' : item.status === 'rejected' ? '已拒绝' : '草稿'}}
-      </view>
-    </view>
-
-    <view class="submission-actions">
-      <button class="edit-btn" bindtap="editSubmission" data-id="{{item.id}}" wx:if="{{isCreator || item.user_id === currentUserId}}">
+      <text class="edit-link" bindtap="editSubmission" data-id="{{item.id}}" wx:if="{{isCreator || item.user_id === currentUserId}}">
         编辑
-      </button>
+      </text>
     </view>
 
     <view class="ai-evaluation" wx:if="{{item.ai_evaluation && item.ai_evaluation.status === 'success'}}">
