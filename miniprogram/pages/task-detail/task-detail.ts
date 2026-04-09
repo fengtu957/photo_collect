@@ -10,7 +10,8 @@ Page({
     submissions: [] as any[],
     startTime: '',
     endTime: '',
-    isCreator: false
+    isCreator: false,
+    currentUserId: ''
   },
 
   onLoad(options: any) {
@@ -48,7 +49,8 @@ Page({
         submissions: formattedSubmissions,
         startTime,
         endTime,
-        isCreator
+        isCreator,
+        currentUserId: currentOpenid
       });
     } catch (err: any) {
       showError(err.message || '加载失败');
@@ -57,5 +59,10 @@ Page({
 
   goToUpload() {
     wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}` });
+  },
+
+  editSubmission(e: any) {
+    const submissionId = e.currentTarget.dataset.id;
+    wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${submissionId}` });
   }
 });

@@ -41,6 +41,30 @@ func (s *SubmissionService) CreateSubmission(w http.ResponseWriter, r *http.Requ
 	Success(w, map[string]interface{}{"id": sub.ID.Hex()})
 }
 
+func (s *SubmissionService) UpdateSubmission(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	var sub data.Submission
+	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
+		Error(w, 2004, err.Error())
+		return
+	}
+
+	// 从 context 中获取用户 ID（由 JWT 中间件注入）
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 2004, "unauthorized")
+		return
+	}
+
+	if err := s.uc.UpdateSubmission(context.Background(), id, userID, &sub); err != nil {
+		Error(w, 2005, err.Error())
+		return
+	}
+
+	Success(w, map[string]interface{}{"id": id})
+}
+
 func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 	taskID := mux.Vars(r)["taskId"]
 

@@ -155,6 +155,23 @@
   color: #999;
 }
 
+/* 提交操作 */
+.submission-actions {
+  margin-top: 16rpx;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-btn {
+  background: #1989fa;
+  color: white;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  padding: 12rpx 32rpx;
+  border: none;
+  line-height: 1;
+}
+
 /* AI评估 */
 .ai-evaluation {
   background: #f8f9fa;

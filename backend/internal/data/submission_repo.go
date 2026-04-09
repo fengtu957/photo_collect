@@ -56,3 +56,37 @@ func (r *SubmissionRepo) FindByTaskIDAndUserID(ctx context.Context, taskID strin
 	}
 	return subs, nil
 }
+
+func (r *SubmissionRepo) FindOneByTaskIDAndUserID(ctx context.Context, taskID string, userID string) (*Submission, error) {
+	objID, _ := primitive.ObjectIDFromHex(taskID)
+	var sub Submission
+	err := r.data.DB().Collection("submissions").FindOne(ctx, bson.M{
+		"task_id": objID,
+		"user_id": userID,
+	}).Decode(&sub)
+	if err != nil {
+		return nil, err
+	}
+	return &sub, nil
+}
+
+func (r *SubmissionRepo) Update(ctx context.Context, id string, sub *Submission) error {
+	objID, _ := primitive.ObjectIDFromHex(id)
+	sub.UpdatedAt = time.Now()
+	_, err := r.data.DB().Collection("submissions").UpdateOne(
+		ctx,
+		bson.M{"_id": objID},
+		bson.M{"$set": sub},
+	)
+	return err
+}
+
+func (r *SubmissionRepo) FindByID(ctx context.Context, id string) (*Submission, error) {
+	objID, _ := primitive.ObjectIDFromHex(id)
+	var sub Submission
+	err := r.data.DB().Collection("submissions").FindOne(ctx, bson.M{"_id": objID}).Decode(&sub)
+	if err != nil {
+		return nil, err
+	}
+	return &sub, nil
+}

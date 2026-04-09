@@ -1,19 +1,36 @@
 import { getTask } from '../../services/task';
 import { getUploadToken } from '../../services/upload';
-import { createSubmission } from '../../services/submission';
+import { createSubmission, updateSubmission, listSubmissions } from '../../services/submission';
 import { showError, showSuccess, showLoading, hideLoading } from '../../utils/request';
 
 Page({
   data: {
     taskId: '',
+    submissionId: '',
     task: null as any,
     photoPath: '',
-    customData: {} as Record<string, any>
+    customData: {} as Record<string, any>,
+    isEditMode: false
   },
 
   async onLoad(options: any) {
-    this.setData({ taskId: options.taskId });
+    this.setData({
+      taskId: options.taskId,
+      submissionId: options.submissionId || '',
+      isEditMode: !!options.submissionId
+    });
+
+    // 设置页面标题
+    wx.setNavigationBarTitle({
+      title: this.data.isEditMode ? '编辑提交' : '上传照片'
+    });
+
     await this.loadTask();
+
+    // 如果是编辑模式，加载已有的提交数据
+    if (this.data.isEditMode) {
+      await this.loadSubmission();
+    }
   },
 
   async loadTask() {
@@ -22,6 +39,22 @@ Page({
       this.setData({ task });
     } catch (err: any) {
       showError(err.message || '加载任务失败');
+    }
+  },
+
+  async loadSubmission() {
+    try {
+      const submissions = await listSubmissions(this.data.taskId);
+      const submission = submissions.find((s: any) => s.id === this.data.submissionId);
+
+      if (submission) {
+        this.setData({
+          customData: submission.custom_data || {},
+          photoPath: submission.photo.url || ''
+        });
+      }
+    } catch (err: any) {
+      showError(err.message || '加载提交数据失败');
     }
   },
 
@@ -100,15 +133,26 @@ Page({
           }
 
           // 3. 提交到后端（使用正确的数据结构）
-          createSubmission({
-            task_id: this.data.taskId,
-            photo: {
-              url: key
-            },
-            custom_data: this.data.customData
-          }).then(() => {
+          const submitFunc = this.data.isEditMode ? updateSubmission : createSubmission;
+          const submitParams = this.data.isEditMode
+            ? [this.data.submissionId, {
+                task_id: this.data.taskId,
+                photo: {
+                  url: key
+                },
+                custom_data: this.data.customData
+              }]
+            : [{
+                task_id: this.data.taskId,
+                photo: {
+                  url: key
+                },
+                custom_data: this.data.customData
+              }];
+
+          submitFunc(...submitParams as any).then(() => {
             hideLoading();
-            showSuccess('提交成功');
+            showSuccess(this.data.isEditMode ? '更新成功' : '提交成功');
             setTimeout(() => wx.navigateBack(), 1500);
           }).catch((err: any) => {
             hideLoading();

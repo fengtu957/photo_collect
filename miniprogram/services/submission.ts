@@ -8,6 +8,13 @@ export async function createSubmission(params: SubmitPhotoParams) {
   });
 }
 
+export async function updateSubmission(id: string, params: SubmitPhotoParams) {
+  return request<{ id: string }>(`/submissions/${id}`, {
+    method: 'PUT',
+    data: params
+  });
+}
+
 export async function submitPhoto(params: SubmitPhotoParams) {
   return request<{ id: string }>('/submissions', {
     method: 'POST',

@@ -49,6 +49,12 @@
       </view>
     </view>
 
+    <view class="submission-actions">
+      <button class="edit-btn" bindtap="editSubmission" data-id="{{item.id}}" wx:if="{{isCreator || item.user_id === currentUserId}}">
+        编辑
+      </button>
+    </view>
+
     <view class="ai-evaluation" wx:if="{{item.ai_evaluation && item.ai_evaluation.status === 'success'}}">
       <view class="score-row">
         <text class="score-label">AI评分：</text>
