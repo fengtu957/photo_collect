@@ -37,4 +37,7 @@
   <view style="height: 120rpx;"></view>
 </scroll-view>
 
-<view class="fab" bindtap="goToCreate">+ 创建采集活动</view>
+<view class="floating-actions">
+  <view class="scan-fab" bindtap="scanTask">扫一扫</view>
+  <view class="fab" bindtap="goToCreate">+ 创建采集活动</view>
+</view>

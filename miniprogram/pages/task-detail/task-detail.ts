@@ -3,7 +3,10 @@ import { listSubmissions } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
+import { drawQrCode } from '../../utils/qrcode';
 const PAGE_SIZE = 2;
+const QR_CANVAS_ID = 'taskQrCanvas';
+const QR_CANVAS_SIZE = 360;
 
 function getTaskStatus(task: any): string {
   if (!task) return '';
@@ -46,15 +49,103 @@ function formatSubmissions(list: any[], customFields: any[]) {
   });
 }
 
+function getCustomFieldSummary(customFields: any[]): string {
+  const labels = (customFields || []).map((field: any) => String(field.label || '').trim()).filter(Boolean);
+  return labels.join('、');
+}
+
+function buildTaskQrContent(taskId: string): string {
+  return `photo-task:${taskId}`;
+}
+
+function ensureAlbumPermission(): Promise<boolean> {
+  return new Promise((resolve) => {
+    wx.getSetting({
+      success: (res) => {
+        const authSetting = res.authSetting || {};
+        const hasPermission = authSetting['scope.writePhotosAlbum'];
+
+        if (hasPermission === true) {
+          resolve(true);
+          return;
+        }
+
+        const openSettingModal = () => {
+          wx.showModal({
+            title: '需要相册权限',
+            content: '保存二维码到本地需要相册权限，请前往设置开启。',
+            confirmText: '去设置',
+            success: (modalRes) => {
+              if (!modalRes.confirm) {
+                resolve(false);
+                return;
+              }
+
+              wx.openSetting({
+                success: (settingRes) => {
+                  const opened = settingRes.authSetting && settingRes.authSetting['scope.writePhotosAlbum'];
+                  resolve(!!opened);
+                },
+                fail: () => resolve(false)
+              });
+            },
+            fail: () => resolve(false)
+          });
+        };
+
+        if (hasPermission === false) {
+          openSettingModal();
+          return;
+        }
+
+        wx.authorize({
+          scope: 'scope.writePhotosAlbum',
+          success: () => resolve(true),
+          fail: () => openSettingModal()
+        });
+      },
+      fail: () => resolve(false)
+    });
+  });
+}
+
+function canvasToTempFilePath(page: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    wx.canvasToTempFilePath({
+      canvasId: QR_CANVAS_ID,
+      width: QR_CANVAS_SIZE,
+      height: QR_CANVAS_SIZE,
+      destWidth: QR_CANVAS_SIZE * 3,
+      destHeight: QR_CANVAS_SIZE * 3,
+      fileType: 'png',
+      success: (res) => resolve(res.tempFilePath),
+      fail: (err) => reject(err)
+    }, page);
+  });
+}
+
+function saveImageToAlbum(filePath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    wx.saveImageToPhotosAlbum({
+      filePath,
+      success: () => resolve(),
+      fail: (err) => reject(err)
+    });
+  });
+}
+
 Page({
   data: {
     taskId: '',
     task: null as any,
     taskStatusText: '',
+    customFieldSummary: '',
+    taskQrContent: '',
     submissions: [] as any[],
     startTime: '',
     endTime: '',
     isCreator: false,
+    fromShare: false,
     currentUserId: '',
     mySubmissionId: '',
     // 分页
@@ -65,7 +156,11 @@ Page({
   },
 
   onLoad(options: any) {
-    this.setData({ taskId: options.id });
+    this.setData({
+      taskId: options.id,
+      fromShare: options.fromShare === '1'
+    });
+
     this.loadData();
   },
 
@@ -100,12 +195,16 @@ Page({
       const list = (result && result.list) || [];
       const customFields: any[] = (task && task.custom_fields) || [];
       const formattedSubmissions = formatSubmissions(list, customFields);
+      const customFieldSummary = getCustomFieldSummary(customFields);
+      const total = (result && result.total) || 0;
 
       const mySubmission = list.find((s: any) => s.user_id === currentOpenid);
 
       this.setData({
         task,
         taskStatusText: getTaskStatus(task),
+        customFieldSummary,
+        taskQrContent: buildTaskQrContent(this.data.taskId),
         submissions: formattedSubmissions,
         startTime,
         endTime,
@@ -113,7 +212,7 @@ Page({
         currentUserId: currentOpenid,
         mySubmissionId: (mySubmission && mySubmission.id) || '',
         page: 1,
-        total: (result && result.total) || 0,
+        total,
         hasMore: (result && result.has_more) || false
       });
     } catch (err: any) {
@@ -141,6 +240,38 @@ Page({
     } catch (err: any) {
       this.setData({ loadingMore: false });
       showError(err.message || '加载失败');
+    }
+  },
+
+  async saveTaskQr() {
+    if (!this.data.taskQrContent) {
+      showError('任务二维码内容为空');
+      return;
+    }
+
+    const hasPermission = await ensureAlbumPermission();
+    if (!hasPermission) {
+      showError('未获得保存到相册权限');
+      return;
+    }
+
+    wx.showLoading({
+      title: '生成中...',
+      mask: true
+    });
+
+    try {
+      await drawQrCode(QR_CANVAS_ID, this.data.taskQrContent, QR_CANVAS_SIZE, this);
+      const tempFilePath = await canvasToTempFilePath(this);
+      await saveImageToAlbum(tempFilePath);
+      wx.showToast({
+        title: '二维码已保存',
+        icon: 'success'
+      });
+    } catch (err: any) {
+      showError((err && err.errMsg) || '保存二维码失败');
+    } finally {
+      wx.hideLoading();
     }
   },
 

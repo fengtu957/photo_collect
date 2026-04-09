@@ -30,19 +30,24 @@
     </view>
 
     <view class="info-row" wx:if="{{task.custom_fields && task.custom_fields.length > 0}}">
-      <text class="label">自定义字段：</text>
-      <text class="value">{{task.custom_fields.length}}个</text>
+      <text class="label">采集字段：</text>
+      <text class="value">{{customFieldSummary}}</text>
     </view>
+  </view>
+
+  <view class="entry-card" wx:if="{{!isCreator && fromShare}}">
+    <text class="entry-title">你是通过二维码进入的参与者页面</text>
+    <text class="entry-desc">先确认照片规格和采集字段，再点击下方上传照片。</text>
   </view>
 
   <!-- 提交列表 -->
   <view class="section-header">
-    <text class="section-title">提交记录</text>
+    <text class="section-title">{{isCreator ? '提交记录' : '我的提交'}}</text>
     <text class="section-count">({{total}})</text>
   </view>
 
   <view class="empty" wx:if="{{submissions.length === 0}}">
-    <text class="empty-text">暂无提交记录</text>
+    <text class="empty-text">{{isCreator ? '暂无提交记录' : '你还没有提交，点击下方上传照片'}}</text>
   </view>
 
   <view class="submission-card" wx:for="{{submissions}}" wx:key="id">
@@ -128,11 +133,17 @@
   <!-- 创建者：双按钮底栏 -->
   <view class="footer" wx:if="{{isCreator}}">
     <view class="btn-danger" bindtap="deleteActivity">删除活动</view>
+    <view class="btn-secondary" bindtap="saveTaskQr">保存二维码</view>
     <view class="btn-primary" bindtap="goToUpload">上传照片</view>
   </view>
 
-  <!-- 非创建者：单 FAB -->
-  <view class="fab" wx:else bindtap="goToUpload">
-    <text>{{mySubmissionId ? '编辑提交' : '上传照片'}}</text>
+  <!-- 非创建者：双按钮底栏 -->
+  <view class="footer" wx:else>
+    <view class="btn-secondary" bindtap="saveTaskQr">保存二维码</view>
+    <view class="btn-primary" bindtap="goToUpload">
+      <text>{{mySubmissionId ? '编辑提交' : '上传照片'}}</text>
+    </view>
   </view>
+
+  <canvas canvas-id="taskQrCanvas" class="qr-canvas"></canvas>
 </view>

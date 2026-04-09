@@ -140,11 +140,29 @@
   color: #1989fa;
 }
 
-.fab {
+.floating-actions {
   position: fixed;
+  left: 20rpx;
+  right: 20rpx;
   bottom: 40rpx;
-  left: 50%;
-  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.scan-fab {
+  background: white;
+  color: #1989fa;
+  padding: 24rpx 40rpx;
+  border-radius: 60rpx;
+  font-size: 30rpx;
+  white-space: nowrap;
+  border: 1rpx solid #d6e8ff;
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.08);
+}
+
+.fab {
   background: #1989fa;
   color: white;
   padding: 24rpx 60rpx;
@@ -152,6 +170,7 @@
   font-size: 32rpx;
   white-space: nowrap;
   box-shadow: 0 8rpx 24rpx rgba(25,137,250,0.4);
+  flex-shrink: 0;
 }
 
 .empty {
