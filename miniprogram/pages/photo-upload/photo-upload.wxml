@@ -7,6 +7,9 @@
       <text class="spec-label">照片规格：</text>
       <text class="spec-value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
     </view>
+    <view class="task-status" wx:if="{{taskStatusText}}">
+      <text class="task-status-text">{{taskStatusText}}</text>
+    </view>
   </view>
 
   <!-- 照片预览 -->
@@ -18,7 +21,7 @@
     <view class="empty-preview" wx:else>
       <text class="empty-text">请选择照片</text>
     </view>
-    <button class="choose-btn" bindtap="choosePhoto">
+    <button class="choose-btn" bindtap="choosePhoto" disabled="{{!!taskUnavailableMessage}}">
       {{photoPath ? '重新选择' : '选择照片'}}
     </button>
   </view>
@@ -90,8 +93,8 @@
   <!-- 提交按钮 -->
   <view class="footer-placeholder"></view>
   <view class="footer">
-    <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath}}">
-      {{isEditMode ? '更新' : '提交'}}
+    <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath || !!taskUnavailableMessage}}">
+      {{taskUnavailableMessage ? '当前不可提交' : (isEditMode ? '更新' : '提交')}}
     </button>
   </view>
 </view>

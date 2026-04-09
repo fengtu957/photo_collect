@@ -1,1357 +1,569 @@
-# 批量证件照采集系统 - 实施计划
+# 批量证件照采集系统 - 实施计划（当前仓库版）
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans or an equivalent task-by-task execution workflow. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**目标:** 构建一个 B2B2C 的批量证件照采集管理系统，支持任务创建、分享、拍摄上传、AI 质量评估和数据导出
+**目标:** 在当前仓库基础上，完成一个可上线的批量证件照采集系统，覆盖任务创建、参与者上传、AI 质量评估、管理端查看与导出。
 
-**架构:** 微信小程序原生 + TypeScript + 微信云开发（云函数 + 云数据库 + 云存储），使用 Skyline 渲染引擎。管理员创建任务并分享，参与者通过分享卡片进入填写信息并拍摄上传，AI 异步评估照片质量，管理员可导出数据。
+**当前架构:** 微信小程序原生 + TypeScript + Go HTTP API + MongoDB + 七牛云 + 通义千问-VL
 
-**技术栈:** 微信小程序、TypeScript、微信云开发、通义千问-VL API
+**当前日期:** 2026-04-09
 
 ---
 
-## 文件结构规划
+## 当前仓库现状
 
-### 前端页面
-```
-miniprogram/pages/
-├── index/                          # 首页（任务列表）
-├── task-create/                    # 创建任务
-├── task-detail/                    # 任务详情（管理视图）
-├── task-view/                      # 任务详情（参与视图）
-├── submission-form/                # 信息填写
-├── camera/                         # 拍摄页面
-├── photo-preview/                  # 照片预览确认
-└── submission-success/             # 提交成功
-```
+### 已有能力
 
-### 组件
-```
-miniprogram/components/
-├── task-card/                      # 任务卡片
-├── photo-spec-selector/            # 规格选择器
-├── custom-field-builder/           # 字段构建器
-├── camera-capture/                 # 相机组件（复用 other/camera）
-├── ai-evaluation-card/             # AI 评估结果卡片
-└── submission-list/                # 提交列表
-```
+- [x] 小程序已具备任务列表、任务创建、任务详情、照片上传、自定义字段编辑等基础页面
+- [x] 后端已具备微信登录、JWT 鉴权、任务创建/列表/详情/删除、提交创建/编辑/列表/详情、上传 token 获取
+- [x] MongoDB 数据模型、业务层、服务层已搭建完成
+- [x] 七牛上传链路已接入，前端可以直接上传到七牛后再提交后端
+- [x] 前后端字段命名已开始统一为 snake_case
 
-### 云函数
-```
-cloudfunctions/
-├── createTask/                     # 创建任务
-├── getTaskDetail/                  # 获取任务详情
-├── getTaskSubmissions/             # 获取提交列表
-├── submitPhoto/                    # 提交照片
-├── evaluatePhoto/                  # AI 评估（异步）
-├── updateSubmission/               # 修改提交
-├── exportTask/                     # 导出任务
-└── common/                         # 公共工具
-    ├── db.js                       # 数据库工具
-    ├── storage.js                  # 存储工具
-    └── qwen.js                     # 通义千问 API 封装
-```
+### 当前主要缺口
 
-### 工具类
+- [ ] 文档和部署配置仍有历史漂移，部分内容仍指向云开发、MinIO、Kratos 等旧方案
+- [ ] AI 评估逻辑尚未闭环，评估结果没有写回 submission
+- [ ] 管理端缺少分享、导出、参与视图等完整业务闭环
+- [ ] 前端页面和类型仍有少量 `any` 与旧逻辑遗留
+- [ ] 缺少系统化的联调、回归和上线前检查
+
+---
+
+## 目标架构
+
+### 前端
+
 ```
 miniprogram/
-├── utils/
-│   ├── request.ts                  # 云函数调用封装
-│   ├── upload.ts                   # 上传工具
-│   └── format.ts                   # 格式化工具
+├── pages/
+│   ├── task-list/                 # 任务列表
+│   ├── task-create/               # 创建任务
+│   ├── task-detail/               # 管理视图
+│   ├── photo-upload/              # 上传/编辑提交
+│   ├── custom-fields/             # 字段列表编辑
+│   └── field-edit/                # 字段项编辑
 ├── services/
-│   ├── task.ts                     # 任务服务
-│   └── submission.ts               # 提交服务
+├── utils/
 └── types/
-    ├── task.ts                     # 任务类型定义
-    └── submission.ts               # 提交类型定义
 ```
+
+### 后端
+
+```
+backend/
+├── cmd/server/main.go             # HTTP 服务入口
+├── internal/
+│   ├── data/                      # MongoDB 模型与仓储
+│   ├── biz/                       # 核心业务
+│   └── service/                   # HTTP 处理与鉴权
+└── pkg/qwen.go                    # 通义千问客户端
+```
+
+### 外部依赖
+
+- MongoDB: 任务与提交数据
+- 七牛云: 原始照片存储与私有下载链接
+- 微信登录接口: `code -> openid`
+- 通义千问-VL: 证件照质量评估
 
 ---
 
-## 阶段 1: 环境搭建与基础配置
+## 阶段 1: 基线收敛与文档修正
 
-### Task 1: 开通微信云开发环境
+### Task 1: 对齐仓库文档与真实架构
 
-**目标:** 在微信开发者工具中开通云开发，创建数据库集合和索引
+**目标:** 去掉“云开发/云函数/MinIO/Kratos”的误导信息，统一为当前 Go 后端方案
 
-- [ ] **Step 1: 打开微信开发者工具**
+- [ ] **Step 1: 清理实施计划、README、架构文档中的历史描述**
+  - 更新 `docs/superpowers/plans/2026-04-08-photo-collection-implementation.md`
+  - 更新 `backend/README.md`
+  - 复核 `docs/superpowers/plans/2026-04-08-backend-architecture.md`
 
-打开项目 `D:\code\latest\photo`，点击工具栏"云开发"按钮
+- [ ] **Step 2: 明确当前 API 清单**
+  - 登录: `POST /api/v1/auth/login`
+  - 任务: `POST/GET/GET by id/DELETE /api/v1/tasks`
+  - 提交: `POST/GET by id/PUT /api/v1/submissions`
+  - 列表: `GET /api/v1/tasks/{taskId}/submissions`
+  - 上传: `GET /api/v1/upload/token`
 
-- [ ] **Step 2: 开通云开发**
+- [ ] **Step 3: 统一环境变量说明**
+  - MongoDB
+  - JWT
+  - 微信小程序 `WECHAT_APPID` / `WECHAT_SECRET`
+  - 七牛 `QINIU_ACCESS_KEY` / `QINIU_SECRET_KEY` / `QINIU_BUCKET` / `QINIU_DOMAIN`
+  - 通义千问 `QWEN_API_KEY`
 
-1. 点击"开通云开发"
-2. 选择"基础版 1"（免费额度）
-3. 环境名称：`photo-collection`
-4. 记录环境 ID（格式：`photo-collection-xxxxx`）
-
-- [ ] **Step 3: 配置云开发环境 ID**
-
-修改 `miniprogram/app.ts`，添加云开发初始化：
-
-```typescript
-App({
-  onLaunch() {
-    if (!wx.cloud) {
-      console.error('请使用 2.2.3 或以上的基础库以使用云能力');
-    } else {
-      wx.cloud.init({
-        env: 'photo-collection-xxxxx', // 替换为你的环境 ID
-        traceUser: true,
-      });
-    }
-  },
-});
-```
-
-- [ ] **Step 4: 创建数据库集合**
-
-在云开发控制台 → 数据库 → 创建集合：
-1. 集合名：`tasks`
-2. 集合名：`submissions`
-3. 集合名：`export_history`
-
-- [ ] **Step 5: 配置数据库索引**
-
-在 `tasks` 集合中添加索引：
-- 索引字段：`_openid`，排序：升序
-- 索引字段：`enabled, endTime`，排序：升序, 升序
-
-在 `submissions` 集合中添加索引：
-- 索引字段：`taskId, _openid`，排序：升序, 升序，唯一索引：是
-- 索引字段：`taskId, createdAt`，排序：升序, 降序
-- 索引字段：`_openid`，排序：升序
-
-- [ ] **Step 6: 配置云存储**
-
-在云开发控制台 → 云存储 → 设置：
-- 确认存储空间可用（免费 5GB）
-
-- [ ] **Step 7: 提交配置**
+- [ ] **Step 4: 提交文档修正**
 
 ```bash
-git add miniprogram/app.ts
-git commit -m "chore: 初始化云开发环境配置"
+git add docs/ backend/README.md
+git commit -m "docs: 对齐当前 Go 后端方案文档"
 ```
 
----
+### Task 2: 收敛配置与联调基线
 
-### Task 2: 创建类型定义
+**目标:** 让本地开发和联调方式可复制、可验证
 
-**Files:**
-- Create: `miniprogram/types/task.ts`
-- Create: `miniprogram/types/submission.ts`
+- [ ] **Step 1: 明确当前 MongoDB 与后端联调方式**
+  - 使用现有 MongoDB 服务
+  - 删除无效部署说明
+  - 避免继续引入 Docker Compose 依赖
 
-- [ ] **Step 1: 创建任务类型定义**
+- [ ] **Step 2: 复核 `backend/.env.example`**
+  - 去掉不应提交的真实敏感信息
+  - 保留占位值和说明
 
-创建 `miniprogram/types/task.ts`：
+- [ ] **Step 3: 统一前端后端联调地址配置**
+  - 收敛 `miniprogram/utils/request.ts` 的 `BASE_URL`
+  - 预留开发、测试、生产环境切换方案
 
-```typescript
-export interface PhotoSpec {
-  name: string;
-  width: number;
-  height: number;
-  dpi?: number;
-}
-
-export interface CustomField {
-  id: string;
-  type: 'text' | 'select';
-  label: string;
-  required: boolean;
-  options?: string[];
-  placeholder?: string;
-}
-
-export interface StorageConfig {
-  retentionDays: number;
-  expirationDate: Date;
-  autoDeleteAfterExport: boolean;
-}
-
-export interface ExportConfig {
-  nameTemplate: string;
-  includeOriginal: boolean;
-}
-
-export interface TaskStats {
-  totalSubmissions: number;
-  lastSubmitTime?: Date;
-}
-
-export interface Task {
-  _id: string;
-  _openid: string;
-  title: string;
-  description: string;
-  photoSpec: PhotoSpec;
-  startTime: Date;
-  endTime: Date;
-  enabled: boolean;
-  customFields: CustomField[];
-  stats: TaskStats;
-  storageConfig: StorageConfig;
-  exportConfig: ExportConfig;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateTaskParams {
-  title: string;
-  description: string;
-  photoSpec: PhotoSpec;
-  startTime: Date;
-  endTime: Date;
-  customFields: CustomField[];
-  storageConfig?: Partial<StorageConfig>;
-}
-```
-
-- [ ] **Step 2: 创建提交类型定义**
-
-创建 `miniprogram/types/submission.ts`：
-
-```typescript
-export interface PhotoInfo {
-  originalUrl: string;
-  originalFileId: string;
-  fileSize: number;
-  width: number;
-  height: number;
-  expiresAt: Date;
-  deleted: boolean;
-  deletedAt?: Date;
-  deletedReason?: string;
-}
-
-export interface AIEvaluationBreakdown {
-  clarity: number;
-  lighting: number;
-  angle: number;
-  background: number;
-  expression: number;
-  composition: number;
-}
-
-export interface AIEvaluation {
-  status: 'pending' | 'success' | 'failed';
-  score: number;
-  issues: string[];
-  suggestions: string[];
-  breakdown: AIEvaluationBreakdown;
-  evaluatedAt?: Date;
-  error?: string;
-}
-
-export interface UserInfo {
-  nickName: string;
-  avatarUrl: string;
-}
-
-export interface Submission {
-  _id: string;
-  _openid: string;
-  taskId: string;
-  userInfo: UserInfo;
-  customData: Record<string, string | string[]>;
-  photo: PhotoInfo;
-  aiEvaluation: AIEvaluation;
-  status: 'draft' | 'submitted' | 'rejected';
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface SubmitPhotoParams {
-  taskId: string;
-  customData: Record<string, string | string[]>;
-  photo: {
-    fileId: string;
-    width: number;
-    height: number;
-    fileSize: number;
-  };
-}
-```
-
-- [ ] **Step 3: 提交类型定义**
+- [ ] **Step 4: 提交配置基线**
 
 ```bash
-git add miniprogram/types/
-git commit -m "feat: 添加任务和提交的类型定义"
+git add backend/.env.example miniprogram/utils/request.ts docs/
+git commit -m "chore: 收敛联调配置基线"
 ```
 
 ---
 
-### Task 3: 创建工具类
+## 阶段 2: 前后端契约稳定化
 
-**Files:**
-- Create: `miniprogram/utils/request.ts`
-- Create: `miniprogram/utils/upload.ts`
-- Create: `miniprogram/utils/format.ts`
+### Task 3: 统一前端类型与后端返回结构
 
-- [ ] **Step 1: 创建云函数调用封装**
+**目标:** 所有核心类型统一使用当前后端真实字段
 
-创建 `miniprogram/utils/request.ts`：
+- [x] **Step 1: 统一 `Task` 与 `Submission` 的 snake_case 字段**
+- [x] **Step 2: 修复上传页编辑模式读取提交详情**
+- [ ] **Step 3: 清理仍残留的旧字段命名和 `any`**
+  - `miniprogram/pages/task-list/task-list.ts`
+  - `miniprogram/pages/task-detail/task-detail.ts`
+  - `miniprogram/pages/photo-upload/photo-upload.ts`
+  - `miniprogram/services/task.ts`
 
-```typescript
-interface CloudFunctionResult<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
+- [ ] **Step 4: 补充分页和列表响应类型**
+  - 任务列表
+  - 提交列表
+  - 通用接口响应
 
-export async function callFunction<T = any>(
-  name: string,
-  data: any = {}
-): Promise<CloudFunctionResult<T>> {
-  try {
-    const res = await wx.cloud.callFunction({
-      name,
-      data,
-    });
-    return res.result as CloudFunctionResult<T>;
-  } catch (err: any) {
-    console.error(`云函数 ${name} 调用失败:`, err);
-    return {
-      success: false,
-      error: err.errMsg || '网络错误',
-    };
-  }
-}
-
-export function showError(message: string) {
-  wx.showToast({
-    title: message,
-    icon: 'none',
-    duration: 2000,
-  });
-}
-
-export function showSuccess(message: string) {
-  wx.showToast({
-    title: message,
-    icon: 'success',
-    duration: 2000,
-  });
-}
-
-export function showLoading(title: string = '加载中...') {
-  wx.showLoading({ title, mask: true });
-}
-
-export function hideLoading() {
-  wx.hideLoading();
-}
-```
-
-- [ ] **Step 2: 创建上传工具**
-
-创建 `miniprogram/utils/upload.ts`：
-
-```typescript
-export interface UploadResult {
-  fileID: string;
-  statusCode: number;
-}
-
-export async function uploadToCloud(
-  filePath: string,
-  cloudPath: string
-): Promise<UploadResult | null> {
-  try {
-    const res = await wx.cloud.uploadFile({
-      cloudPath,
-      filePath,
-    });
-    return res;
-  } catch (err) {
-    console.error('上传失败:', err);
-    return null;
-  }
-}
-
-export function generateCloudPath(taskId: string, openid: string, ext: string = 'jpg'): string {
-  const timestamp = Date.now();
-  return `submissions/${taskId}/${openid}_${timestamp}.${ext}`;
-}
-
-export async function getImageInfo(filePath: string): Promise<wx.GetImageInfoSuccessCallbackResult | null> {
-  try {
-    const res = await wx.getImageInfo({ src: filePath });
-    return res;
-  } catch (err) {
-    console.error('获取图片信息失败:', err);
-    return null;
-  }
-}
-```
-
-- [ ] **Step 3: 创建格式化工具**
-
-创建 `miniprogram/utils/format.ts`：
-
-```typescript
-export function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export function formatDateTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const dateStr = formatDate(d);
-  const hour = String(d.getHours()).padStart(2, '0');
-  const minute = String(d.getMinutes()).padStart(2, '0');
-  return `${dateStr} ${hour}:${minute}`;
-}
-
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
-
-export function getTimeRemaining(endTime: Date | string): string {
-  const end = typeof endTime === 'string' ? new Date(endTime) : endTime;
-  const now = new Date();
-  const diff = end.getTime() - now.getTime();
-
-  if (diff <= 0) return '已截止';
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-  if (days > 0) return `剩余 ${days} 天`;
-  if (hours > 0) return `剩余 ${hours} 小时`;
-  return '即将截止';
-}
-
-export function isTaskActive(startTime: Date | string, endTime: Date | string): boolean {
-  const now = new Date();
-  const start = typeof startTime === 'string' ? new Date(startTime) : startTime;
-  const end = typeof endTime === 'string' ? new Date(endTime) : endTime;
-  return now >= start && now <= end;
-}
-```
-
-- [ ] **Step 4: 提交工具类**
+- [ ] **Step 5: 提交契约稳定化**
 
 ```bash
-git add miniprogram/utils/
-git commit -m "feat: 添加云函数调用、上传和格式化工具类"
+git add miniprogram/types/ miniprogram/services/ miniprogram/pages/
+git commit -m "refactor: 收敛前后端类型契约"
 ```
 
----
+### Task 4: 补齐后端接口健壮性
 
-## 阶段 2: 云函数开发
+**目标:** 所有已开放 API 都有明确的权限、空值和错误处理
 
-### Task 4: 创建云函数公共工具
+- [ ] **Step 1: 复核任务接口**
+  - 创建时参数校验
+  - 查询不存在任务时返回明确错误
+  - 删除任务时处理关联提交
 
-**Files:**
-- Create: `cloudfunctions/common/db.js`
-- Create: `cloudfunctions/common/qwen.js`
+- [ ] **Step 2: 复核提交接口**
+  - 创建时任务状态校验
+  - 更新时权限校验
+  - 列表与详情都处理任务不存在场景
 
-- [ ] **Step 1: 创建数据库工具**
+- [ ] **Step 3: 统一 HTTP 错误语义**
+  - 鉴权失败
+  - 参数错误
+  - 资源不存在
+  - 权限不足
 
-在微信开发者工具中，右键 `cloudfunctions` 目录 → 新建 Node.js 云函数 → 命名为 `common`
-
-创建 `cloudfunctions/common/db.js`：
-
-```javascript
-const cloud = require('wx-server-sdk');
-cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
-const db = cloud.database();
-
-module.exports = {
-  db,
-  _ : db.command,
-
-  async getTask(taskId) {
-    const { data } = await db.collection('tasks').doc(taskId).get();
-    return data;
-  },
-
-  async updateTaskStats(taskId) {
-    const { total } = await db.collection('submissions')
-      .where({ taskId })
-      .count();
-
-    await db.collection('tasks').doc(taskId).update({
-      data: {
-        'stats.totalSubmissions': total,
-        'stats.lastSubmitTime': new Date(),
-        updatedAt: new Date(),
-      }
-    });
-  },
-};
-```
-
-- [ ] **Step 2: 创建通义千问 API 封装**
-
-创建 `cloudfunctions/common/qwen.js`（需要在云函数环境变量中配置 QWEN_API_KEY）
-
-- [ ] **Step 3: 配置 package.json**
-
-创建 `cloudfunctions/common/package.json`：
-
-```json
-{
-  "name": "common",
-  "version": "1.0.0",
-  "dependencies": {
-    "wx-server-sdk": "latest",
-    "axios": "^1.6.0"
-  }
-}
-```
-
-- [ ] **Step 4: 上传并部署**
-
-右键 `common` 云函数 → 上传并部署：云端安装依赖
-
----
-
-### Task 5: 创建任务管理云函数
-
-**Files:**
-- Create: `cloudfunctions/createTask/index.js`
-- Create: `cloudfunctions/getTaskDetail/index.js`
-
-- [ ] **Step 1: 创建 createTask 云函数**
-
-右键 `cloudfunctions` → 新建 Node.js 云函数 → 命名为 `createTask`
-
-- [ ] **Step 2: 创建 getTaskDetail 云函数**
-
-右键 `cloudfunctions` → 新建 Node.js 云函数 → 命名为 `getTaskDetail`
-
-- [ ] **Step 3: 上传并部署云函数**
-
-分别右键两个云函数 → 上传并部署：云端安装依赖
-
-- [ ] **Step 4: 提交代码**
+- [ ] **Step 4: 提交接口健壮性改造**
 
 ```bash
-git add cloudfunctions/
-git commit -m "feat: 添加任务管理云函数"
+git add backend/internal/
+git commit -m "fix: 完善任务与提交接口健壮性"
 ```
 
 ---
 
-### Task 6: 创建提交相关云函数
+## 阶段 3: 完善管理端流程
 
-**Files:**
-- Create: `cloudfunctions/submitPhoto/index.js`
-- Create: `cloudfunctions/evaluatePhoto/index.js`
-- Create: `cloudfunctions/getTaskSubmissions/index.js`
+### Task 5: 打磨任务列表页
 
-- [ ] **Step 1: 创建 submitPhoto 云函数**
+**目标:** 让管理员能清晰看到“我创建的任务”和“我参与的任务”
 
-创建云函数，实现提交照片逻辑：
-1. 校验任务状态（enabled、时间范围）
-2. 检查是否已提交（防重复）
-3. 创建提交记录
-4. 异步触发 AI 评估
-5. 更新任务统计
+- [ ] **Step 1: 任务卡片信息收敛**
+  - 标题
+  - 描述/规格
+  - 创建时间
+  - 截止时间
+  - 提交数
 
-- [ ] **Step 2: 创建 evaluatePhoto 云函数**
+- [ ] **Step 2: 增加任务状态展示**
+  - 进行中
+  - 未开始
+  - 已截止
 
-创建云函数，实现 AI 评估逻辑：
-1. 获取照片临时 URL
-2. 调用通义千问-VL API
-3. 解析评估结果
-4. 更新 submission 的 aiEvaluation 字段
+- [ ] **Step 3: 处理空状态和加载失败**
 
-- [ ] **Step 3: 创建 getTaskSubmissions 云函数**
+- [ ] **Step 4: 评估是否需要拆 `task-card` 组件**
 
-创建云函数，实现获取提交列表（仅任务创建者可调用）
-
-- [ ] **Step 4: 上传并部署**
-
-上传并部署三个云函数
-
-- [ ] **Step 5: 提交代码**
+- [ ] **Step 5: 提交任务列表页优化**
 
 ```bash
-git add cloudfunctions/
-git commit -m "feat: 添加提交和评估云函数"
+git add miniprogram/pages/task-list/
+git commit -m "feat: 优化任务列表页"
 ```
 
----
+### Task 6: 打磨任务创建页与字段编辑
 
-## 阶段 3: 管理端开发
+**目标:** 稳定任务创建体验，避免产生脏数据
 
-### Task 7: 创建首页（任务列表）
+- [ ] **Step 1: 增加任务表单校验**
+  - 标题必填
+  - 截止时间必填
+  - 开始时间不能晚于截止时间
+  - 规格宽高必须为正数
 
-**Files:**
-- Modify: `miniprogram/pages/index/index.ts`
-- Modify: `miniprogram/pages/index/index.wxml`
-- Modify: `miniprogram/pages/index/index.wxss`
+- [ ] **Step 2: 收敛自定义字段编辑**
+  - 字段类型限制
+  - 必填项校验
+  - 选项为空校验
+  - 最多字段数说明
 
-- [ ] **Step 1: 实现页面逻辑**
+- [ ] **Step 3: 复核页面样式符合小程序规则**
+  - input 高度
+  - `adjust-position="{{false}}"`
+  - 底部按钮与滚动区关系
 
-修改 `miniprogram/pages/index/index.ts`：
-1. 获取用户创建的任务列表
-2. 显示任务状态（进行中/已结束）
-3. 点击跳转到任务详情
-
-- [ ] **Step 2: 实现页面布局**
-
-修改 `miniprogram/pages/index/index.wxml`：
-1. 顶部标题 + 创建按钮
-2. 任务列表（使用 task-card 组件）
-3. 空状态提示
-
-- [ ] **Step 3: 实现样式**
-
-修改 `miniprogram/pages/index/index.wxss`，使用 WeUI 风格
-
-- [ ] **Step 4: 测试页面**
-
-在开发者工具中预览，确认列表显示正常
-
-- [ ] **Step 5: 提交代码**
+- [ ] **Step 4: 提交创建页与字段页优化**
 
 ```bash
-git add miniprogram/pages/index/
-git commit -m "feat: 实现任务列表页面"
+git add miniprogram/pages/task-create/ miniprogram/pages/custom-fields/ miniprogram/pages/field-edit/
+git commit -m "feat: 完善任务创建与字段编辑流程"
 ```
 
----
+### Task 7: 完善任务详情管理视图
 
-### Task 8: 创建任务卡片组件
+**目标:** 管理员能够完整查看任务和提交情况
 
-**Files:**
-- Create: `miniprogram/components/task-card/`
+- [ ] **Step 1: 完善任务信息展示**
+  - 规格
+  - 时间范围
+  - 自定义字段
+  - 提交统计
 
-- [ ] **Step 1: 创建组件**
+- [ ] **Step 2: 完善提交列表**
+  - 头像昵称
+  - 提交时间
+  - 自定义信息
+  - AI 评估状态与分数
 
-右键 `miniprogram/components` → 新建 Component → 命名为 `task-card`
+- [ ] **Step 3: 增加分享能力**
+  - 自定义分享文案
+  - 分享路径带上任务 ID
 
-- [ ] **Step 2: 实现组件逻辑**
+- [ ] **Step 4: 预留导出入口**
 
-显示任务基本信息：标题、规格、时间范围、状态、提交统计
-
-- [ ] **Step 3: 实现组件样式**
-
-卡片式布局，圆角 12px，使用主色调蓝色
-
-- [ ] **Step 4: 提交代码**
-
-```bash
-git add miniprogram/components/task-card/
-git commit -m "feat: 添加任务卡片组件"
-```
-
----
-
-### Task 9: 创建任务创建页面
-
-**Files:**
-- Create: `miniprogram/pages/task-create/`
-- Create: `miniprogram/components/photo-spec-selector/`
-- Create: `miniprogram/components/custom-field-builder/`
-
-- [ ] **Step 1: 创建页面**
-
-右键 `miniprogram/pages` → 新建 Page → 命名为 `task-create`
-
-- [ ] **Step 2: 创建规格选择器组件**
-
-实现预设规格选择（一寸、二寸等）和自定义输入
-
-- [ ] **Step 3: 创建字段构建器组件**
-
-实现添加/编辑/删除自定义字段，支持文本和多选类型
-
-- [ ] **Step 4: 实现创建页面逻辑**
-
-1. 表单输入（标题、描述、规格、时间、字段）
-2. 调用 createTask 云函数
-3. 创建成功后跳转到任务详情
-
-- [ ] **Step 5: 更新 app.json**
-
-在 `miniprogram/app.json` 的 pages 数组中添加 `pages/task-create/task-create`
-
-- [ ] **Step 6: 提交代码**
-
-```bash
-git add miniprogram/pages/task-create/ miniprogram/components/
-git commit -m "feat: 实现任务创建页面"
-```
-
----
-
-### Task 10: 创建任务详情页（管理视图）
-
-**Files:**
-- Create: `miniprogram/pages/task-detail/`
-- Create: `miniprogram/components/submission-list/`
-
-- [ ] **Step 1: 创建页面**
-
-右键 `miniprogram/pages` → 新建 Page → 命名为 `task-detail`
-
-- [ ] **Step 2: 实现页面逻辑**
-
-1. 获取任务详情
-2. 显示任务信息卡片
-3. 显示统计信息（提交数、过期倒计时）
-4. 显示提交列表
-5. 分享功能
-6. 导出按钮
-
-- [ ] **Step 3: 创建提交列表组件**
-
-显示提交记录：头像、昵称、时间、AI 评分
-
-- [ ] **Step 4: 实现分享功能**
-
-```typescript
-onShareAppMessage() {
-  return {
-    title: `【证件照采集】${this.data.task.title}`,
-    path: `/pages/task-view/index?taskId=${this.data.task._id}`,
-  };
-}
-```
-
-- [ ] **Step 5: 更新 app.json**
-
-添加 `pages/task-detail/task-detail`
-
-- [ ] **Step 6: 提交代码**
-
-```bash
-git add miniprogram/pages/task-detail/ miniprogram/components/submission-list/
-git commit -m "feat: 实现任务详情页（管理视图）"
-```
-
----
-
-## 阶段 4: 参与端开发
-
-### Task 11: 创建任务查看页（参与视图）
-
-**Files:**
-- Create: `miniprogram/pages/task-view/`
-
-- [ ] **Step 1: 创建页面**
-
-右键 `miniprogram/pages` → 新建 Page → 命名为 `task-view`
-
-- [ ] **Step 2: 实现页面逻辑**
-
-1. 从 URL 参数获取 taskId
-2. 调用 getTaskDetail 获取任务信息
-3. 显示任务要求（规格、自定义字段）
-4. 检查是否已提交
-5. 显示"开始采集"按钮
-
-- [ ] **Step 3: 实现页面布局**
-
-1. 任务信息卡片
-2. 采集要求说明
-3. 底部固定按钮
-
-- [ ] **Step 4: 更新 app.json**
-
-添加 `pages/task-view/task-view`
-
-- [ ] **Step 5: 提交代码**
-
-```bash
-git add miniprogram/pages/task-view/
-git commit -m "feat: 实现任务查看页（参与视图）"
-```
-
----
-
-### Task 12: 创建信息填写页
-
-**Files:**
-- Create: `miniprogram/pages/submission-form/`
-
-- [ ] **Step 1: 创建页面**
-
-右键 `miniprogram/pages` → 新建 Page → 命名为 `submission-form`
-
-- [ ] **Step 2: 实现页面逻辑**
-
-1. 接收 taskId 参数
-2. 根据 customFields 动态渲染表单
-3. 表单验证（必填项检查）
-4. 保存数据到页面状态
-5. 跳转到拍摄页面
-
-- [ ] **Step 3: 实现动态表单渲染**
-
-支持 text 和 select 两种字段类型
-
-- [ ] **Step 4: 更新 app.json**
-
-添加 `pages/submission-form/submission-form`
-
-- [ ] **Step 5: 提交代码**
-
-```bash
-git add miniprogram/pages/submission-form/
-git commit -m "feat: 实现信息填写页面"
-```
-
----
-
-### Task 13: 创建相机组件（简化实现）
-
-**Files:**
-- Create: `miniprogram/components/camera-capture/`
-
-- [ ] **Step 1: 创建组件**
-
-右键 `miniprogram/components` → 新建 Component → 命名为 `camera-capture`
-
-- [ ] **Step 2: 实现简化的拍摄逻辑**
-
-使用 `<camera>` 组件和 `wx.chooseMedia`：
-1. camera 组件配置
-2. 拍照功能
-3. 前后摄像头切换
-4. 相册选择
-
-- [ ] **Step 3: 移除人脸检测**
-
-不使用 VKSession（避免资质要求），依赖 AI 评估保证照片质量
-
-- [ ] **Step 4: 实现组件接口**
-
-```typescript
-Component({
-  properties: {
-    photoSpec: Object,
-  },
-  methods: {
-    onCapture(filePath) {
-      this.triggerEvent('capture', { filePath });
-    }
-  }
-});
-```
-
-- [ ] **Step 5: 提交代码**
-
-```bash
-git add miniprogram/components/camera-capture/
-git commit -m "feat: 添加相机组件（简化实现）"
-```
-
----
-
-### Task 14: 创建拍摄页面
-
-**Files:**
-- Create: `miniprogram/pages/camera/`
-
-- [ ] **Step 1: 创建页面**
-
-右键 `miniprogram/pages` → 新建 Page → 命名为 `camera`
-
-- [ ] **Step 2: 实现页面逻辑**
-
-1. 接收 taskId 和 customData 参数
-2. 使用 camera-capture 组件
-3. 拍照成功后跳转到预览页
-
-- [ ] **Step 3: 实现全屏相机布局**
-
-1. 全屏 camera-capture 组件
-2. 底部工具栏（相册、拍照、切换）
-3. 简化界面，无人脸识别框
-
-- [ ] **Step 4: 更新 app.json**
-
-添加 `pages/camera/camera`
-
-- [ ] **Step 5: 提交代码**
-
-```bash
-git add miniprogram/pages/camera/
-git commit -m "feat: 实现拍摄页面"
-```
-
----
-
-### Task 15: 创建照片预览确认页
-
-**Files:**
-- Create: `miniprogram/pages/photo-preview/`
-
-- [ ] **Step 1: 创建页面**
-
-右键 `miniprogram/pages` → 新建 Page → 命名为 `photo-preview`
-
-- [ ] **Step 2: 实现页面逻辑**
-
-1. 接收照片路径、taskId、customData
-2. 显示照片预览
-3. 获取图片信息（宽高、大小）
-4. 上传到云存储
-5. 调用 submitPhoto 云函数
-6. 跳转到提交成功页
-
-- [ ] **Step 3: 实现上传流程**
-
-```typescript
-async submitPhoto() {
-  wx.showLoading({ title: '上传中...' });
-  
-  // 1. 获取图片信息
-  const imageInfo = await getImageInfo(this.data.filePath);
-  
-  // 2. 上传到云存储
-  const cloudPath = generateCloudPath(taskId, openid);
-  const uploadResult = await uploadToCloud(this.data.filePath, cloudPath);
-  
-  // 3. 提交记录
-  const result = await callFunction('submitPhoto', {
-    taskId,
-    customData,
-    photo: {
-      fileId: uploadResult.fileID,
-      width: imageInfo.width,
-      height: imageInfo.height,
-      fileSize: imageInfo.size,
-    }
-  });
-  
-  wx.hideLoading();
-  
-  if (result.success) {
-    wx.redirectTo({ url: `/pages/submission-success/index?submissionId=${result.data.submissionId}` });
-  }
-}
-```
-
-- [ ] **Step 4: 更新 app.json**
-
-添加 `pages/photo-preview/photo-preview`
-
-- [ ] **Step 5: 提交代码**
-
-```bash
-git add miniprogram/pages/photo-preview/
-git commit -m "feat: 实现照片预览确认页"
-```
-
----
-
-### Task 16: 创建提交成功页
-
-**Files:**
-- Create: `miniprogram/pages/submission-success/`
-- Create: `miniprogram/components/ai-evaluation-card/`
-
-- [ ] **Step 1: 创建页面**
-
-右键 `miniprogram/pages` → 新建 Page → 命名为 `submission-success`
-
-- [ ] **Step 2: 创建 AI 评估卡片组件**
-
-右键 `miniprogram/components` → 新建 Component → 命名为 `ai-evaluation-card`
-
-实现三种状态：
-1. pending: 加载动画 + "AI 评估中..."
-2. success: 分数（环形进度条）+ 问题 + 建议
-3. failed: 错误提示
-
-- [ ] **Step 3: 实现页面逻辑**
-
-1. 显示"提交成功"提示
-2. 使用实时数据库监听 AI 评估结果
-3. 评分 < 70 时提示"建议重拍"
-4. 提供"返回首页"和"修改提交"按钮
-
-- [ ] **Step 4: 实现实时数据库监听**
-
-```typescript
-const watcher = db.collection('submissions').doc(submissionId).watch({
-  onChange: (snapshot) => {
-    const data = snapshot.docs[0];
-    if (data.aiEvaluation.status !== 'pending') {
-      this.setData({ aiEvaluation: data.aiEvaluation });
-      watcher.close();
-    }
-  },
-  onError: (err) => {
-    console.error('监听失败:', err);
-  }
-});
-```
-
-- [ ] **Step 5: 更新 app.json**
-
-添加 `pages/submission-success/submission-success`
-
-- [ ] **Step 6: 提交代码**
-
-```bash
-git add miniprogram/pages/submission-success/ miniprogram/components/ai-evaluation-card/
-git commit -m "feat: 实现提交成功页和AI评估卡片"
-```
-
----
-
-## 阶段 5: AI 评估集成
-
-### Task 17: 配置通义千问 API
-
-**Files:**
-- Modify: `cloudfunctions/common/qwen.js`
-
-- [ ] **Step 1: 获取 API 密钥**
-
-访问阿里云控制台，获取通义千问-VL 的 API Key
-
-- [ ] **Step 2: 配置环境变量**
-
-在微信开发者工具 → 云开发控制台 → 设置 → 环境变量：
-- 变量名：`QWEN_API_KEY`
-- 变量值：你的 API Key
-
-- [ ] **Step 3: 完善 qwen.js 实现**
-
-补充完整的 API 调用逻辑和错误处理
-
-- [ ] **Step 4: 测试 API 调用**
-
-创建测试云函数验证 API 可用性
-
----
-
-### Task 18: 实现异步评估流程
-
-**Files:**
-- Modify: `cloudfunctions/submitPhoto/index.js`
-- Modify: `cloudfunctions/evaluatePhoto/index.js`
-
-- [ ] **Step 1: 修改 submitPhoto 云函数**
-
-在提交成功后异步触发评估：
-
-```javascript
-// 创建提交记录后
-await db.collection('submissions').doc(submissionId).update({
-  data: {
-    'aiEvaluation.status': 'pending'
-  }
-});
-
-// 异步触发评估（不等待结果）
-cloud.callFunction({
-  name: 'evaluatePhoto',
-  data: { submissionId }
-});
-```
-
-- [ ] **Step 2: 实现 evaluatePhoto 云函数**
-
-1. 获取提交记录
-2. 获取照片临时 URL
-3. 调用通义千问 API
-4. 更新评估结果
-
-- [ ] **Step 3: 添加重试机制**
-
-评估失败时最多重试 2 次
-
-- [ ] **Step 4: 上传并部署**
-
-上传修改后的云函数
-
-- [ ] **Step 5: 提交代码**
-
-```bash
-git add cloudfunctions/
-git commit -m "feat: 实现异步AI评估流程"
-```
-
----
-
-### Task 19: 测试 AI 评估功能
-
-- [ ] **Step 1: 端到端测试**
-
-1. 创建测试任务
-2. 提交照片
-3. 观察 AI 评估结果
-4. 验证评分和建议是否合理
-
-- [ ] **Step 2: 边界测试**
-
-1. 测试模糊照片
-2. 测试角度不正的照片
-3. 测试背景杂乱的照片
-
-- [ ] **Step 3: 性能测试**
-
-验证评估时间在 2-5 秒内
-
----
-
-## 阶段 6: 导出功能开发
-
-### Task 20: 创建导出云函数
-
-**Files:**
-- Create: `cloudfunctions/exportTask/index.js`
-
-- [ ] **Step 1: 创建云函数**
-
-右键 `cloudfunctions` → 新建 Node.js 云函数 → 命名为 `exportTask`
-
-- [ ] **Step 2: 安装依赖**
-
-在 `cloudfunctions/exportTask/package.json` 中添加：
-
-```json
-{
-  "dependencies": {
-    "wx-server-sdk": "latest",
-    "archiver": "^5.3.0",
-    "xlsx": "^0.18.0"
-  }
-}
-```
-
-- [ ] **Step 3: 实现导出逻辑**
-
-1. 权限校验（仅创建者）
-2. 查询所有提交记录
-3. 批量下载照片（每次10张）
-4. 按模板重命名文件
-5. 生成 Excel 数据表
-6. 打包成 ZIP
-7. 上传到云存储
-8. 返回临时下载链接（7天有效）
-
-- [ ] **Step 4: 实现文件命名模板**
-
-支持变量替换：
-- `{name}` - 姓名
-- `{id}` - 提交 ID
-- `{date}` - 提交日期
-- `{index}` - 序号
-
-- [ ] **Step 5: 上传并部署**
-
-右键 `exportTask` → 上传并部署：云端安装依赖
-
-- [ ] **Step 6: 提交代码**
-
-```bash
-git add cloudfunctions/exportTask/
-git commit -m "feat: 实现导出功能云函数"
-```
-
----
-
-### Task 21: 创建导出配置页面
-
-**Files:**
-- Create: `miniprogram/pages/task-export/`
-
-- [ ] **Step 1: 创建页面**
-
-右键 `miniprogram/pages` → 新建 Page → 命名为 `task-export`
-
-- [ ] **Step 2: 实现页面逻辑**
-
-1. 接收 taskId 参数
-2. 配置文件名模板
-3. 选择导出选项（包含原图、图片格式等）
-4. 调用 exportTask 云函数
-5. 显示导出进度
-6. 生成下载链接
-
-- [ ] **Step 3: 实现模板预览**
-
-实时显示文件命名效果
-
-- [ ] **Step 4: 更新 app.json**
-
-添加 `pages/task-export/task-export`
-
-- [ ] **Step 5: 提交代码**
-
-```bash
-git add miniprogram/pages/task-export/
-git commit -m "feat: 实现导出配置页面"
-```
-
----
-
-### Task 22: 在任务详情页添加导出按钮
-
-**Files:**
-- Modify: `miniprogram/pages/task-detail/index.ts`
-- Modify: `miniprogram/pages/task-detail/index.wxml`
-
-- [ ] **Step 1: 添加导出按钮**
-
-在任务详情页底部添加"导出数据"按钮
-
-- [ ] **Step 2: 实现跳转逻辑**
-
-点击按钮跳转到导出配置页
-
-- [ ] **Step 3: 提交代码**
+- [ ] **Step 5: 提交任务详情页优化**
 
 ```bash
 git add miniprogram/pages/task-detail/
-git commit -m "feat: 在任务详情页添加导出按钮"
+git commit -m "feat: 完善任务详情管理视图"
 ```
 
 ---
 
-## 阶段 7: 测试与优化
+## 阶段 4: 完善参与者流程
 
-### Task 23: 端到端测试
+### Task 8: 明确参与者入口
 
-- [ ] **Step 1: 管理员流程测试**
+**目标:** 让非创建者通过分享链接进入任务并提交资料
 
-1. 创建任务（各种配置组合）
-2. 查看任务列表
-3. 进入任务详情
-4. 分享任务
-5. 查看提交列表
-6. 导出数据
+- [ ] **Step 1: 决定参与者入口形态**
+  - 方案 A: 复用 `task-detail`，按用户身份区分视图
+  - 方案 B: 新增 `task-view` 页面做轻量参与视图
 
-- [ ] **Step 2: 参与者流程测试**
+- [ ] **Step 2: 实现路径参数与分享回流**
+  - `taskId`
+  - 可选 `fromShare`
 
-1. 通过分享卡片进入
-2. 查看任务要求
-3. 填写信息
-4. 拍摄照片
-5. 预览确认
-6. 提交成功
-7. 查看 AI 评估
+- [ ] **Step 3: 明确参与者可见信息**
+  - 标题
+  - 规格要求
+  - 截止时间
+  - 自定义字段说明
 
-- [ ] **Step 3: 边界情况测试**
-
-1. 任务已截止
-2. 重复提交
-3. 网络异常
-4. 照片过大
-5. AI 评估失败
-
----
-
-### Task 24: 性能优化
-
-- [ ] **Step 1: 图片压缩**
-
-在上传前压缩图片（JPEG 质量 85%）
-
-- [ ] **Step 2: 列表分页**
-
-任务列表和提交列表实现分页加载
-
-- [ ] **Step 3: 缓存优化**
-
-任务详情使用本地缓存，减少请求
-
-- [ ] **Step 4: 提交优化**
+- [ ] **Step 4: 提交参与者入口**
 
 ```bash
-git add miniprogram/
-git commit -m "perf: 性能优化（图片压缩、分页、缓存）"
+git add miniprogram/pages/
+git commit -m "feat: 添加参与者任务入口"
 ```
 
----
+### Task 9: 打磨上传与编辑提交流程
 
-### Task 25: UI 优化
+**目标:** 让参与者可以稳定提交和修改照片
 
-- [ ] **Step 1: 添加加载状态**
+- [x] **Step 1: 修复编辑已有提交时错误读取分页结果的 bug**
+- [x] **Step 2: 支持编辑时不重新上传照片直接提交**
+- [x] **Step 3: 修复底部固定按钮与滚动内容重叠问题**
+- [ ] **Step 4: 增加任务状态校验提示**
+  - 已截止
+  - 任务不存在
+  - 无权限
 
-所有异步操作添加 loading 提示
+- [ ] **Step 5: 完善图片元信息**
+  - 宽高
+  - 大小
+  - 可选文件格式
 
-- [ ] **Step 2: 添加空状态**
+- [ ] **Step 6: 评估是否拆成“表单页 + 预览页”**
+  - 当前可保留单页上传
+  - 若交互复杂再拆页
 
-列表为空时显示友好提示
-
-- [ ] **Step 3: 添加错误提示**
-
-网络错误、权限错误等显示明确提示
-
-- [ ] **Step 4: 优化交互动画**
-
-页面切换、按钮点击添加过渡动画
-
-- [ ] **Step 5: 提交优化**
+- [ ] **Step 7: 提交上传流程优化**
 
 ```bash
-git add miniprogram/
-git commit -m "ui: UI优化（加载状态、空状态、错误提示）"
+git add miniprogram/pages/photo-upload/ backend/internal/
+git commit -m "feat: 完善上传与编辑提交流程"
 ```
 
 ---
 
-## 总结
+## 阶段 5: AI 评估闭环
 
-### 开发时间估算
+### Task 10: 完成通义千问评估结果写回
 
-| 阶段 | 任务数 | 预估工期 |
-|------|--------|----------|
-| 阶段 1: 环境搭建 | 3 个任务 | 1 天 |
-| 阶段 2: 云函数开发 | 3 个任务 | 2 天 |
-| 阶段 3: 管理端开发 | 4 个任务 | 2.5 天 |
-| 阶段 4: 参与端开发 | 6 个任务 | 3 天 |
-| 阶段 5: AI 评估集成 | 3 个任务 | 1 天 |
-| 阶段 6: 导出功能 | 3 个任务 | 1.5 天 |
-| 阶段 7: 测试与优化 | 3 个任务 | 1 天 |
-| **总计** | **25 个任务** | **12 天** |
+**目标:** 提交后能异步得到可展示的评估结果
 
-### 关键里程碑
+- [ ] **Step 1: 完善 `backend/pkg/qwen.go`**
+  - 请求错误处理
+  - 响应解析容错
+  - 非 JSON 输出兜底
 
-1. **Day 3**: 完成云函数开发，可以通过 API 测试工具验证
-2. **Day 5.5**: 完成管理端，可以创建和管理任务
-3. **Day 8.5**: 完成参与端，可以完整走通采集流程
-4. **Day 9.5**: 完成 AI 评估，可以看到质量评分
-5. **Day 11**: 完成导出功能，可以下载数据
-6. **Day 12**: 完成测试优化，可以上线
+- [ ] **Step 2: 完成 `backend/internal/biz/evaluation.go`**
+  - 解析评估结果
+  - 写回 submission 的 `ai_evaluation`
+  - 设置 `evaluated_at`
 
-### 技术要点
+- [ ] **Step 3: 设计触发方式**
+  - 创建提交后异步触发
+  - 更新提交后重新触发
 
-1. **云开发环境**: 使用微信云开发，无需自建服务器
-2. **简化拍摄**: 使用 camera 组件，移除人脸检测（避免资质要求）
-3. **AI 评估**: 异步调用通义千问-VL，评估照片质量并给出建议
-4. **实时推送**: 使用云数据库实时监听获取评估结果
-5. **文件管理**: 30天过期策略，导出后可选删除
+- [ ] **Step 4: 增加失败重试与错误记录**
+  - 失败状态
+  - 错误消息
+  - 可控重试次数
 
-### 注意事项
+- [ ] **Step 5: 提交 AI 评估闭环**
 
-1. **环境变量**: 记得在云开发控制台配置 QWEN_API_KEY
-2. **权限控制**: 所有云函数都要校验 _openid
-3. **防重复提交**: 数据库唯一索引 taskId + _openid
-4. **错误处理**: 所有异步操作都要 try-catch
-5. **成本控制**: 开发阶段使用免费额度，注意监控用量
+```bash
+git add backend/pkg/qwen.go backend/internal/biz/evaluation.go backend/internal/
+git commit -m "feat: 完成 AI 评估闭环"
+```
 
-### 后续增强（可选）
+### Task 11: 前端展示 AI 评估结果
 
-- [ ] 照片裁剪调整功能
-- [ ] 修改重传功能
-- [ ] 过期提醒推送
-- [ ] 导出历史记录
-- [ ] 批量操作功能
-- [ ] 数据分析统计
+**目标:** 管理员和提交者都能看懂评估结果
+
+- [ ] **Step 1: 在任务详情页展示评估状态**
+  - pending
+  - success
+  - failed
+
+- [ ] **Step 2: 展示分项得分、问题和建议**
+
+- [ ] **Step 3: 低分场景给出重拍引导**
+
+- [ ] **Step 4: 评估是否需要轮询刷新**
+  - 页面返回刷新
+  - 定时轮询
+  - 手动刷新
+
+- [ ] **Step 5: 提交评估结果展示**
+
+```bash
+git add miniprogram/pages/task-detail/
+git commit -m "feat: 展示 AI 评估结果"
+```
 
 ---
 
-**计划创建时间**: 2026-04-08  
-**预计完成时间**: 2026-04-20  
-**计划版本**: 1.0
+## 阶段 6: 导出功能
 
+### Task 12: 设计导出接口与文件结构
+
+**目标:** 管理员可以导出照片和结构化数据
+
+- [ ] **Step 1: 明确导出范围**
+  - 仅管理员可导出
+  - 导出所有提交
+  - 打包照片 + Excel/CSV
+
+- [ ] **Step 2: 定义后端接口**
+  - 同步导出还是异步导出
+  - 下载链接有效期
+  - 文件命名模板
+
+- [ ] **Step 3: 设计导出目录结构**
+  - `photos/`
+  - `metadata.xlsx` 或 `metadata.csv`
+
+- [ ] **Step 4: 提交导出设计**
+
+```bash
+git add docs/ backend/
+git commit -m "docs: 设计导出功能接口与文件结构"
+```
+
+### Task 13: 实现导出能力
+
+**目标:** 后端可生成下载包，前端可触发导出
+
+- [ ] **Step 1: 后端实现导出服务**
+  - 查询任务与提交
+  - 下载七牛私有文件
+  - 重命名
+  - 打包 ZIP
+  - 上传导出结果
+
+- [ ] **Step 2: 前端增加导出入口**
+  - 任务详情页按钮
+  - 导出中提示
+  - 导出成功提示
+
+- [ ] **Step 3: 处理大任务导出策略**
+  - 批量下载
+  - 超时处理
+  - 重试
+
+- [ ] **Step 4: 提交导出能力**
+
+```bash
+git add backend/ miniprogram/pages/task-detail/
+git commit -m "feat: 实现任务导出能力"
+```
+
+---
+
+## 阶段 7: 联调、测试与上线准备
+
+### Task 14: 端到端联调
+
+**目标:** 用真实小程序和真实后端走通主流程
+
+- [ ] **Step 1: 管理员流程**
+  - 登录
+  - 创建任务
+  - 配置字段
+  - 查看任务详情
+  - 分享任务
+
+- [ ] **Step 2: 参与者流程**
+  - 进入分享任务
+  - 填写信息
+  - 上传照片
+  - 编辑提交
+
+- [ ] **Step 3: AI 流程**
+  - 提交后进入 pending
+  - 成功后刷新为 score / issues / suggestions
+
+- [ ] **Step 4: 导出流程**
+  - 发起导出
+  - 获取下载链接
+  - 校验文件内容
+
+### Task 15: 回归与兼容性测试
+
+**目标:** 降低小程序环境下的回归风险
+
+- [ ] **Step 1: 真机验证关键页面**
+  - 任务列表
+  - 创建任务
+  - 任务详情
+  - 上传页
+
+- [ ] **Step 2: 验证小程序兼容性约束**
+  - 不使用可选链
+  - 输入框 `adjust-position="{{false}}"`
+  - 固定底栏不遮挡内容
+
+- [ ] **Step 3: 覆盖边界情况**
+  - 任务不存在
+  - 已截止任务
+  - 重复提交
+  - 七牛上传失败
+  - 微信登录失败
+  - AI 评估失败
+
+### Task 16: 上线准备
+
+**目标:** 让部署和域名配置具备上线条件
+
+- [ ] **Step 1: 配置 HTTPS 域名**
+  - request 合法域名
+  - uploadFile 合法域名
+  - downloadFile 合法域名
+
+- [ ] **Step 2: 生产环境部署**
+  - 后端
+  - MongoDB
+  - 七牛配置
+  - 环境变量
+
+- [ ] **Step 3: 最终检查**
+  - 日志
+  - 错误监控
+  - 数据备份
+
+- [ ] **Step 4: 提交上线准备**
+
+```bash
+git add .
+git commit -m "chore: 完成上线前联调与部署准备"
+```
+
+---
+
+## 里程碑
+
+1. **M1: 契约稳定**
+   - 文档与配置不再漂移
+   - 前后端字段统一
+   - 上传编辑流程稳定
+
+2. **M2: 核心业务闭环**
+   - 管理员可创建任务并查看提交
+   - 参与者可上传并编辑照片
+
+3. **M3: AI 闭环**
+   - 提交后能看到评估结果
+   - 失败场景可追踪
+
+4. **M4: 交付能力**
+   - 管理员可导出数据
+   - 完成真机测试和部署准备
+
+---
+
+## 风险与注意事项
+
+1. **当前计划以仓库真实代码为准**
+   - 不再引入云函数、云数据库、云存储方案
+
+2. **当前后端不是 Kratos 项目**
+   - 采用 `gorilla/mux + service/biz/data` 的现有实现继续推进
+
+3. **七牛链路是当前正式上传路径**
+   - 文档和配置不得再混入 MinIO 方案，除非后续明确切换
+
+4. **字段命名必须保持 snake_case**
+   - 与 Go API、MongoDB 文档结构保持一致
+
+5. **小程序兼容性必须优先**
+   - 不使用 `?.`
+   - 输入框样式和底部固定栏遵守现有规则
+
+---
+
+**计划创建时间:** 2026-04-08
+**计划修订时间:** 2026-04-09
+**计划版本:** 2.0

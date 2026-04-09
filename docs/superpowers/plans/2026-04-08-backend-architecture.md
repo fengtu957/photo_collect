@@ -7,10 +7,10 @@
 - 成本：每月 ¥19 起
 
 ### 新架构
-- **后端**: Go + Kratos 微服务框架
+- **后端**: Go + `gorilla/mux`
 - **数据库**: MongoDB
-- **文件存储**: MinIO（兼容 S3 API）
-- **部署**: Docker + Docker Compose
+- **文件存储**: 七牛云
+- **部署**: 连接现有服务直接联调与部署
 - **成本**: 仅服务器成本
 
 ---
@@ -30,16 +30,12 @@ photo/
 │   │   └── server/
 │   │       └── main.go
 │   ├── internal/
-│   │   ├── conf/            # 配置
 │   │   ├── data/            # 数据层
 │   │   ├── biz/             # 业务逻辑
-│   │   ├── service/         # 服务层
-│   │   └── server/          # HTTP/gRPC 服务器
-│   ├── api/                 # API 定义
+│   │   └── service/         # 服务层
 │   ├── pkg/                 # 公共包
 │   └── go.mod
 │
-├── docker-compose.yml       # Docker 编排
 └── docs/
 ```
 
@@ -53,19 +49,17 @@ photo/
 POST   /api/v1/tasks                    # 创建任务
 GET    /api/v1/tasks                    # 获取任务列表
 GET    /api/v1/tasks/:id                # 获取任务详情
-PUT    /api/v1/tasks/:id                # 更新任务
 DELETE /api/v1/tasks/:id                # 删除任务
 
 POST   /api/v1/submissions              # 提交照片
-GET    /api/v1/submissions              # 获取提交列表
 GET    /api/v1/submissions/:id          # 获取提交详情
 PUT    /api/v1/submissions/:id          # 修改提交
 
-POST   /api/v1/upload                   # 上传文件
+GET    /api/v1/tasks/:taskId/submissions # 获取提交列表
+GET    /api/v1/upload/token              # 获取七牛上传凭证
 GET    /api/v1/export/:taskId           # 导出任务数据
 
 POST   /api/v1/auth/login               # 微信登录
-GET    /api/v1/auth/userinfo            # 获取用户信息
 ```
 
 ### 数据库设计
@@ -135,60 +129,11 @@ GET    /api/v1/auth/userinfo            # 获取用户信息
 
 ---
 
-## Docker Compose 配置
+## 当前联调方式
 
-```yaml
-version: '3.8'
-
-services:
-  # MongoDB
-  mongodb:
-    image: mongo:6
-    container_name: photo-mongodb
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-    volumes:
-      - mongodb_data:/data/db
-
-  # MinIO
-  minio:
-    image: minio/minio
-    container_name: photo-minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-
-  # 后端服务
-  backend:
-    build: ./backend
-    container_name: photo-backend
-    ports:
-      - "8000:8000"
-    environment:
-      MONGODB_URI: mongodb://admin:password@mongodb:27017
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      QWEN_API_KEY: ${QWEN_API_KEY}
-    depends_on:
-      - mongodb
-      - minio
-
-volumes:
-  mongodb_data:
-  minio_data:
-```
-
----
+- MongoDB 使用现有服务
+- 小程序通过固定测试地址请求后端
+- 图片上传由后端签发七牛上传凭证，小程序直传七牛
 
 ## 微信小程序配置
 
@@ -265,4 +210,3 @@ func (s *AuthService) Login(ctx context.Context, code string) (string, error) {
 ```
 
 ---
-

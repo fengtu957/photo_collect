@@ -52,6 +52,29 @@ func (s *TaskService) GetTask(w http.ResponseWriter, r *http.Request) {
 	Success(w, task)
 }
 
+func (s *TaskService) UpdateTask(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	var task data.Task
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		Error(w, 1008, err.Error())
+		return
+	}
+
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1008, "unauthorized")
+		return
+	}
+
+	if err := s.uc.UpdateTask(context.Background(), id, userID, &task); err != nil {
+		Error(w, 1009, err.Error())
+		return
+	}
+
+	Success(w, map[string]interface{}{"id": id})
+}
+
 func (s *TaskService) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 

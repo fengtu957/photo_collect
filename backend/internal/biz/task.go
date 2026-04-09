@@ -24,6 +24,27 @@ func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 	return uc.repo.Create(ctx, task)
 }
 
+func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string, task *data.Task) error {
+	existing, err := uc.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return errors.New("任务不存在")
+	}
+	if existing.UserID != userID {
+		return errors.New("无权限编辑此任务")
+	}
+
+	task.ID = existing.ID
+	task.UserID = existing.UserID
+	task.Enabled = existing.Enabled
+	task.Stats = existing.Stats
+	task.CreatedAt = existing.CreatedAt
+
+	return uc.repo.Update(ctx, id, task)
+}
+
 func (uc *TaskUsecase) GetTask(ctx context.Context, id string) (*data.Task, error) {
 	return uc.repo.FindByID(ctx, id)
 }

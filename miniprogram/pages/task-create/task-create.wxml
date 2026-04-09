@@ -61,6 +61,6 @@
       </view>
     </view>
 
-    <button class="submit-btn" bindtap="onSubmit">创建任务</button>
+    <button class="submit-btn" bindtap="onSubmit">{{isEditMode ? '保存修改' : '创建任务'}}</button>
   </view>
 </scroll-view>

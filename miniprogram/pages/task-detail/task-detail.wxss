@@ -16,6 +16,13 @@
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 }
 
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
 .card-title {
   font-size: 36rpx;
   font-weight: bold;
@@ -23,6 +30,14 @@
   margin-bottom: 12rpx;
   word-break: break-all;
   overflow-wrap: break-word;
+  flex: 1;
+}
+
+.task-edit-link {
+  font-size: 28rpx;
+  color: #1989fa;
+  flex-shrink: 0;
+  line-height: 1.6;
 }
 
 .card-desc {
@@ -58,6 +73,10 @@
   flex: 1;
   word-break: break-all;
   overflow-wrap: break-word;
+}
+
+.status-text {
+  color: #ff9500;
 }
 
 /* 章节标题 */

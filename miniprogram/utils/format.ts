@@ -1,5 +1,8 @@
+import { isEffectiveTime } from './time';
+
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (!isEffectiveTime(d)) return '';
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -8,6 +11,7 @@ export function formatDate(date: Date | string): string {
 
 export function formatDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (!isEffectiveTime(d)) return '';
   const dateStr = formatDate(d);
   const hour = String(d.getHours()).padStart(2, '0');
   const minute = String(d.getMinutes()).padStart(2, '0');
@@ -21,6 +25,7 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function getTimeRemaining(endTime: Date | string): string {
+  if (!isEffectiveTime(endTime)) return '';
   const end = typeof endTime === 'string' ? new Date(endTime) : endTime;
   const now = new Date();
   const diff = end.getTime() - now.getTime();
@@ -36,8 +41,12 @@ export function getTimeRemaining(endTime: Date | string): string {
 }
 
 export function isTaskActive(startTime: Date | string, endTime: Date | string): boolean {
+  if (!isEffectiveTime(endTime)) return false;
   const now = new Date();
-  const start = typeof startTime === 'string' ? new Date(startTime) : startTime;
   const end = typeof endTime === 'string' ? new Date(endTime) : endTime;
+  if (!isEffectiveTime(startTime)) {
+    return now <= end;
+  }
+  const start = typeof startTime === 'string' ? new Date(startTime) : startTime;
   return now >= start && now <= end;
 }

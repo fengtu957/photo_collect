@@ -1,7 +1,10 @@
 <view class="page">
   <!-- 任务信息卡片 -->
   <view class="card" wx:if="{{task}}">
-    <view class="card-title">{{task.title}}</view>
+    <view class="card-header">
+      <view class="card-title">{{task.title}}</view>
+      <text class="task-edit-link" wx:if="{{isCreator}}" catchtap="editTask">编辑</text>
+    </view>
     <view class="card-desc" wx:if="{{task.description}}">{{task.description}}</view>
 
     <view class="divider"></view>
@@ -19,6 +22,11 @@
     <view class="info-row">
       <text class="label">截止时间：</text>
       <text class="value">{{endTime}}</text>
+    </view>
+
+    <view class="info-row" wx:if="{{taskStatusText}}">
+      <text class="label">当前状态：</text>
+      <text class="value status-text">{{taskStatusText}}</text>
     </view>
 
     <view class="info-row" wx:if="{{task.custom_fields && task.custom_fields.length > 0}}">
@@ -44,7 +52,7 @@
         <text class="nickname">{{item.user_info.nick_name}}</text>
         <text class="time">{{item.createdAtFormatted}}</text>
       </view>
-      <text class="edit-link" bindtap="editSubmission" data-id="{{item.id}}" wx:if="{{isCreator || item.user_id === currentUserId}}">
+      <text class="edit-link" catchtap="editSubmission" data-id="{{item.id}}" wx:if="{{isCreator || item.user_id === currentUserId}}">
         编辑
       </text>
     </view>

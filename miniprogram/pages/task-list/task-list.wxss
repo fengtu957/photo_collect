@@ -17,16 +17,70 @@
   border-bottom: 1rpx solid #f5f5f5;
 }
 
+.title-wrap {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.title-icon {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  border: 4rpx solid #28b446;
+  box-sizing: border-box;
+  margin-right: 16rpx;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.title-icon-head {
+  position: absolute;
+  top: 8rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #28b446;
+}
+
+.title-icon-body {
+  position: absolute;
+  left: 50%;
+  bottom: 6rpx;
+  transform: translateX(-50%);
+  width: 18rpx;
+  height: 10rpx;
+  border-radius: 10rpx 10rpx 8rpx 8rpx;
+  background: #28b446;
+}
+
 .card-title {
   font-size: 32rpx;
   font-weight: bold;
   color: #333;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-mid {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 16rpx;
   padding-bottom: 16rpx;
   border-bottom: 1rpx solid #f5f5f5;
+}
+
+.card-info {
+  flex: 1;
+  min-width: 0;
+  padding-right: 20rpx;
 }
 
 .card-line {
@@ -34,6 +88,14 @@
   font-size: 28rpx;
   color: #666;
   line-height: 2;
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+.status-icon {
+  width: 140rpx;
+  height: 140rpx;
+  flex-shrink: 0;
 }
 
 .card-bot {
@@ -51,6 +113,26 @@
 .card-actions {
   display: flex;
   gap: 32rpx;
+  align-items: center;
+}
+
+.action-item {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.action-icon {
+  font-size: 34rpx;
+  line-height: 1;
+}
+
+.action-icon-list {
+  color: #2d8cf0;
+}
+
+.action-icon-camera {
+  color: #999;
 }
 
 .btn-text {

@@ -82,3 +82,24 @@ func (r *TaskRepo) Delete(ctx context.Context, id string) error {
 	_, err = r.data.DB().Collection("tasks").DeleteOne(ctx, bson.M{"_id": objID})
 	return err
 }
+
+func (r *TaskRepo) Update(ctx context.Context, id string, task *Task) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	task.UpdatedAt = time.Now()
+	_, err = r.data.DB().Collection("tasks").UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$set": bson.M{
+			"title":         task.Title,
+			"description":   task.Description,
+			"photo_spec":    task.PhotoSpec,
+			"start_time":    task.StartTime,
+			"end_time":      task.EndTime,
+			"custom_fields": task.CustomFields,
+			"updated_at":    task.UpdatedAt,
+		},
+	})
+	return err
+}

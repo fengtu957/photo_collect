@@ -2,6 +2,8 @@ import { getTask } from '../../services/task';
 import { getUploadToken } from '../../services/upload';
 import { createSubmission, getSubmission, updateSubmission } from '../../services/submission';
 import { showError, showSuccess, showLoading, hideLoading } from '../../utils/request';
+import { isEffectiveTime } from '../../utils/time';
+import { getTimeRemaining, isTaskActive } from '../../utils/format';
 
 function isRemoteUrl(path: string): boolean {
   return path.indexOf('http://') === 0 || path.indexOf('https://') === 0;
@@ -32,11 +34,34 @@ function isEmptyFieldValue(value: any): boolean {
   return value === undefined || value === null || value === '';
 }
 
+function getTaskUnavailableMessage(task: any): string {
+  if (!task) return '任务不存在';
+  if (task.enabled === false) return '任务已停用';
+
+  const now = new Date();
+  const hasStartTime = isEffectiveTime(task.start_time);
+  const hasEndTime = isEffectiveTime(task.end_time);
+  const start = hasStartTime ? new Date(task.start_time) : null;
+  const end = hasEndTime ? new Date(task.end_time) : null;
+
+  if (start && now < start) {
+    return '任务尚未开始';
+  }
+  if (end && now > end) {
+    return '任务已截止';
+  }
+  if (hasEndTime && isTaskActive(task.start_time, task.end_time)) return '';
+
+  return '';
+}
+
 Page({
   data: {
     taskId: '',
     submissionId: '',
     task: null as any,
+    taskStatusText: '',
+    taskUnavailableMessage: '',
     photoPath: '',
     photoKey: '',
     customData: {} as Record<string, any>,
@@ -66,7 +91,20 @@ Page({
   async loadTask() {
     try {
       const task = await getTask(this.data.taskId);
-      this.setData({ task });
+      const unavailableMessage = getTaskUnavailableMessage(task);
+      let taskStatusText = '';
+
+      if (unavailableMessage) {
+        taskStatusText = unavailableMessage;
+      } else if (isEffectiveTime(task.end_time)) {
+        taskStatusText = getTimeRemaining(task.end_time);
+      }
+
+      this.setData({
+        task,
+        taskStatusText,
+        taskUnavailableMessage: unavailableMessage
+      });
     } catch (err: any) {
       showError(err.message || '加载任务失败');
     }
@@ -88,6 +126,11 @@ Page({
   },
 
   choosePhoto() {
+    if (this.data.taskUnavailableMessage) {
+      showError(this.data.taskUnavailableMessage);
+      return;
+    }
+
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
@@ -124,6 +167,11 @@ Page({
   },
 
   submitPhoto() {
+    if (this.data.taskUnavailableMessage) {
+      showError(this.data.taskUnavailableMessage);
+      return;
+    }
+
     if (!this.data.photoPath) {
       showError('请先选择照片');
       return;

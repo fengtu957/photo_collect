@@ -1,9 +1,32 @@
 import { getTask, deleteTask } from '../../services/task';
 import { listSubmissions } from '../../services/submission';
 import { showError } from '../../utils/request';
-import { formatTime } from '../../utils/time';
-
+import { formatTime, isEffectiveTime } from '../../utils/time';
+import { getTimeRemaining, isTaskActive } from '../../utils/format';
 const PAGE_SIZE = 2;
+
+function getTaskStatus(task: any): string {
+  if (!task) return '';
+  if (task.enabled === false) return '已停用';
+
+  const now = new Date();
+  const hasStartTime = isEffectiveTime(task.start_time);
+  const hasEndTime = isEffectiveTime(task.end_time);
+  const start = hasStartTime ? new Date(task.start_time) : null;
+  const end = hasEndTime ? new Date(task.end_time) : null;
+
+  if (start && now < start) {
+    return '任务尚未开始';
+  }
+  if (end && now > end) {
+    return '任务已截止';
+  }
+  if (hasEndTime && isTaskActive(task.start_time, task.end_time)) {
+    return getTimeRemaining(task.end_time);
+  }
+
+  return '';
+}
 
 function formatSubmissions(list: any[], customFields: any[]) {
   const fieldLabelMap: Record<string, string> = {};
@@ -27,6 +50,7 @@ Page({
   data: {
     taskId: '',
     task: null as any,
+    taskStatusText: '',
     submissions: [] as any[],
     startTime: '',
     endTime: '',
@@ -67,8 +91,8 @@ Page({
         listSubmissions(this.data.taskId, 1, PAGE_SIZE)
       ]);
 
-      const startTime = task.start_time ? formatTime(String(task.start_time)) : '';
-      const endTime = task.end_time ? formatTime(String(task.end_time)) : '';
+      const startTime = formatTime(String(task.start_time || ''));
+      const endTime = formatTime(String(task.end_time || ''));
 
       const currentOpenid = wx.getStorageSync('openid') || '';
       const isCreator = task.user_id === currentOpenid;
@@ -81,6 +105,7 @@ Page({
 
       this.setData({
         task,
+        taskStatusText: getTaskStatus(task),
         submissions: formattedSubmissions,
         startTime,
         endTime,
@@ -130,6 +155,10 @@ Page({
   editSubmission(e: any) {
     const submissionId = e.currentTarget.dataset.id;
     wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${submissionId}` });
+  },
+
+  editTask() {
+    wx.navigateTo({ url: `/pages/task-create/task-create?id=${this.data.taskId}` });
   },
 
   deleteActivity() {

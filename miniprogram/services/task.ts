@@ -16,6 +16,13 @@ export async function getTask(id: string) {
   return request<Task>(`/tasks/${id}`, { method: 'GET' });
 }
 
+export async function updateTask(id: string, params: CreateTaskParams) {
+  return request<{ id: string }>(`/tasks/${id}`, {
+    method: 'PUT',
+    data: params
+  });
+}
+
 export async function deleteTask(id: string) {
   return request<null>(`/tasks/${id}`, { method: 'DELETE' });
 }

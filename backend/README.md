@@ -1,92 +1,89 @@
 # 批量证件照采集系统 - 后端服务
 
-## 快速开始
+## 当前架构
 
-### 1. 启动 MongoDB 和 MinIO
+- 后端: Go + `gorilla/mux`
+- 数据库: MongoDB
+- 文件存储: 七牛云
+- AI: 通义千问-VL
+- 认证: 微信登录 + JWT
 
-```bash
-docker-compose up -d mongodb minio
-```
+当前仓库不是微信云开发方案，也不是 Kratos/MinIO 方案。接口由 [main.go](/mnt/d/code/latest/photo/backend/cmd/server/main.go) 启动，文件上传走七牛上传凭证接口。
 
-### 2. 配置环境变量
+## 环境变量
 
-复制 `.env.example` 为 `.env` 并填写配置：
+复制示例文件并填写实际配置：
 
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-### 3. 启动后端服务
+必须配置的环境变量：
+
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `WECHAT_APPID`
+- `WECHAT_SECRET`
+- `QINIU_ACCESS_KEY`
+- `QINIU_SECRET_KEY`
+- `QINIU_BUCKET`
+- `QINIU_DOMAIN`
+- `QWEN_API_KEY`
+
+## 本地开发
+
+### 1. 准备 MongoDB
+
+当前项目直接连接现有 MongoDB 服务，不依赖 Docker Compose。
+
+### 2. 启动后端
 
 ```bash
 cd backend
 go run cmd/server/main.go
 ```
 
-服务将在 `http://localhost:8000` 启动
+服务默认监听 `http://localhost:8000`。
 
-## API 测试
+## API 清单
 
-### 登录获取 Token
+公开接口：
 
-```bash
-curl -X POST http://localhost:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "code": "mock-code"
-  }'
-```
+- `POST /api/v1/auth/login`
 
-返回示例：
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "openid": "oABC123..."
-  }
-}
-```
+需要 JWT 的接口：
 
-### 创建任务
+- `POST /api/v1/tasks`
+- `GET /api/v1/tasks`
+- `GET /api/v1/tasks/{id}`
+- `DELETE /api/v1/tasks/{id}`
+- `POST /api/v1/submissions`
+- `GET /api/v1/submissions/{id}`
+- `PUT /api/v1/submissions/{id}`
+- `GET /api/v1/tasks/{taskId}/submissions`
+- `GET /api/v1/upload/token`
 
-```bash
-curl -X POST http://localhost:8000/api/v1/tasks \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{
-    "title": "测试任务",
-    "description": "这是一个测试任务",
-    "photo_spec": {
-      "name": "一寸照",
-      "width": 295,
-      "height": 413
-    },
-    "start_time": "2026-04-08T00:00:00Z",
-    "end_time": "2026-04-30T23:59:59Z",
-    "custom_fields": []
-  }'
-```
+## 联调说明
 
-### 查询任务列表
+### 微信登录
 
-```bash
-curl http://localhost:8000/api/v1/tasks \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
+`/api/v1/auth/login` 依赖真实的 `wx.login()` code，不能用任意 mock code 直接请求通过。
 
-### 查询任务详情
+### 小程序联调地址
 
-```bash
-curl http://localhost:8000/api/v1/tasks/{task_id}
-```
+前端请求地址在 [request.ts](/mnt/d/code/latest/photo/miniprogram/utils/request.ts)。当前仓库使用固定测试地址；如果后续切换环境，应直接按真实联调环境修改。
 
-## 下一步
+### 七牛上传
 
-- [ ] 实现文件上传接口
-- [ ] 实现提交照片接口
-- [ ] 集成通义千问 AI 评估
-- [ ] 实现微信登录
-- [ ] 前端适配
+上传流程是：
+
+1. 小程序调用 `GET /api/v1/upload/token`
+2. 小程序直接上传图片到七牛
+3. 小程序再调用提交接口，把七牛 key 写入后端
+
+## 当前缺口
+
+- AI 评估结果尚未完整写回数据库
+- 导出能力尚未实现
+- 部分文档与配置仍在继续收敛

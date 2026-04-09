@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"photo-backend/internal/data"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -17,14 +18,33 @@ func NewSubmissionUsecase(repo *data.SubmissionRepo, taskRepo *data.TaskRepo) *S
 	return &SubmissionUsecase{repo: repo, taskRepo: taskRepo}
 }
 
+func validateTaskAvailableForSubmission(task *data.Task) error {
+	if task == nil {
+		return errors.New("任务不存在")
+	}
+	if !task.Enabled {
+		return errors.New("任务已停用")
+	}
+
+	now := time.Now()
+	if !task.StartTime.IsZero() && now.Before(task.StartTime) {
+		return errors.New("任务尚未开始")
+	}
+	if !task.EndTime.IsZero() && now.After(task.EndTime) {
+		return errors.New("任务已截止")
+	}
+
+	return nil
+}
+
 func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Submission) error {
 	// 查任务，判断当前用户是否为创建者
 	task, err := uc.taskRepo.FindByID(ctx, sub.TaskID.Hex())
 	if err != nil {
 		return err
 	}
-	if task == nil {
-		return errors.New("任务不存在")
+	if err := validateTaskAvailableForSubmission(task); err != nil {
+		return err
 	}
 
 	// 非创建者限制唯一提交
@@ -55,8 +75,8 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 	if err != nil {
 		return err
 	}
-	if task == nil {
-		return errors.New("任务不存在")
+	if err := validateTaskAvailableForSubmission(task); err != nil {
+		return err
 	}
 
 	// 权限检查：只有提交者本人或任务创建者可以更新
