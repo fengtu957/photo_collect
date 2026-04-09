@@ -5,6 +5,24 @@ import { formatTime } from '../../utils/time';
 
 const PAGE_SIZE = 20;
 
+function formatSubmissions(list: any[], customFields: any[]) {
+  const fieldLabelMap: Record<string, string> = {};
+  (customFields || []).forEach((f: any) => {
+    fieldLabelMap[f.id] = f.label;
+  });
+  return list.map((s: any) => {
+    const customDataList = Object.keys(s.custom_data || {}).map((key: string) => ({
+      label: fieldLabelMap[key] || key,
+      value: s.custom_data[key]
+    }));
+    return {
+      ...s,
+      createdAtFormatted: s.created_at ? formatTime(String(s.created_at)) : '',
+      customDataList
+    };
+  });
+}
+
 Page({
   data: {
     taskId: '',
@@ -56,10 +74,8 @@ Page({
       const isCreator = task.user_id === currentOpenid;
 
       const list = (result && result.list) || [];
-      const formattedSubmissions = list.map((s: any) => ({
-        ...s,
-        createdAtFormatted: s.created_at ? formatTime(String(s.created_at)) : ''
-      }));
+      const customFields: any[] = (task && task.custom_fields) || [];
+      const formattedSubmissions = formatSubmissions(list, customFields);
 
       const mySubmission = list.find((s: any) => s.user_id === currentOpenid);
 
@@ -89,10 +105,7 @@ Page({
     try {
       const result = await listSubmissions(this.data.taskId, nextPage, PAGE_SIZE);
       const list = (result && result.list) || [];
-      const more = list.map((s: any) => ({
-        ...s,
-        createdAtFormatted: s.created_at ? formatTime(String(s.created_at)) : ''
-      }));
+      const more = formatSubmissions(list, (this.data.task && this.data.task.custom_fields) || []);
 
       this.setData({
         submissions: [...this.data.submissions, ...more],

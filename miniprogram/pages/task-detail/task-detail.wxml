@@ -101,10 +101,10 @@
       <text class="ai-error">AI评估失败：{{item.ai_evaluation.error}}</text>
     </view>
 
-    <view class="custom-data" wx:if="{{item.custom_data}}">
-      <view class="custom-item" wx:for="{{item.custom_data}}" wx:key="*this" wx:for-item="value" wx:for-index="key">
-        <text class="custom-label">{{key}}：</text>
-        <text class="custom-value">{{value}}</text>
+    <view class="custom-data" wx:if="{{item.customDataList && item.customDataList.length > 0}}">
+      <view class="custom-item" wx:for="{{item.customDataList}}" wx:key="label" wx:for-item="field">
+        <text class="custom-label">{{field.label}}：</text>
+        <text class="custom-value">{{field.value}}</text>
       </view>
     </view>
   </view>
