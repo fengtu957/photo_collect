@@ -18,11 +18,18 @@ func NewSubmissionUsecase(repo *data.SubmissionRepo, taskRepo *data.TaskRepo) *S
 }
 
 func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Submission) error {
-	// 检查是否已存在该用户对该任务的提交
-	existing, err := uc.repo.FindOneByTaskIDAndUserID(ctx, sub.TaskID.Hex(), sub.UserID)
-	if err == nil && existing != nil {
-		// 已存在，返回错误提示应该使用更新接口
-		return errors.New("该任务已提交，请使用更新接口")
+	// 查任务，判断当前用户是否为创建者
+	task, err := uc.taskRepo.FindByID(ctx, sub.TaskID.Hex())
+	if err != nil {
+		return err
+	}
+
+	// 非创建者限制唯一提交
+	if task.UserID != sub.UserID {
+		existing, err := uc.repo.FindOneByTaskIDAndUserID(ctx, sub.TaskID.Hex(), sub.UserID)
+		if err == nil && existing != nil {
+			return errors.New("该任务已提交，请使用更新接口")
+		}
 	}
 
 	sub.Status = "submitted"
