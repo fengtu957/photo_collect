@@ -33,5 +33,8 @@ func (s *QiniuService) GetUploadToken() string {
 }
 
 func (s *QiniuService) GetFileURL(key string) string {
-	return fmt.Sprintf("https://%s/%s", s.domain, key)
+	// 生成私有空间的授权URL，有效期1小时
+	deadline := 3600 // 1小时
+	baseURL := fmt.Sprintf("https://%s/%s", s.domain, key)
+	return storage.MakePrivateURL(s.mac, baseURL, deadline)
 }
