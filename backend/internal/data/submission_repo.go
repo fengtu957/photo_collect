@@ -6,6 +6,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type SubmissionRepo struct {
@@ -24,9 +25,13 @@ func (r *SubmissionRepo) Create(ctx context.Context, sub *Submission) error {
 	return err
 }
 
-func (r *SubmissionRepo) FindByTaskID(ctx context.Context, taskID string) ([]*Submission, error) {
+func (r *SubmissionRepo) FindByTaskID(ctx context.Context, taskID string, page, limit int) ([]*Submission, error) {
 	objID, _ := primitive.ObjectIDFromHex(taskID)
-	cursor, err := r.data.DB().Collection("submissions").Find(ctx, bson.M{"task_id": objID})
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(int64((page - 1) * limit)).
+		SetLimit(int64(limit))
+	cursor, err := r.data.DB().Collection("submissions").Find(ctx, bson.M{"task_id": objID}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -39,12 +44,16 @@ func (r *SubmissionRepo) FindByTaskID(ctx context.Context, taskID string) ([]*Su
 	return subs, nil
 }
 
-func (r *SubmissionRepo) FindByTaskIDAndUserID(ctx context.Context, taskID string, userID string) ([]*Submission, error) {
+func (r *SubmissionRepo) FindByTaskIDAndUserID(ctx context.Context, taskID string, userID string, page, limit int) ([]*Submission, error) {
 	objID, _ := primitive.ObjectIDFromHex(taskID)
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(int64((page - 1) * limit)).
+		SetLimit(int64(limit))
 	cursor, err := r.data.DB().Collection("submissions").Find(ctx, bson.M{
 		"task_id": objID,
 		"user_id": userID,
-	})
+	}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +103,15 @@ func (r *SubmissionRepo) FindByID(ctx context.Context, id string) (*Submission, 
 func (r *SubmissionRepo) CountByTaskID(ctx context.Context, taskID string) (int64, error) {
 	objID, _ := primitive.ObjectIDFromHex(taskID)
 	count, err := r.data.DB().Collection("submissions").CountDocuments(ctx, bson.M{"task_id": objID})
+	return count, err
+}
+
+func (r *SubmissionRepo) CountByTaskIDAndUserID(ctx context.Context, taskID string, userID string) (int64, error) {
+	objID, _ := primitive.ObjectIDFromHex(taskID)
+	count, err := r.data.DB().Collection("submissions").CountDocuments(ctx, bson.M{
+		"task_id": objID,
+		"user_id": userID,
+	})
 	return count, err
 }
 

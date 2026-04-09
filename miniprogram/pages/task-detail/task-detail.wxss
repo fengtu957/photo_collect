@@ -319,3 +319,13 @@
   background: #1989fa;
   color: white;
 }
+
+.load-more {
+  text-align: center;
+  padding: 24rpx 0;
+}
+
+.load-more-text {
+  font-size: 26rpx;
+  color: #999;
+}

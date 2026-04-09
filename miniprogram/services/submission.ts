@@ -22,12 +22,11 @@ export async function submitPhoto(params: SubmitPhotoParams) {
   });
 }
 
-export async function getSubmissions(taskId: string) {
-  return request<Submission[]>(`/tasks/${taskId}/submissions`, { method: 'GET' });
-}
-
-export async function listSubmissions(taskId: string) {
-  return request<Submission[]>(`/tasks/${taskId}/submissions`, { method: 'GET' });
+export async function listSubmissions(taskId: string, page: number = 1, limit: number = 20) {
+  return request<{ list: Submission[], total: number, has_more: boolean }>(
+    `/tasks/${taskId}/submissions?page=${page}&limit=${limit}`,
+    { method: 'GET' }
+  );
 }
 
 export async function getUploadToken() {

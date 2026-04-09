@@ -3,6 +3,8 @@ import { listSubmissions } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime } from '../../utils/time';
 
+const PAGE_SIZE = 20;
+
 Page({
   data: {
     taskId: '',
@@ -12,7 +14,12 @@ Page({
     endTime: '',
     isCreator: false,
     currentUserId: '',
-    mySubmissionId: ''  // 当前用户在该任务中的提交ID
+    mySubmissionId: '',
+    // 分页
+    page: 1,
+    hasMore: true,
+    loadingMore: false,
+    total: 0
   },
 
   onLoad(options: any) {
@@ -22,15 +29,24 @@ Page({
 
   onShow() {
     if (this.data.taskId) {
+      // 刷新时重置到第一页
+      this.setData({ page: 1, submissions: [], hasMore: true });
       this.loadData();
+    }
+  },
+
+  // 滚动到底部自动加载更多
+  onReachBottom() {
+    if (this.data.hasMore && !this.data.loadingMore) {
+      this.loadMoreSubmissions();
     }
   },
 
   async loadData() {
     try {
-      const [task, submissions] = await Promise.all([
+      const [task, result] = await Promise.all([
         getTask(this.data.taskId),
-        listSubmissions(this.data.taskId)
+        listSubmissions(this.data.taskId, 1, PAGE_SIZE)
       ]);
 
       const startTime = task.start_time ? formatTime(String(task.start_time)) : '';
@@ -39,13 +55,13 @@ Page({
       const currentOpenid = wx.getStorageSync('openid') || '';
       const isCreator = task.user_id === currentOpenid;
 
-      const formattedSubmissions = (submissions || []).map((s: any) => ({
+      const list = (result && result.list) || [];
+      const formattedSubmissions = list.map((s: any) => ({
         ...s,
         createdAtFormatted: s.created_at ? formatTime(String(s.created_at)) : ''
       }));
 
-      // 找出当前用户自己的提交ID
-      const mySubmission = (submissions || []).find((s: any) => s.user_id === currentOpenid);
+      const mySubmission = list.find((s: any) => s.user_id === currentOpenid);
 
       this.setData({
         task,
@@ -54,15 +70,43 @@ Page({
         endTime,
         isCreator,
         currentUserId: currentOpenid,
-        mySubmissionId: (mySubmission && mySubmission.id) || ''
+        mySubmissionId: (mySubmission && mySubmission.id) || '',
+        page: 1,
+        total: (result && result.total) || 0,
+        hasMore: (result && result.has_more) || false
       });
     } catch (err: any) {
       showError(err.message || '加载失败');
     }
   },
 
+  async loadMoreSubmissions() {
+    if (!this.data.hasMore || this.data.loadingMore) return;
+
+    const nextPage = this.data.page + 1;
+    this.setData({ loadingMore: true });
+
+    try {
+      const result = await listSubmissions(this.data.taskId, nextPage, PAGE_SIZE);
+      const list = (result && result.list) || [];
+      const more = list.map((s: any) => ({
+        ...s,
+        createdAtFormatted: s.created_at ? formatTime(String(s.created_at)) : ''
+      }));
+
+      this.setData({
+        submissions: [...this.data.submissions, ...more],
+        page: nextPage,
+        hasMore: (result && result.has_more) || false,
+        loadingMore: false
+      });
+    } catch (err: any) {
+      this.setData({ loadingMore: false });
+      showError(err.message || '加载失败');
+    }
+  },
+
   goToUpload() {
-    // 创建者：始终新建；非创建者：有提交则编辑，否则新建
     if (!this.data.isCreator && this.data.mySubmissionId) {
       wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${this.data.mySubmissionId}` });
     } else {

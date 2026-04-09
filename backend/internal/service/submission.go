@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
 type SubmissionService struct {
-	uc      *biz.SubmissionUsecase
+	uc       *biz.SubmissionUsecase
 	qiniuSvc *QiniuService
 }
 
@@ -26,7 +27,6 @@ func (s *SubmissionService) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// 从 context 中获取用户 ID（由 JWT 中间件注入）
 	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok {
 		Error(w, 2001, "unauthorized")
@@ -51,7 +51,6 @@ func (s *SubmissionService) UpdateSubmission(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// 从 context 中获取用户 ID（由 JWT 中间件注入）
 	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok {
 		Error(w, 2004, "unauthorized")
@@ -69,25 +68,34 @@ func (s *SubmissionService) UpdateSubmission(w http.ResponseWriter, r *http.Requ
 func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 	taskID := mux.Vars(r)["taskId"]
 
-	// 从 context 中获取用户 ID（由 JWT 中间件注入）
 	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok {
 		Error(w, 2003, "unauthorized")
 		return
 	}
 
-	subs, err := s.uc.ListSubmissions(context.Background(), taskID, userID)
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	result, err := s.uc.ListSubmissions(context.Background(), taskID, userID, page, limit)
 	if err != nil {
 		Error(w, 2003, err.Error())
 		return
 	}
 
 	// 转换 photo.url 从 key 到完整的签名 URL
-	for i := range subs {
-		if subs[i].Photo.URL != "" {
-			subs[i].Photo.URL = s.qiniuSvc.GetFileURL(subs[i].Photo.URL)
+	for i := range result.List {
+		if result.List[i].Photo.URL != "" {
+			result.List[i].Photo.URL = s.qiniuSvc.GetFileURL(result.List[i].Photo.URL)
 		}
 	}
 
-	Success(w, subs)
+	Success(w, result)
 }
+

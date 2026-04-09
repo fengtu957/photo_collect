@@ -30,7 +30,7 @@
   <!-- 提交列表 -->
   <view class="section-header">
     <text class="section-title">提交记录</text>
-    <text class="section-count">({{submissions.length}})</text>
+    <text class="section-count">({{total}})</text>
   </view>
 
   <view class="empty" wx:if="{{submissions.length === 0}}">
@@ -107,6 +107,14 @@
         <text class="custom-value">{{value}}</text>
       </view>
     </view>
+  </view>
+
+  <!-- 分页状态 -->
+  <view class="load-more" wx:if="{{loadingMore}}">
+    <text class="load-more-text">加载中...</text>
+  </view>
+  <view class="load-more" wx:elif="{{!hasMore && submissions.length > 0}}">
+    <text class="load-more-text">已加载全部</text>
   </view>
 
   <!-- 创建者：双按钮底栏 -->

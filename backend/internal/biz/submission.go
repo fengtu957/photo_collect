@@ -71,18 +71,43 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 	return uc.repo.Update(ctx, id, sub)
 }
 
-func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string, userID string) ([]*data.Submission, error) {
-	// 获取任务信息，判断当前用户是否为创建者
+type SubmissionListResult struct {
+	List    []*data.Submission `json:"list"`
+	Total   int64              `json:"total"`
+	HasMore bool               `json:"has_more"`
+}
+
+func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string, userID string, page, limit int) (*SubmissionListResult, error) {
 	task, err := uc.taskRepo.FindByID(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 如果是任务创建者，返回所有提交
+	var list []*data.Submission
+	var total int64
+
 	if task.UserID == userID {
-		return uc.repo.FindByTaskID(ctx, taskID)
+		// 创建者：返回所有提交
+		list, err = uc.repo.FindByTaskID(ctx, taskID, page, limit)
+		if err != nil {
+			return nil, err
+		}
+		total, err = uc.repo.CountByTaskID(ctx, taskID)
+	} else {
+		// 非创建者：只返回自己的提交
+		list, err = uc.repo.FindByTaskIDAndUserID(ctx, taskID, userID, page, limit)
+		if err != nil {
+			return nil, err
+		}
+		total, err = uc.repo.CountByTaskIDAndUserID(ctx, taskID, userID)
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	// 如果不是创建者，只返回该用户自己的提交
-	return uc.repo.FindByTaskIDAndUserID(ctx, taskID, userID)
+	return &SubmissionListResult{
+		List:    list,
+		Total:   total,
+		HasMore: int64(page*limit) < total,
+	}, nil
 }
