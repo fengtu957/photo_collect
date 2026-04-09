@@ -96,3 +96,18 @@ func (r *SubmissionRepo) CountByTaskID(ctx context.Context, taskID string) (int6
 	count, err := r.data.DB().Collection("submissions").CountDocuments(ctx, bson.M{"task_id": objID})
 	return count, err
 }
+
+// FindDistinctTaskIDsByUserID 查询用户参与过（有提交记录）的所有任务ID（去重）
+func (r *SubmissionRepo) FindDistinctTaskIDsByUserID(ctx context.Context, userID string) ([]primitive.ObjectID, error) {
+	results, err := r.data.DB().Collection("submissions").Distinct(ctx, "task_id", bson.M{"user_id": userID})
+	if err != nil {
+		return nil, err
+	}
+	var ids []primitive.ObjectID
+	for _, v := range results {
+		if oid, ok := v.(primitive.ObjectID); ok {
+			ids = append(ids, oid)
+		}
+	}
+	return ids, nil
+}

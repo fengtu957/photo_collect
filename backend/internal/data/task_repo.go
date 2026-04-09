@@ -54,3 +54,22 @@ func (r *TaskRepo) FindByUserID(ctx context.Context, userID string) ([]*Task, er
 	}
 	return tasks, nil
 }
+
+// FindByIDs 按多个ID批量查询任务，按创建时间倒序
+func (r *TaskRepo) FindByIDs(ctx context.Context, ids []primitive.ObjectID) ([]*Task, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.data.DB().Collection("tasks").Find(ctx, bson.M{"_id": bson.M{"$in": ids}}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var tasks []*Task
+	if err := cursor.All(ctx, &tasks); err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
