@@ -1,13 +1,13 @@
 <scroll-view scroll-y style="height: 100vh;">
   <view class="list">
-    <view class="card" wx:for="{{tasks}}" wx:key="id">
+    <view class="card" wx:for="{{tasks}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
       <view class="card-top">
         <text class="card-title">{{item.title}}</text>
       </view>
       <view class="card-mid">
         <text class="card-line">规格：{{item.description}}</text>
-        <text class="card-line">创建日期：{{item.created_at}}</text>
-        <text class="card-line">截止日期：{{item.end_time}}</text>
+        <text class="card-line">创建日期：{{item.created_at_formatted}}</text>
+        <text class="card-line">截止日期：{{item.end_time_formatted}}</text>
       </view>
       <view class="card-bot">
         <text class="card-count">👥 {{item.stats.total_submissions || 0}}</text>

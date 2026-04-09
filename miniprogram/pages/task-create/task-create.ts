@@ -1,9 +1,6 @@
 import { createTask } from '../../services/task';
 import { showError, showSuccess } from '../../utils/request';
-
-function toRFC3339(date: string, time: string) {
-  return `${date}T${time || '00:00'}:00+08:00`;
-}
+import { toRFC3339 } from '../../utils/time';
 
 Page({
   data: {

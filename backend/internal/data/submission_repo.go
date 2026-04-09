@@ -38,3 +38,21 @@ func (r *SubmissionRepo) FindByTaskID(ctx context.Context, taskID string) ([]*Su
 	}
 	return subs, nil
 }
+
+func (r *SubmissionRepo) FindByTaskIDAndUserID(ctx context.Context, taskID string, userID string) ([]*Submission, error) {
+	objID, _ := primitive.ObjectIDFromHex(taskID)
+	cursor, err := r.data.DB().Collection("submissions").Find(ctx, bson.M{
+		"task_id": objID,
+		"user_id": userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var subs []*Submission
+	if err := cursor.All(ctx, &subs); err != nil {
+		return nil, err
+	}
+	return subs, nil
+}

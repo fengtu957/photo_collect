@@ -34,7 +34,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		claims := token.Claims.(jwt.MapClaims)
 		openID := claims["openid"].(string)
 
-		r.Header.Set("X-User-ID", openID)
 		ctx := context.WithValue(r.Context(), UserIDKey, openID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

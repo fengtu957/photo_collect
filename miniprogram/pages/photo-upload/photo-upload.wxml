@@ -1,8 +1,94 @@
-<view class="container">
-  <view class="preview" wx:if="{{photoPath}}">
-    <image class="photo" src="{{photoPath}}" mode="aspectFit" />
+<view class="page">
+  <!-- 任务信息 -->
+  <view class="card" wx:if="{{task}}">
+    <view class="card-title">{{task.title}}</view>
+    <view class="card-desc" wx:if="{{task.description}}">{{task.description}}</view>
+    <view class="spec-info">
+      <text class="spec-label">照片规格：</text>
+      <text class="spec-value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
+    </view>
   </view>
 
-  <button class="choose-btn" bindtap="choosePhoto">选择照片</button>
-  <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath}}">提交</button>
+  <!-- 照片预览 -->
+  <view class="section">
+    <view class="section-title">上传照片</view>
+    <view class="preview" wx:if="{{photoPath}}">
+      <image class="photo" src="{{photoPath}}" mode="aspectFit" />
+    </view>
+    <view class="empty-preview" wx:else>
+      <text class="empty-text">请选择照片</text>
+    </view>
+    <button class="choose-btn" bindtap="choosePhoto">
+      {{photoPath ? '重新选择' : '选择照片'}}
+    </button>
+  </view>
+
+  <!-- 自定义字段 -->
+  <view class="section" wx:if="{{task && task.custom_fields && task.custom_fields.length > 0}}">
+    <view class="section-title">填写信息</view>
+    <view class="card">
+      <view class="field-item" wx:for="{{task.custom_fields}}" wx:key="id">
+        <view class="field-label">
+          <text>{{item.label}}</text>
+          <text class="required" wx:if="{{item.required}}">*</text>
+        </view>
+
+        <!-- 文本输入 -->
+        <input
+          wx:if="{{item.type === 'text'}}"
+          class="input"
+          placeholder="{{item.placeholder || '请输入' + item.label}}"
+          data-field="{{item.id}}"
+          bindinput="onCustomFieldInput"
+          adjust-position="{{false}}"
+        />
+
+        <!-- 数字输入 -->
+        <input
+          wx:if="{{item.type === 'number'}}"
+          class="input"
+          type="number"
+          placeholder="{{item.placeholder || '请输入' + item.label}}"
+          data-field="{{item.id}}"
+          bindinput="onCustomFieldInput"
+          adjust-position="{{false}}"
+        />
+
+        <!-- 单选 -->
+        <picker
+          wx:if="{{item.type === 'select'}}"
+          mode="selector"
+          range="{{item.options}}"
+          data-field="{{item.id}}"
+          bindchange="onCustomFieldChange"
+        >
+          <view class="picker">
+            <text class="picker-text">{{customData[item.id] || '请选择' + item.label}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+
+        <!-- 多选 -->
+        <picker
+          wx:if="{{item.type === 'multiselect'}}"
+          mode="multiSelector"
+          range="{{item.options}}"
+          data-field="{{item.id}}"
+          bindchange="onCustomFieldChange"
+        >
+          <view class="picker">
+            <text class="picker-text">{{customData[item.id] || '请选择' + item.label}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="footer">
+    <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath}}">
+      提交
+    </button>
+  </view>
 </view>

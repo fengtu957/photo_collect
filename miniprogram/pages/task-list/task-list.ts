@@ -1,13 +1,6 @@
 import { listTasks } from '../../services/task';
 import { showError } from '../../utils/request';
-
-function formatTime(iso: string) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import { formatTime } from '../../utils/time';
 
 Page({
   data: { tasks: [] as any[] },
@@ -20,9 +13,9 @@ Page({
       const tasks = await listTasks();
       const formatted = (tasks || []).map((t: any) => ({
         ...t,
-        created_at: formatTime(t.created_at),
-        end_time: formatTime(t.end_time),
-        start_time: formatTime(t.start_time),
+        created_at_formatted: formatTime(String(t.created_at)),
+        end_time_formatted: formatTime(String(t.end_time)),
+        start_time_formatted: formatTime(String(t.start_time)),
       }));
       this.setData({ tasks: formatted });
     } catch (err: any) {

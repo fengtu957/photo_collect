@@ -25,7 +25,12 @@ func (s *TaskService) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Header.Get("X-User-ID")
+	// 从 context 中获取用户 ID（由 JWT 中间件注入）
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1002, "unauthorized")
+		return
+	}
 	task.UserID = userID
 
 	if err := s.uc.CreateTask(context.Background(), &task); err != nil {
@@ -48,7 +53,13 @@ func (s *TaskService) GetTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *TaskService) ListTasks(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	// 从 context 中获取用户 ID（由 JWT 中间件注入）
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1005, "unauthorized")
+		return
+	}
+
 	tasks, err := s.uc.ListTasks(context.Background(), userID)
 	if err != nil {
 		Error(w, 1005, err.Error())

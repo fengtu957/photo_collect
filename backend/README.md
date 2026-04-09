@@ -28,12 +28,34 @@ go run cmd/server/main.go
 
 ## API 测试
 
+### 登录获取 Token
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "mock-code"
+  }'
+```
+
+返回示例：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "openid": "oABC123..."
+  }
+}
+```
+
 ### 创建任务
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -H "X-User-ID: test-user" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
     "title": "测试任务",
     "description": "这是一个测试任务",
@@ -52,7 +74,7 @@ curl -X POST http://localhost:8000/api/v1/tasks \
 
 ```bash
 curl http://localhost:8000/api/v1/tasks \
-  -H "X-User-ID: test-user"
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ### 查询任务详情

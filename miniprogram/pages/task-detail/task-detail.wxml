@@ -1,20 +1,116 @@
-<view class="container">
-  <view class="task-info">
-    <text class="title">{{task.title}}</text>
-    <text class="desc">{{task.description}}</text>
-    <text class="deadline">截止时间: {{task.deadline}}</text>
+<view class="page">
+  <!-- 任务信息卡片 -->
+  <view class="card" wx:if="{{task}}">
+    <view class="card-title">{{task.title}}</view>
+    <view class="card-desc" wx:if="{{task.description}}">{{task.description}}</view>
+
+    <view class="divider"></view>
+
+    <view class="info-row">
+      <text class="label">照片规格：</text>
+      <text class="value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
+    </view>
+
+    <view class="info-row">
+      <text class="label">开始时间：</text>
+      <text class="value">{{startTime}}</text>
+    </view>
+
+    <view class="info-row">
+      <text class="label">截止时间：</text>
+      <text class="value">{{endTime}}</text>
+    </view>
+
+    <view class="info-row" wx:if="{{task.custom_fields && task.custom_fields.length > 0}}">
+      <text class="label">自定义字段：</text>
+      <text class="value">{{task.custom_fields.length}}个</text>
+    </view>
   </view>
 
-  <view class="submissions">
-    <text class="section-title">提交列表</text>
-    <view class="submission-item" wx:for="{{submissions}}" wx:key="id">
-      <image class="photo" src="{{item.photoUrl}}" mode="aspectFill" />
-      <view class="info">
-        <text class="status">{{item.status === 'approved' ? '已通过' : item.status === 'rejected' ? '未通过' : '待审核'}}</text>
-        <text class="feedback" wx:if="{{item.feedback}}">{{item.feedback}}</text>
+  <!-- 提交列表 -->
+  <view class="section-header">
+    <text class="section-title">提交记录</text>
+    <text class="section-count">({{submissions.length}})</text>
+  </view>
+
+  <view class="empty" wx:if="{{submissions.length === 0}}">
+    <text class="empty-text">暂无提交记录</text>
+  </view>
+
+  <view class="submission-card" wx:for="{{submissions}}" wx:key="id">
+    <view class="submission-header">
+      <image class="avatar" src="{{item.user_info.avatar_url}}" mode="aspectFill" />
+      <view class="user-info">
+        <text class="nickname">{{item.user_info.nick_name}}</text>
+        <text class="time">{{item.createdAtFormatted}}</text>
+      </view>
+      <view class="status-badge status-{{item.status}}">
+        {{item.status === 'submitted' ? '已提交' : item.status === 'rejected' ? '已拒绝' : '草稿'}}
+      </view>
+    </view>
+
+    <view class="ai-evaluation" wx:if="{{item.ai_evaluation && item.ai_evaluation.status === 'success'}}">
+      <view class="score-row">
+        <text class="score-label">AI评分：</text>
+        <text class="score-value">{{item.ai_evaluation.score}}</text>
+      </view>
+
+      <view class="breakdown" wx:if="{{item.ai_evaluation.breakdown}}">
+        <view class="breakdown-item">
+          <text class="breakdown-label">清晰度</text>
+          <text class="breakdown-value">{{item.ai_evaluation.breakdown.clarity}}</text>
+        </view>
+        <view class="breakdown-item">
+          <text class="breakdown-label">光线</text>
+          <text class="breakdown-value">{{item.ai_evaluation.breakdown.lighting}}</text>
+        </view>
+        <view class="breakdown-item">
+          <text class="breakdown-label">角度</text>
+          <text class="breakdown-value">{{item.ai_evaluation.breakdown.angle}}</text>
+        </view>
+        <view class="breakdown-item">
+          <text class="breakdown-label">背景</text>
+          <text class="breakdown-value">{{item.ai_evaluation.breakdown.background}}</text>
+        </view>
+        <view class="breakdown-item">
+          <text class="breakdown-label">表情</text>
+          <text class="breakdown-value">{{item.ai_evaluation.breakdown.expression}}</text>
+        </view>
+        <view class="breakdown-item">
+          <text class="breakdown-label">构图</text>
+          <text class="breakdown-value">{{item.ai_evaluation.breakdown.composition}}</text>
+        </view>
+      </view>
+
+      <view class="issues" wx:if="{{item.ai_evaluation.issues && item.ai_evaluation.issues.length > 0}}">
+        <text class="issues-title">问题：</text>
+        <text class="issue-item" wx:for="{{item.ai_evaluation.issues}}" wx:key="*this" wx:for-item="issue">• {{issue}}</text>
+      </view>
+
+      <view class="suggestions" wx:if="{{item.ai_evaluation.suggestions && item.ai_evaluation.suggestions.length > 0}}">
+        <text class="suggestions-title">建议：</text>
+        <text class="suggestion-item" wx:for="{{item.ai_evaluation.suggestions}}" wx:key="*this" wx:for-item="suggestion">• {{suggestion}}</text>
+      </view>
+    </view>
+
+    <view class="ai-evaluation" wx:if="{{item.ai_evaluation && item.ai_evaluation.status === 'pending'}}">
+      <text class="ai-pending">AI评估中...</text>
+    </view>
+
+    <view class="ai-evaluation" wx:if="{{item.ai_evaluation && item.ai_evaluation.status === 'failed'}}">
+      <text class="ai-error">AI评估失败：{{item.ai_evaluation.error}}</text>
+    </view>
+
+    <view class="custom-data" wx:if="{{item.custom_data}}">
+      <view class="custom-item" wx:for="{{item.custom_data}}" wx:key="*this" wx:for-item="value" wx:for-index="key">
+        <text class="custom-label">{{key}}：</text>
+        <text class="custom-value">{{value}}</text>
       </view>
     </view>
   </view>
 
-  <button class="upload-btn" bindtap="goToUpload">上传照片</button>
+  <!-- 上传按钮 -->
+  <view class="fab" bindtap="goToUpload">
+    <text>上传照片</text>
+  </view>
 </view>

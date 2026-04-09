@@ -1,74 +1,279 @@
-.container {
+/* 页面容器 */
+.page {
   padding: 20rpx;
+  background: #f5f5f5;
+  min-height: 100vh;
+  padding-bottom: 120rpx;
 }
 
-.task-info {
+/* 卡片样式 */
+.card {
   background: white;
+  border-radius: 12rpx;
   padding: 24rpx;
-  border-radius: 8rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
+  border: 1rpx solid #eee;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 }
 
-.title {
+.card-title {
   font-size: 36rpx;
   font-weight: bold;
-  display: block;
+  color: #333;
   margin-bottom: 12rpx;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
-.desc {
+.card-desc {
   font-size: 28rpx;
   color: #666;
-  display: block;
-  margin-bottom: 12rpx;
+  line-height: 1.6;
+  margin-bottom: 16rpx;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
-.deadline {
-  font-size: 24rpx;
+/* 分隔线 */
+.divider {
+  border-bottom: 1rpx solid #f5f5f5;
+  padding-bottom: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+/* 信息行 */
+.info-row {
+  display: flex;
+  margin-bottom: 12rpx;
+  font-size: 28rpx;
+}
+
+.info-row .label {
   color: #999;
-  display: block;
+  min-width: 160rpx;
+}
+
+.info-row .value {
+  color: #333;
+  flex: 1;
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+/* 章节标题 */
+.section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
 }
 
 .section-title {
   font-size: 32rpx;
   font-weight: bold;
-  display: block;
-  margin-bottom: 16rpx;
+  color: #333;
 }
 
-.submission-item {
-  display: flex;
-  background: white;
-  padding: 20rpx;
-  border-radius: 8rpx;
-  margin-bottom: 16rpx;
-}
-
-.photo {
-  width: 120rpx;
-  height: 160rpx;
-  border-radius: 8rpx;
-  margin-right: 20rpx;
-}
-
-.info {
-  flex: 1;
-}
-
-.status {
+.section-count {
   font-size: 28rpx;
+  color: #999;
+  margin-left: 8rpx;
+}
+
+/* 空状态 */
+.empty {
+  background: white;
+  border-radius: 12rpx;
+  padding: 80rpx 24rpx;
+  text-align: center;
+  border: 1rpx solid #eee;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 提交卡片 */
+.submission-card {
+  background: white;
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  border: 1rpx solid #eee;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+}
+
+.submission-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.avatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  margin-right: 16rpx;
+}
+
+.user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.nickname {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: bold;
+  margin-bottom: 4rpx;
+}
+
+.time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.status-badge {
+  padding: 8rpx 16rpx;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+}
+
+.status-submitted {
+  background: #e8f4ff;
+  color: #1989fa;
+}
+
+.status-rejected {
+  background: #ffe8e8;
+  color: #ff4444;
+}
+
+.status-draft {
+  background: #f5f5f5;
+  color: #999;
+}
+
+/* AI评估 */
+.ai-evaluation {
+  background: #f8f9fa;
+  border-radius: 8rpx;
+  padding: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.score-label {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.score-value {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #1989fa;
+  margin-left: 8rpx;
+}
+
+.breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.breakdown-item {
+  flex: 0 0 calc(33.333% - 8rpx);
+  background: white;
+  border-radius: 6rpx;
+  padding: 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.breakdown-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 4rpx;
+}
+
+.breakdown-value {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.issues, .suggestions {
+  margin-top: 12rpx;
+}
+
+.issues-title, .suggestions-title {
+  font-size: 26rpx;
+  color: #666;
+  font-weight: bold;
   display: block;
   margin-bottom: 8rpx;
 }
 
-.feedback {
+.issue-item, .suggestion-item {
   font-size: 24rpx;
   color: #666;
   display: block;
+  margin-bottom: 4rpx;
+  line-height: 1.5;
 }
 
-.upload-btn {
-  background: #07c160;
+.ai-pending {
+  font-size: 26rpx;
+  color: #ff9500;
+}
+
+.ai-error {
+  font-size: 26rpx;
+  color: #ff4444;
+}
+
+/* 自定义数据 */
+.custom-data {
+  border-top: 1rpx solid #f5f5f5;
+  padding-top: 16rpx;
+}
+
+.custom-item {
+  display: flex;
+  margin-bottom: 8rpx;
+  font-size: 26rpx;
+}
+
+.custom-label {
+  color: #999;
+  min-width: 120rpx;
+}
+
+.custom-value {
+  color: #333;
+  flex: 1;
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+/* 悬浮按钮 */
+.fab {
+  position: fixed;
+  bottom: 40rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1989fa;
   color: white;
-  margin-top: 20rpx;
+  padding: 24rpx 60rpx;
+  border-radius: 60rpx;
+  font-size: 32rpx;
+  box-shadow: 0 8rpx 24rpx rgba(25,137,250,0.4);
 }
