@@ -1,8 +1,8 @@
 package service
 
 import (
-	"fmt"
 	"os"
+	"time"
 
 	"github.com/qiniu/go-sdk/v7/auth/qbox"
 	"github.com/qiniu/go-sdk/v7/storage"
@@ -34,7 +34,6 @@ func (s *QiniuService) GetUploadToken() string {
 
 func (s *QiniuService) GetFileURL(key string) string {
 	// 生成私有空间的授权URL，有效期1小时
-	deadline := int64(3600) // 1小时（秒）
-	baseURL := fmt.Sprintf("https://%s/%s", s.domain, key)
-	return storage.MakePrivateURLv2(s.mac, baseURL, deadline)
+	deadline := time.Now().Add(time.Hour).Unix() // 1小时（秒）
+	return storage.MakePrivateURLv2(s.mac, s.domain, key, deadline)
 }

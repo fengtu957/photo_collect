@@ -90,3 +90,9 @@ func (r *SubmissionRepo) FindByID(ctx context.Context, id string) (*Submission, 
 	}
 	return &sub, nil
 }
+
+func (r *SubmissionRepo) CountByTaskID(ctx context.Context, taskID string) (int64, error) {
+	objID, _ := primitive.ObjectIDFromHex(taskID)
+	count, err := r.data.DB().Collection("submissions").CountDocuments(ctx, bson.M{"task_id": objID})
+	return count, err
+}

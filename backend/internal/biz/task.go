@@ -6,11 +6,12 @@ import (
 )
 
 type TaskUsecase struct {
-	repo *data.TaskRepo
+	repo    *data.TaskRepo
+	subRepo *data.SubmissionRepo
 }
 
-func NewTaskUsecase(repo *data.TaskRepo) *TaskUsecase {
-	return &TaskUsecase{repo: repo}
+func NewTaskUsecase(repo *data.TaskRepo, subRepo *data.SubmissionRepo) *TaskUsecase {
+	return &TaskUsecase{repo: repo, subRepo: subRepo}
 }
 
 func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
@@ -24,5 +25,18 @@ func (uc *TaskUsecase) GetTask(ctx context.Context, id string) (*data.Task, erro
 }
 
 func (uc *TaskUsecase) ListTasks(ctx context.Context, userID string) ([]*data.Task, error) {
-	return uc.repo.FindByUserID(ctx, userID)
+	tasks, err := uc.repo.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 动态计算每个任务的提交数量
+	for _, task := range tasks {
+		count, err := uc.subRepo.CountByTaskID(ctx, task.ID.Hex())
+		if err == nil {
+			task.Stats.TotalSubmissions = int(count)
+		}
+	}
+
+	return tasks, nil
 }
