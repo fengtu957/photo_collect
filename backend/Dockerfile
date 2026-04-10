@@ -5,16 +5,16 @@ ENV CGO_ENABLED=0
 
 COPY . ./
 RUN ls -al && \ 
-    cd backend && \
-     go mod download && \
-     go build -o ./bin/server ./cmd/server
+    mkdir ./bin && \
+    go mod download && \
+    go build -o /server ./cmd/server
 
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
-COPY --from=builder /app/bin/server ./server
+COPY --from=builder /server ./server
 
 EXPOSE 8000
 
