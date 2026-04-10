@@ -1,4 +1,4 @@
-const BASE_URL = 'http://192.168.31.154:8000/api/v1';
+const BASE_URL = 'https://photo-collect.starpix.cn/api/v1';
 
 interface ApiResponse<T> {
   code: number;

@@ -13,10 +13,6 @@ import (
 
 func main() {
 	mongoURI := os.Getenv("MONGODB_URI")
-	if mongoURI == "" {
-		mongoURI = "mongodb://root:QU8p10Vs3A5r2MqD@47.108.149.4:30017/photo?authSource=admin&replicaSet=rs0&retryWrites=false"
-	}
-
 	d, err := data.NewData(mongoURI)
 	if err != nil {
 		log.Fatal(err)

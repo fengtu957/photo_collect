@@ -18,12 +18,35 @@
   height: 100%;
 }
 
-.mask-layer {
+.overlay {
   position: absolute;
+  left: 0;
+  z-index: 12;
+  background: rgba(0,0,0,0.52);
+}
+
+.overlay-top {
   top: 0;
+  width: 100%;
+}
+
+.overlay-bottom {
+  position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 12;
+  background: rgba(0,0,0,0.52);
+}
+
+.crop-window {
+  position: absolute;
+  z-index: 14;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.window-guide {
   width: 100%;
   height: 100%;
 }
@@ -140,4 +163,12 @@
 .preview-btn-primary {
   background: #07c160;
   color: #fff;
+}
+
+.crop-canvas {
+  position: fixed;
+  left: -2000px;
+  top: -2000px;
+  width: 590px;
+  height: 826px;
 }
