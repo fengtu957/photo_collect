@@ -14,6 +14,7 @@ function validateTaskForm(form: any): string {
   const photoSpecName = String(photoSpec.name || '').trim();
   const width = Number(photoSpec.width || 0);
   const height = Number(photoSpec.height || 0);
+  const maxSizeKB = Number(photoSpec.max_size_kb || 0);
   const hasPhotoSpecInput = !!photoSpecName || width > 0 || height > 0;
 
   if (!title) {
@@ -38,6 +39,9 @@ function validateTaskForm(form: any): string {
     if (width <= 0 || height <= 0) {
       return '照片规格宽高必须大于 0';
     }
+  }
+  if (maxSizeKB < 0) {
+    return '文件大小限制不能小于 0';
   }
 
   return '';
@@ -68,7 +72,7 @@ Page({
     form: {
       title: '',
       description: '',
-      photo_spec: { name: '', width: 0, height: 0 },
+      photo_spec: { name: '', width: 0, height: 0, max_size_kb: 0 },
       start_time: '',
       end_time: '',
       custom_fields: [] as any[]
@@ -115,7 +119,8 @@ Page({
           photo_spec: {
             name: (task.photo_spec && task.photo_spec.name) || '',
             width: Number((task.photo_spec && task.photo_spec.width) || 0),
-            height: Number((task.photo_spec && task.photo_spec.height) || 0)
+            height: Number((task.photo_spec && task.photo_spec.height) || 0),
+            max_size_kb: Number((task.photo_spec && task.photo_spec.max_size_kb) || 0)
           },
           start_time: isEffectiveTime(task.start_time) ? task.start_time : '',
           end_time: isEffectiveTime(task.end_time) ? task.end_time : '',
@@ -135,7 +140,7 @@ Page({
     const field = e.currentTarget.dataset.field;
     const value = e.detail.value;
     this.setData({
-      [`form.photo_spec.${field}`]: field === 'width' || field === 'height'
+      [`form.photo_spec.${field}`]: field === 'width' || field === 'height' || field === 'max_size_kb'
         ? Number(value || 0)
         : value
     });

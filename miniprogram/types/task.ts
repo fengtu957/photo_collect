@@ -3,6 +3,7 @@ export interface PhotoSpec {
   width: number;
   height: number;
   dpi?: number;
+  max_size_kb?: number;
 }
 
 export interface CustomField {

@@ -28,6 +28,12 @@
           <input class="input" type="number" placeholder="35" bindinput="onSpecInput" data-field="height" value="{{form.photo_spec.height}}" adjust-position="{{false}}" />
         </view>
       </view>
+      <view class="row">
+        <view class="row-item">
+          <text class="sub-label">大小限制(K)</text>
+          <input class="input" type="number" placeholder="0表示不限制" bindinput="onSpecInput" data-field="max_size_kb" value="{{form.photo_spec.max_size_kb}}" adjust-position="{{false}}" />
+        </view>
+      </view>
     </view>
 
     <view class="section">

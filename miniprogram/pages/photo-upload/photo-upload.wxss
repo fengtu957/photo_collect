@@ -59,6 +59,22 @@
   color: #ff9500;
 }
 
+.photo-size-tip {
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  background: #fff7e6;
+  border: 1rpx solid #ffe2b3;
+}
+
+.photo-size-tip-text {
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: #b86a00;
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
 /* 章节 */
 .section {
   margin-bottom: 16rpx;

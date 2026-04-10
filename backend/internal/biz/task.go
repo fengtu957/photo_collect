@@ -18,7 +18,20 @@ func NewTaskUsecase(repo *data.TaskRepo, subRepo *data.SubmissionRepo) *TaskUsec
 	return &TaskUsecase{repo: repo, subRepo: subRepo}
 }
 
+func validateTask(task *data.Task) error {
+	if task == nil {
+		return errors.New("任务不能为空")
+	}
+	if task.PhotoSpec.MaxSizeKB < 0 {
+		return errors.New("文件大小限制不能小于 0")
+	}
+	return nil
+}
+
 func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
+	if err := validateTask(task); err != nil {
+		return err
+	}
 	task.Enabled = true
 	task.Stats = data.TaskStats{TotalSubmissions: 0}
 	return uc.repo.Create(ctx, task)
@@ -41,6 +54,9 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	task.Enabled = existing.Enabled
 	task.Stats = existing.Stats
 	task.CreatedAt = existing.CreatedAt
+	if err := validateTask(task); err != nil {
+		return err
+	}
 
 	return uc.repo.Update(ctx, id, task)
 }

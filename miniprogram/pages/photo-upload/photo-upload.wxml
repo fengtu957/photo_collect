@@ -7,6 +7,10 @@
       <text class="spec-label">照片规格：</text>
       <text class="spec-value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
     </view>
+    <view class="spec-info" wx:if="{{task.photo_spec.max_size_kb > 0}}">
+      <text class="spec-label">大小限制：</text>
+      <text class="spec-value">{{task.photo_spec.max_size_kb}}K，超出会自动压缩</text>
+    </view>
     <view class="task-status" wx:if="{{taskStatusText}}">
       <text class="task-status-text">{{taskStatusText}}</text>
     </view>
@@ -24,6 +28,9 @@
     <button class="choose-btn" bindtap="choosePhoto" disabled="{{!!taskUnavailableMessage}}">
       {{photoPath ? '重新选择' : '选择照片'}}
     </button>
+    <view class="photo-size-tip" wx:if="{{task && task.photo_spec && task.photo_spec.max_size_kb > 0}}">
+      <text class="photo-size-tip-text">当前任务限制 {{task.photo_spec.max_size_kb}}K，超出后会自动压缩，仍超出则无法提交。</text>
+    </view>
   </view>
 
   <!-- 自定义字段 -->

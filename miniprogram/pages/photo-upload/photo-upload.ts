@@ -5,6 +5,8 @@ import { showError, showSuccess, showLoading, hideLoading } from '../../utils/re
 import { isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
 
+const COMPRESS_QUALITY_STEPS = [90, 80, 70, 60, 50, 40, 30, 20];
+
 function isRemoteUrl(path: string): boolean {
   return path.indexOf('http://') === 0 || path.indexOf('https://') === 0;
 }
@@ -102,6 +104,51 @@ function buildMultiSelectState(task: any, customData: Record<string, any>): Reco
   return state;
 }
 
+function getLocalFileInfo(filePath: string): Promise<WechatMiniprogram.GetFileInfoSuccessCallbackResult> {
+  return new Promise((resolve, reject) => {
+    wx.getFileInfo({
+      filePath,
+      success: resolve,
+      fail: reject
+    });
+  });
+}
+
+function getLocalImageInfo(filePath: string): Promise<WechatMiniprogram.GetImageInfoSuccessCallbackResult> {
+  return new Promise((resolve, reject) => {
+    wx.getImageInfo({
+      src: filePath,
+      success: resolve,
+      fail: reject
+    });
+  });
+}
+
+function compressImage(filePath: string, quality: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    wx.compressImage({
+      src: filePath,
+      quality,
+      success: (res) => resolve(res.tempFilePath),
+      fail: reject
+    });
+  });
+}
+
+async function getPhotoMeta(filePath: string) {
+  const [fileInfo, imageInfo] = await Promise.all([
+    getLocalFileInfo(filePath),
+    getLocalImageInfo(filePath)
+  ]);
+
+  return {
+    filePath,
+    fileSize: Number(fileInfo.size || 0),
+    width: Number(imageInfo.width || 0),
+    height: Number(imageInfo.height || 0)
+  };
+}
+
 Page({
   data: {
     taskId: '',
@@ -111,6 +158,7 @@ Page({
     taskUnavailableMessage: '',
     photoPath: '',
     photoKey: '',
+    photoMeta: { fileSize: 0, width: 0, height: 0 },
     customData: {} as Record<string, any>,
     multiSelectState: {} as Record<string, Record<string, boolean>>,
     isEditMode: false
@@ -169,7 +217,12 @@ Page({
         customData: normalizedCustomData,
         multiSelectState: buildMultiSelectState(this.data.task, normalizedCustomData),
         photoPath: photoUrl,
-        photoKey: extractFileKey(photoUrl)
+        photoKey: extractFileKey(photoUrl),
+        photoMeta: {
+          fileSize: Number((submission.photo && submission.photo.file_size) || 0),
+          width: Number((submission.photo && submission.photo.width) || 0),
+          height: Number((submission.photo && submission.photo.height) || 0)
+        }
       });
     } catch (err: any) {
       showError(err.message || '加载提交数据失败');
@@ -209,7 +262,8 @@ Page({
           if (!data || !data.tempFilePath) return;
           this.setData({
             photoPath: data.tempFilePath,
-            photoKey: ''
+            photoKey: '',
+            photoMeta: { fileSize: 0, width: 0, height: 0 }
           });
         }
       }
@@ -225,7 +279,8 @@ Page({
       success: (res) => {
         this.setData({
           photoPath: res.tempFiles[0].tempFilePath,
-          photoKey: ''
+          photoKey: '',
+          photoMeta: { fileSize: 0, width: 0, height: 0 }
         });
       }
     });
@@ -294,10 +349,15 @@ Page({
       return;
     }
 
-    showLoading('上传中...');
+    showLoading('处理照片中...');
 
-    // 1. 获取上传token
-    getUploadToken().then(({ token }) => {
+    this.preparePhotoForUpload(this.data.photoPath).then((preparedPhoto) => {
+      showLoading('上传中...');
+      return getUploadToken().then(({ token }) => ({
+        token,
+        preparedPhoto
+      }));
+    }).then(({ token, preparedPhoto }) => {
       const openid = wx.getStorageSync('openid') || 'unknown';
       const timestamp = Date.now();
       const random = Math.floor(Math.random() * 10000);
@@ -306,7 +366,7 @@ Page({
       // 2. 上传到七牛云
       wx.uploadFile({
         url: 'https://up-z2.qiniup.com',
-        filePath: this.data.photoPath,
+        filePath: preparedPhoto.filePath,
         name: 'file',
         formData: { token, key },
         success: (uploadRes) => {
@@ -319,7 +379,7 @@ Page({
           }
 
           // 3. 提交到后端
-          this.saveSubmission(key);
+          this.saveSubmission(key, preparedPhoto);
         },
         fail: (err) => {
           console.error('七牛云上传失败:', err);
@@ -329,16 +389,51 @@ Page({
       });
     }).catch((err: any) => {
       hideLoading();
-      showError(err.message || '获取上传凭证失败');
+      showError(err.message || '照片处理失败');
     });
   },
 
-  saveSubmission(photoKey: string) {
+  async preparePhotoForUpload(filePath: string) {
+    const limitKB = Number((this.data.task && this.data.task.photo_spec && this.data.task.photo_spec.max_size_kb) || 0);
+    const limitBytes = limitKB > 0 ? limitKB * 1024 : 0;
+    let photoMeta = await getPhotoMeta(filePath);
+
+    if (limitBytes > 0 && photoMeta.fileSize > limitBytes) {
+      for (const quality of COMPRESS_QUALITY_STEPS) {
+        const compressedPath = await compressImage(filePath, quality);
+        photoMeta = await getPhotoMeta(compressedPath);
+        if (photoMeta.fileSize <= limitBytes) {
+          break;
+        }
+      }
+
+      if (photoMeta.fileSize > limitBytes) {
+        throw new Error('自动压缩后仍超过大小限制');
+      }
+    }
+
+    this.setData({
+      photoPath: photoMeta.filePath,
+      photoMeta: {
+        fileSize: photoMeta.fileSize,
+        width: photoMeta.width,
+        height: photoMeta.height
+      }
+    });
+
+    return photoMeta;
+  },
+
+  saveSubmission(photoKey: string, preparedPhoto?: any) {
     const customData = normalizeCustomData(this.data.task, this.data.customData);
+    const photoMeta = preparedPhoto || this.data.photoMeta || {};
     const params = {
       task_id: this.data.taskId,
       photo: {
-        url: photoKey
+        url: photoKey,
+        file_size: Number(photoMeta.fileSize || 0),
+        width: Number(photoMeta.width || 0),
+        height: Number(photoMeta.height || 0)
       },
       custom_data: customData
     };

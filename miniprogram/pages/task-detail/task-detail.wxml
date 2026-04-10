@@ -14,6 +14,11 @@
       <text class="value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
     </view>
 
+    <view class="info-row" wx:if="{{task.photo_spec.max_size_kb > 0}}">
+      <text class="label">大小限制：</text>
+      <text class="value">{{task.photo_spec.max_size_kb}}K，超出自动压缩</text>
+    </view>
+
     <view class="info-row">
       <text class="label">开始时间：</text>
       <text class="value">{{startTime}}</text>

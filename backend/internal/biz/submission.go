@@ -37,6 +37,20 @@ func validateTaskAvailableForSubmission(task *data.Task) error {
 	return nil
 }
 
+func validateSubmissionPhoto(task *data.Task, sub *data.Submission) error {
+	if task == nil || sub == nil {
+		return nil
+	}
+	if task.PhotoSpec.MaxSizeKB <= 0 {
+		return nil
+	}
+	limitBytes := int64(task.PhotoSpec.MaxSizeKB) * 1024
+	if sub.Photo.FileSize > 0 && sub.Photo.FileSize > limitBytes {
+		return errors.New("照片大小超过任务限制")
+	}
+	return nil
+}
+
 func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Submission) error {
 	// 查任务，判断当前用户是否为创建者
 	task, err := uc.taskRepo.FindByID(ctx, sub.TaskID.Hex())
@@ -53,6 +67,9 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 		if err == nil && existing != nil {
 			return errors.New("该任务已提交，请使用更新接口")
 		}
+	}
+	if err := validateSubmissionPhoto(task, sub); err != nil {
+		return err
 	}
 
 	sub.Status = "submitted"
@@ -89,6 +106,18 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 	sub.TaskID = existing.TaskID
 	sub.UserID = existing.UserID
 	sub.CreatedAt = existing.CreatedAt
+	if sub.Photo.FileSize == 0 {
+		sub.Photo.FileSize = existing.Photo.FileSize
+	}
+	if sub.Photo.Width == 0 {
+		sub.Photo.Width = existing.Photo.Width
+	}
+	if sub.Photo.Height == 0 {
+		sub.Photo.Height = existing.Photo.Height
+	}
+	if err := validateSubmissionPhoto(task, sub); err != nil {
+		return err
+	}
 
 	// 更新时重置 AI 评估状态
 	sub.Status = "submitted"

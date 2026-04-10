@@ -53,6 +53,9 @@ export interface SubmitPhotoParams {
   task_id: string;
   photo: {
     url: string;
+    file_size?: number;
+    width?: number;
+    height?: number;
   };
   custom_data?: Record<string, any>;
 }
