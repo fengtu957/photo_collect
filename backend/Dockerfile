@@ -3,10 +3,10 @@ FROM golang:1.24.10-alpine AS builder
 WORKDIR /app
 ENV CGO_ENABLED=0
 
-COPY backend/go.mod backend/go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-COPY backend/ ./
+COPY . ./
 RUN go build -o /server ./cmd/server
 
 FROM alpine:3.20

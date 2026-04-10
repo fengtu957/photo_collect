@@ -1,0 +1,7 @@
+.git
+.gitignore
+.env
+.env.*
+server.exe
+cmd/server/__debug_bin.exe
+nul
