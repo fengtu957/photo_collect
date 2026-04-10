@@ -4,7 +4,7 @@ WORKDIR /app
 ENV CGO_ENABLED=0
 
 COPY . ./
-RUN  mkdir server
+RUN  mkdir server &&  \
      go mod download && \
      go build -o /server ./cmd/server
 
