@@ -16,7 +16,7 @@ export interface AIEvaluationBreakdown {
 }
 
 export interface AIEvaluation {
-  status: 'pending' | 'success' | 'failed';
+  status: '' | 'pending' | 'success' | 'failed';
   score: number;
   issues: string[];
   suggestions: string[];
@@ -58,4 +58,12 @@ export interface SubmitPhotoParams {
     height?: number;
   };
   custom_data?: Record<string, any>;
+}
+
+export interface SubmissionAnalysisResult {
+  model: string;
+  score: number;
+  breakdown: AIEvaluationBreakdown;
+  issues: string[];
+  suggestions: string[];
 }

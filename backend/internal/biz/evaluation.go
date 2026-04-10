@@ -3,34 +3,54 @@ package biz
 import (
 	"context"
 	"encoding/json"
-	"photo-backend/internal/data"
 	"photo-backend/pkg"
+	"strings"
 )
 
 type EvaluationUsecase struct {
-	subRepo *data.SubmissionRepo
-	qwen    *pkg.QwenClient
+	qwen *pkg.QwenClient
 }
 
-func NewEvaluationUsecase(subRepo *data.SubmissionRepo, qwen *pkg.QwenClient) *EvaluationUsecase {
-	return &EvaluationUsecase{subRepo: subRepo, qwen: qwen}
+type EvaluationResult struct {
+	Model       string         `json:"model"`
+	Score       int            `json:"score"`
+	Breakdown   map[string]int `json:"breakdown"`
+	Issues      []string       `json:"issues"`
+	Suggestions []string       `json:"suggestions"`
 }
 
-func (uc *EvaluationUsecase) EvaluateSubmission(ctx context.Context, submissionID, photoURL, photoSpec string) error {
+func NewEvaluationUsecase(qwen *pkg.QwenClient) *EvaluationUsecase {
+	return &EvaluationUsecase{qwen: qwen}
+}
+
+func normalizeJSONString(content string) string {
+	trimmed := strings.TrimSpace(content)
+	trimmed = strings.TrimPrefix(trimmed, "```json")
+	trimmed = strings.TrimPrefix(trimmed, "```")
+	trimmed = strings.TrimSuffix(trimmed, "```")
+	return strings.TrimSpace(trimmed)
+}
+
+func (uc *EvaluationUsecase) EvaluatePhoto(ctx context.Context, photoURL, photoSpec string) (*EvaluationResult, error) {
 	content, err := uc.qwen.EvaluatePhoto(photoURL, photoSpec)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var result struct {
-		Score       int            `json:"score"`
-		Breakdown   map[string]int `json:"breakdown"`
-		Issues      []string       `json:"issues"`
-		Suggestions []string       `json:"suggestions"`
+	var result EvaluationResult
+	if err := json.Unmarshal([]byte(normalizeJSONString(content)), &result); err != nil {
+		return nil, err
 	}
-	json.Unmarshal([]byte(content), &result)
 
-	// 更新提交记录的 AI 评估结果
-	// TODO: 实现更新逻辑
-	return nil
+	if result.Breakdown == nil {
+		result.Breakdown = map[string]int{}
+	}
+	if result.Issues == nil {
+		result.Issues = []string{}
+	}
+	if result.Suggestions == nil {
+		result.Suggestions = []string{}
+	}
+	result.Model = uc.qwen.Model()
+	return &result, nil
 }

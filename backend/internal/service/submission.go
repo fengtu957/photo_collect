@@ -7,17 +7,40 @@ import (
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 )
 
 type SubmissionService struct {
 	uc       *biz.SubmissionUsecase
+	taskUC   *biz.TaskUsecase
+	evalUC   *biz.EvaluationUsecase
 	qiniuSvc *QiniuService
 }
 
-func NewSubmissionService(uc *biz.SubmissionUsecase, qiniuSvc *QiniuService) *SubmissionService {
-	return &SubmissionService{uc: uc, qiniuSvc: qiniuSvc}
+func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, evalUC *biz.EvaluationUsecase, qiniuSvc *QiniuService) *SubmissionService {
+	return &SubmissionService{uc: uc, taskUC: taskUC, evalUC: evalUC, qiniuSvc: qiniuSvc}
+}
+
+func buildPhotoSpecText(task *data.Task) string {
+	if task == nil {
+		return ""
+	}
+
+	parts := make([]string, 0, 4)
+	if task.PhotoSpec.Name != "" {
+		parts = append(parts, "规格名称："+task.PhotoSpec.Name)
+	}
+	if task.PhotoSpec.Width > 0 && task.PhotoSpec.Height > 0 {
+		parts = append(parts, "尺寸："+strconv.Itoa(task.PhotoSpec.Width)+"×"+strconv.Itoa(task.PhotoSpec.Height)+"mm")
+	}
+	if task.PhotoSpec.MaxSizeKB > 0 {
+		parts = append(parts, "文件大小限制："+strconv.Itoa(task.PhotoSpec.MaxSizeKB)+"K")
+	}
+
+	return strings.Join(parts, "；")
 }
 
 func (s *SubmissionService) CreateSubmission(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +86,49 @@ func (s *SubmissionService) UpdateSubmission(w http.ResponseWriter, r *http.Requ
 	}
 
 	Success(w, map[string]interface{}{"id": id})
+}
+
+func (s *SubmissionService) AnalyzeSubmission(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 2008, "unauthorized")
+		return
+	}
+
+	submission, err := s.uc.GetSubmission(context.Background(), id, userID)
+	if err != nil {
+		Error(w, 2009, err.Error())
+		return
+	}
+	if submission == nil {
+		Error(w, 2009, "提交记录不存在")
+		return
+	}
+	if submission.Photo.URL == "" {
+		Error(w, 2009, "照片不存在")
+		return
+	}
+
+	task, err := s.taskUC.GetTask(context.Background(), submission.TaskID.Hex())
+	if err != nil {
+		Error(w, 2009, err.Error())
+		return
+	}
+	if task == nil {
+		Error(w, 2009, "任务不存在")
+		return
+	}
+
+	photoURL := s.qiniuSvc.GetFileURLWithTTL(submission.Photo.URL, 10*time.Minute)
+	result, err := s.evalUC.EvaluatePhoto(context.Background(), photoURL, buildPhotoSpecText(task))
+	if err != nil {
+		Error(w, 2010, err.Error())
+		return
+	}
+
+	Success(w, result)
 }
 
 func (s *SubmissionService) GetSubmission(w http.ResponseWriter, r *http.Request) {

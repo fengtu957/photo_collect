@@ -73,7 +73,7 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 	}
 
 	sub.Status = "submitted"
-	sub.AIEvaluation = data.AIEvaluation{Status: "pending", Score: 0}
+	sub.AIEvaluation = data.AIEvaluation{}
 	return uc.repo.Create(ctx, sub)
 }
 
@@ -119,9 +119,9 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 		return err
 	}
 
-	// 更新时重置 AI 评估状态
+	// 当前 AI 分析为即时返回，不再持久化写回 submission
 	sub.Status = "submitted"
-	sub.AIEvaluation = data.AIEvaluation{Status: "pending", Score: 0}
+	sub.AIEvaluation = data.AIEvaluation{}
 
 	return uc.repo.Update(ctx, id, sub)
 }

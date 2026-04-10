@@ -7,6 +7,7 @@ import (
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
 	"photo-backend/internal/service"
+	"photo-backend/pkg"
 
 	"github.com/gorilla/mux"
 )
@@ -24,10 +25,12 @@ func main() {
 	taskSvc := service.NewTaskService(taskUC)
 
 	qiniuSvc := service.NewQiniuService()
+	qwenClient := pkg.NewQwenClient()
+	evalUC := biz.NewEvaluationUsecase(qwenClient)
 	exportSvc := service.NewExportService(taskRepo, subRepo, qiniuSvc)
 
 	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo)
-	subSvc := service.NewSubmissionService(subUC, qiniuSvc)
+	subSvc := service.NewSubmissionService(subUC, taskUC, evalUC, qiniuSvc)
 
 	uploadSvc := service.NewUploadService(qiniuSvc)
 
@@ -52,6 +55,7 @@ func main() {
 	api.HandleFunc("/submissions", subSvc.CreateSubmission).Methods("POST")
 	api.HandleFunc("/submissions/{id}", subSvc.GetSubmission).Methods("GET")
 	api.HandleFunc("/submissions/{id}", subSvc.UpdateSubmission).Methods("PUT")
+	api.HandleFunc("/submissions/{id}/analyze", subSvc.AnalyzeSubmission).Methods("POST")
 	api.HandleFunc("/tasks/{taskId}/submissions", subSvc.ListSubmissions).Methods("GET")
 	api.HandleFunc("/upload/token", uploadSvc.GetUploadToken).Methods("GET")
 

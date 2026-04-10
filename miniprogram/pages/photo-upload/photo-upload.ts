@@ -1,6 +1,6 @@
 import { getTask } from '../../services/task';
 import { getUploadToken } from '../../services/upload';
-import { createSubmission, getSubmission, updateSubmission } from '../../services/submission';
+import { analyzeSubmission, createSubmission, getSubmission, updateSubmission } from '../../services/submission';
 import { showError, showSuccess, showLoading, hideLoading } from '../../utils/request';
 import { isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
@@ -147,6 +147,25 @@ async function getPhotoMeta(filePath: string) {
     width: Number(imageInfo.width || 0),
     height: Number(imageInfo.height || 0)
   };
+}
+
+function formatAnalysisResult(result: any): string {
+  const breakdown = (result && result.breakdown) || {};
+  const issues = Array.isArray(result && result.issues) && result.issues.length > 0
+    ? result.issues.join('；')
+    : '未发现明显问题';
+  const suggestions = Array.isArray(result && result.suggestions) && result.suggestions.length > 0
+    ? result.suggestions.join('；')
+    : '可直接使用当前照片';
+
+  return [
+    `AI总分：${Number((result && result.score) || 0)}`,
+    `清晰度：${Number(breakdown.clarity || 0)}  光线：${Number(breakdown.lighting || 0)}`,
+    `角度：${Number(breakdown.angle || 0)}  背景：${Number(breakdown.background || 0)}`,
+    `表情：${Number(breakdown.expression || 0)}  构图：${Number(breakdown.composition || 0)}`,
+    `问题：${issues}`,
+    `建议：${suggestions}`
+  ].join('\n');
 }
 
 Page({
@@ -442,10 +461,40 @@ Page({
       ? updateSubmission(this.data.submissionId, params)
       : createSubmission(params);
 
-    submitPromise.then(() => {
+    submitPromise.then((res) => {
+      const successText = this.data.isEditMode ? '更新成功' : '提交成功';
+      const submissionId = (res && res.id) || this.data.submissionId;
+
+      if (!submissionId) {
+        hideLoading();
+        showSuccess(successText);
+        setTimeout(() => wx.navigateBack(), 1500);
+        return;
+      }
+
       hideLoading();
-      showSuccess(this.data.isEditMode ? '更新成功' : '提交成功');
-      setTimeout(() => wx.navigateBack(), 1500);
+      showLoading('AI分析中...');
+      analyzeSubmission(submissionId).then((result) => {
+        hideLoading();
+        wx.showModal({
+          title: successText,
+          content: formatAnalysisResult(result),
+          showCancel: false,
+          success: () => {
+            wx.navigateBack();
+          }
+        });
+      }).catch((err: any) => {
+        hideLoading();
+        wx.showModal({
+          title: successText,
+          content: `已成功保存提交。\n\n未获取到 AI 分析结果：${(err && err.message) || '分析失败'}`,
+          showCancel: false,
+          success: () => {
+            wx.navigateBack();
+          }
+        });
+      });
     }).catch((err: any) => {
       hideLoading();
       showError(err.message || '提交失败');
