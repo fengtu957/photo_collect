@@ -27,6 +27,17 @@ type TaskStats struct {
 	LastSubmitTime   time.Time `bson:"last_submit_time,omitempty" json:"last_submit_time,omitempty"`
 }
 
+type TaskExportInfo struct {
+	Status           string    `bson:"status,omitempty" json:"status,omitempty"`
+	PersistentID     string    `bson:"persistent_id,omitempty" json:"persistent_id,omitempty"`
+	FilenameTemplate string    `bson:"filename_template,omitempty" json:"filename_template,omitempty"`
+	ExportKey        string    `bson:"export_key,omitempty" json:"export_key,omitempty"`
+	FileName         string    `bson:"file_name,omitempty" json:"file_name,omitempty"`
+	Count            int       `bson:"count,omitempty" json:"count,omitempty"`
+	ExportedAt       time.Time `bson:"exported_at,omitempty" json:"exported_at,omitempty"`
+	ErrorMessage     string    `bson:"error_message,omitempty" json:"error_message,omitempty"`
+}
+
 type Task struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	UserID       string             `bson:"user_id" json:"user_id"`
@@ -38,6 +49,7 @@ type Task struct {
 	Enabled      bool               `bson:"enabled" json:"enabled"`
 	CustomFields []CustomField      `bson:"custom_fields" json:"custom_fields"`
 	Stats        TaskStats          `bson:"stats" json:"stats"`
+	ExportInfo   TaskExportInfo     `bson:"export_info,omitempty" json:"export_info,omitempty"`
 	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt    time.Time          `bson:"updated_at" json:"updated_at"`
 }

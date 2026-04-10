@@ -44,6 +44,23 @@ func (r *SubmissionRepo) FindByTaskID(ctx context.Context, taskID string, page, 
 	return subs, nil
 }
 
+func (r *SubmissionRepo) FindAllByTaskID(ctx context.Context, taskID string) ([]*Submission, error) {
+	objID, _ := primitive.ObjectIDFromHex(taskID)
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: 1}})
+	cursor, err := r.data.DB().Collection("submissions").Find(ctx, bson.M{"task_id": objID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var subs []*Submission
+	if err := cursor.All(ctx, &subs); err != nil {
+		return nil, err
+	}
+	return subs, nil
+}
+
 func (r *SubmissionRepo) FindByTaskIDAndUserID(ctx context.Context, taskID string, userID string, page, limit int) ([]*Submission, error) {
 	objID, _ := primitive.ObjectIDFromHex(taskID)
 	opts := options.Find().

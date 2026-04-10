@@ -79,6 +79,125 @@
   color: #ff9500;
 }
 
+.export-panel {
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f5f5f5;
+}
+
+.export-title {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  font-weight: bold;
+  margin-bottom: 12rpx;
+}
+
+.export-label {
+  display: block;
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+}
+
+.export-textarea {
+  display: block;
+  width: 100%;
+  height: 320rpx;
+  font-size: 30rpx;
+  color: #333;
+  border: 1rpx solid #d6e8ff;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
+  background: #f8fbff;
+  line-height: 1.6;
+}
+
+.export-textarea::placeholder {
+  color: #999;
+}
+
+.export-tip {
+  display: block;
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.5;
+  margin-top: 12rpx;
+}
+
+.export-actions {
+  display: flex;
+  gap: 16rpx;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+}
+
+.export-action-btn {
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0 28rpx;
+  border-radius: 36rpx;
+  font-size: 28rpx;
+  text-align: center;
+}
+
+.export-action-primary {
+  background: #1989fa;
+  color: #fff;
+}
+
+.export-action-secondary {
+  background: #eef5ff;
+  color: #1989fa;
+  border: 1rpx solid #d6e8ff;
+}
+
+.export-result {
+  margin-top: 16rpx;
+  padding: 20rpx;
+  border-radius: 12rpx;
+  background: #f8fbff;
+  border: 1rpx solid #d6e8ff;
+}
+
+.export-result-line {
+  display: block;
+  font-size: 26rpx;
+  color: #333;
+  line-height: 1.7;
+}
+
+.export-result-error {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #ff4444;
+  line-height: 1.6;
+}
+
+.export-link-box {
+  display: block;
+  width: 100%;
+  height: 260rpx;
+  margin-top: 8rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
+  border-radius: 12rpx;
+  border: 1rpx solid #d6e8ff;
+  background: #fff;
+  overflow: hidden;
+}
+
+.export-link-text {
+  display: block;
+  color: #1989fa;
+  font-size: 24rpx;
+  line-height: 1.6;
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
 .entry-card {
   background: #fff;
   border-radius: 12rpx;

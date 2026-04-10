@@ -1,0 +1,42 @@
+<view class="page">
+  <view class="camera-stage" wx:if="{{!tempImagePath}}">
+    <camera
+      class="camera"
+      device-position="{{devicePosition}}"
+      flash="off"
+      binderror="onCameraError"
+    ></camera>
+    <image class="mask-layer" src="../../imgs/mask.svg" mode="aspectFill"></image>
+
+    <view class="top-bar" style="padding-top: {{statusBarHeight + 20}}px;">
+      <view class="top-btn" bindtap="goBack">返回</view>
+      <text class="top-title">拍照</text>
+      <view class="top-btn top-btn-ghost"></view>
+    </view>
+
+    <view class="guide-tip">请将人物对准轮廓后拍摄</view>
+
+    <view class="bottom-bar">
+      <view class="bottom-action" bindtap="chooseFromAlbum">相册</view>
+      <view class="shutter-wrap" bindtap="takePhoto">
+        <view class="shutter-inner"></view>
+      </view>
+      <view class="bottom-action" bindtap="switchCamera">翻转</view>
+    </view>
+  </view>
+
+  <view class="preview-stage" wx:else>
+    <image class="preview-image" src="{{tempImagePath}}" mode="aspectFit"></image>
+
+    <view class="top-bar preview-top" style="padding-top: {{statusBarHeight + 20}}px;">
+      <view class="top-btn" bindtap="goBack">返回</view>
+      <text class="top-title">照片预览</text>
+      <view class="top-btn top-btn-ghost"></view>
+    </view>
+
+    <view class="preview-actions">
+      <view class="preview-btn preview-btn-secondary" bindtap="retakePhoto">重拍</view>
+      <view class="preview-btn preview-btn-primary" bindtap="usePhoto">使用照片</view>
+    </view>
+  </view>
+</view>

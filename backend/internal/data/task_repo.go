@@ -103,3 +103,19 @@ func (r *TaskRepo) Update(ctx context.Context, id string, task *Task) error {
 	})
 	return err
 }
+
+func (r *TaskRepo) UpdateExportInfo(ctx context.Context, id string, exportInfo TaskExportInfo) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	updatedAt := time.Now()
+	_, err = r.data.DB().Collection("tasks").UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$set": bson.M{
+			"export_info": exportInfo,
+			"updated_at":  updatedAt,
+		},
+	})
+	return err
+}

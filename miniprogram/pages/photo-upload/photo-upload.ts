@@ -55,6 +55,53 @@ function getTaskUnavailableMessage(task: any): string {
   return '';
 }
 
+function normalizeCustomData(task: any, customData: Record<string, any>): Record<string, any> {
+  const nextCustomData: Record<string, any> = { ...(customData || {}) };
+  const fields = (task && task.custom_fields) || [];
+
+  fields.forEach((field: any) => {
+    if (field.type !== 'multiselect') return;
+
+    const value = nextCustomData[field.id];
+    if (Array.isArray(value)) {
+      nextCustomData[field.id] = value.filter((item: any) => item !== undefined && item !== null && item !== '');
+      return;
+    }
+
+    if (typeof value === 'string') {
+      nextCustomData[field.id] = value
+        .split(',')
+        .map((item: string) => String(item || '').trim())
+        .filter(Boolean);
+      return;
+    }
+
+    nextCustomData[field.id] = [];
+  });
+
+  return nextCustomData;
+}
+
+function buildMultiSelectState(task: any, customData: Record<string, any>): Record<string, Record<string, boolean>> {
+  const state: Record<string, Record<string, boolean>> = {};
+  const fields = (task && task.custom_fields) || [];
+
+  fields.forEach((field: any) => {
+    if (field.type !== 'multiselect') return;
+
+    const selectedValues = Array.isArray(customData[field.id]) ? customData[field.id] : [];
+    const fieldState: Record<string, boolean> = {};
+
+    (field.options || []).forEach((option: string) => {
+      fieldState[option] = selectedValues.indexOf(option) >= 0;
+    });
+
+    state[field.id] = fieldState;
+  });
+
+  return state;
+}
+
 Page({
   data: {
     taskId: '',
@@ -65,6 +112,7 @@ Page({
     photoPath: '',
     photoKey: '',
     customData: {} as Record<string, any>,
+    multiSelectState: {} as Record<string, Record<string, boolean>>,
     isEditMode: false
   },
 
@@ -103,7 +151,8 @@ Page({
       this.setData({
         task,
         taskStatusText,
-        taskUnavailableMessage: unavailableMessage
+        taskUnavailableMessage: unavailableMessage,
+        multiSelectState: buildMultiSelectState(task, this.data.customData)
       });
     } catch (err: any) {
       showError(err.message || '加载任务失败');
@@ -114,9 +163,11 @@ Page({
     try {
       const submission = await getSubmission(this.data.submissionId);
       const photoUrl = (submission.photo && submission.photo.url) || '';
+      const normalizedCustomData = normalizeCustomData(this.data.task, submission.custom_data || {});
 
       this.setData({
-        customData: submission.custom_data || {},
+        customData: normalizedCustomData,
+        multiSelectState: buildMultiSelectState(this.data.task, normalizedCustomData),
         photoPath: photoUrl,
         photoKey: extractFileKey(photoUrl)
       });
@@ -131,11 +182,46 @@ Page({
       return;
     }
 
+    wx.showActionSheet({
+      itemList: ['拍照', '从相册选择'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          this.openCameraPage();
+          return;
+        }
+
+        this.chooseFromAlbum();
+      },
+      fail: (err) => {
+        if (err && err.errMsg && err.errMsg.indexOf('cancel') >= 0) {
+          return;
+        }
+        showError('打开选择方式失败');
+      }
+    });
+  },
+
+  openCameraPage() {
+    wx.navigateTo({
+      url: '/pages/camera-shoot/camera-shoot',
+      events: {
+        photoSelected: (data: any) => {
+          if (!data || !data.tempFilePath) return;
+          this.setData({
+            photoPath: data.tempFilePath,
+            photoKey: ''
+          });
+        }
+      }
+    });
+  },
+
+  chooseFromAlbum() {
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sizeType: ['original'],
-      sourceType: ['album', 'camera'],
+      sourceType: ['album'],
       success: (res) => {
         this.setData({
           photoPath: res.tempFiles[0].tempFilePath,
@@ -155,15 +241,24 @@ Page({
     const field = e.currentTarget.dataset.field;
     const fieldConfig = this.data.task.custom_fields.find((f: any) => f.id === field);
 
-    if (fieldConfig.type === 'select') {
+    if (fieldConfig && fieldConfig.type === 'select') {
       const index = e.detail.value;
       const value = fieldConfig.options[index];
       this.setData({ [`customData.${field}`]: value });
-    } else if (fieldConfig.type === 'multiselect') {
-      const indices = e.detail.value;
-      const values = indices.map((i: number) => fieldConfig.options[i]);
-      this.setData({ [`customData.${field}`]: values });
     }
+  },
+
+  onMultiSelectChange(e: any) {
+    const field = e.currentTarget.dataset.field;
+    const values = (e.detail && e.detail.value) || [];
+    const nextCustomData = {
+      ...this.data.customData,
+      [field]: values
+    };
+    this.setData({
+      [`customData.${field}`]: values,
+      multiSelectState: buildMultiSelectState(this.data.task, nextCustomData)
+    });
   },
 
   submitPhoto() {
@@ -239,12 +334,13 @@ Page({
   },
 
   saveSubmission(photoKey: string) {
+    const customData = normalizeCustomData(this.data.task, this.data.customData);
     const params = {
       task_id: this.data.taskId,
       photo: {
         url: photoKey
       },
-      custom_data: this.data.customData
+      custom_data: customData
     };
 
     const submitPromise = this.data.isEditMode

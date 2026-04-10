@@ -4,6 +4,7 @@
     "pages/task-create/task-create",
     "pages/task-detail/task-detail",
     "pages/photo-upload/photo-upload",
+    "pages/camera-shoot/camera-shoot",
     "pages/custom-fields/custom-fields",
     "pages/field-edit/field-edit",
     "pages/index/index",

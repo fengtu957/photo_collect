@@ -74,18 +74,18 @@
         </picker>
 
         <!-- 多选 -->
-        <picker
-          wx:if="{{item.type === 'multiselect'}}"
-          mode="multiSelector"
-          range="{{item.options}}"
-          data-field="{{item.id}}"
-          bindchange="onCustomFieldChange"
-        >
-          <view class="picker">
-            <text class="picker-text">{{customData[item.id] || '请选择' + item.label}}</text>
-            <text class="picker-arrow">›</text>
-          </view>
-        </picker>
+        <view wx:if="{{item.type === 'multiselect'}}" class="multiselect-group">
+          <checkbox-group data-field="{{item.id}}" bindchange="onMultiSelectChange">
+            <label class="multiselect-option" wx:for="{{item.options}}" wx:key="*this" wx:for-item="option">
+              <checkbox
+                value="{{option}}"
+                checked="{{multiSelectState[item.id] && multiSelectState[item.id][option]}}"
+                color="#1989fa"
+              />
+              <text class="multiselect-text">{{option}}</text>
+            </label>
+          </checkbox-group>
+        </view>
       </view>
     </view>
   </view>

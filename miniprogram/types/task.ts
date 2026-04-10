@@ -19,6 +19,17 @@ export interface TaskStats {
   last_submit_time?: string;
 }
 
+export interface TaskExportInfo {
+  status?: string;
+  persistent_id?: string;
+  filename_template?: string;
+  export_key?: string;
+  file_name?: string;
+  count?: number;
+  exported_at?: string;
+  error_message?: string;
+}
+
 export interface Task {
   id: string;
   user_id: string;
@@ -30,6 +41,7 @@ export interface Task {
   enabled: boolean;
   custom_fields: CustomField[];
   stats: TaskStats;
+  export_info?: TaskExportInfo;
   created_at: string;
   updated_at: string;
 }

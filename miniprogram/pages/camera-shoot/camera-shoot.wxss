@@ -1,0 +1,143 @@
+.page {
+  min-height: 100vh;
+  background: #000;
+}
+
+.camera-stage,
+.preview-stage {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+}
+
+.camera,
+.preview-image {
+  width: 100%;
+  height: 100%;
+}
+
+.mask-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 24rpx;
+  padding-right: 24rpx;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.top-title {
+  font-size: 34rpx;
+  font-weight: bold;
+}
+
+.top-btn {
+  min-width: 88rpx;
+  font-size: 28rpx;
+  color: #fff;
+}
+
+.top-btn-ghost {
+  visibility: hidden;
+}
+
+.guide-tip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 300rpx;
+  z-index: 20;
+  text-align: center;
+  font-size: 28rpx;
+  color: rgba(255,255,255,0.92);
+}
+
+.bottom-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx 48rpx 56rpx;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.72));
+}
+
+.bottom-action {
+  width: 120rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #fff;
+}
+
+.shutter-wrap {
+  width: 136rpx;
+  height: 136rpx;
+  border-radius: 68rpx;
+  border: 8rpx solid rgba(255,255,255,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.shutter-inner {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background: #fff;
+}
+
+.preview-top {
+  background: linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0));
+}
+
+.preview-actions {
+  position: absolute;
+  left: 20rpx;
+  right: 20rpx;
+  bottom: 48rpx;
+  z-index: 20;
+  display: flex;
+  gap: 20rpx;
+}
+
+.preview-btn {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: 44rpx;
+  font-size: 32rpx;
+}
+
+.preview-btn-secondary {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border: 1rpx solid rgba(255,255,255,0.28);
+}
+
+.preview-btn-primary {
+  background: #07c160;
+  color: #fff;
+}
