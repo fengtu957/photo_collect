@@ -4,7 +4,8 @@ WORKDIR /app
 ENV CGO_ENABLED=0
 
 COPY . ./
-RUN  cd backend && \
+RUN ls -al && \ 
+    cd backend && \
      go mod download && \
      go build -o ./bin/server ./cmd/server
 
