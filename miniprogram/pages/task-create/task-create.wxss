@@ -128,8 +128,20 @@
   gap: 16rpx;
 }
 
+.time-tip {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  line-height: 1.6;
+  margin-bottom: 12rpx;
+}
+
 .time-picker {
   flex: 1;
+}
+
+.picker-disabled {
+  color: #bbb;
 }
 
 .row-link {

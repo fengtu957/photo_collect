@@ -1,6 +1,7 @@
 export interface UserEntitlementLimits {
   max_active_tasks: number;
   max_submissions_per_task: number;
+  max_start_delay_days: number;
   can_use_ai_analysis: boolean;
 }
 

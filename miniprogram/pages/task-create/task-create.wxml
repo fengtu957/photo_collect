@@ -51,13 +51,22 @@
 
     <view class="section">
       <text class="label">开始时间</text>
-      <view class="time-row">
-        <picker mode="date" bindchange="onStartDateChange" class="time-picker">
+      <text class="time-tip">{{isEditMode ? '任务创建后开始时间不可修改' : startLimitTip}}</text>
+      <view class="time-row" wx:if="{{!isEditMode}}">
+        <picker mode="date" bindchange="onStartDateChange" class="time-picker" end="{{startDateMax}}">
           <view class="picker">{{startDate || '选择日期'}}</view>
         </picker>
         <picker mode="time" bindchange="onStartTimeChange" class="time-picker">
           <view class="picker">{{startTime || '选择时间'}}</view>
         </picker>
+      </view>
+      <view class="time-row" wx:else>
+        <view class="time-picker">
+          <view class="picker picker-disabled">{{startDate || '未设置'}}</view>
+        </view>
+        <view class="time-picker">
+          <view class="picker picker-disabled">{{startTime || '未设置'}}</view>
+        </view>
       </view>
     </view>
 

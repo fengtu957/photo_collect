@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"photo-backend/internal/data"
 	"sort"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -34,6 +35,17 @@ func validateTask(task *data.Task) error {
 	return nil
 }
 
+func validateTaskStartTimeLimit(task *data.Task, maxDays int) error {
+	if task == nil || task.StartTime.IsZero() || maxDays <= 0 {
+		return nil
+	}
+	latest := time.Now().AddDate(0, 0, maxDays)
+	if task.StartTime.After(latest) {
+		return errors.New(fmt.Sprintf("开始时间最多只能选择未来%d天内", maxDays))
+	}
+	return nil
+}
+
 func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 	if err := validateTask(task); err != nil {
 		return err
@@ -51,8 +63,15 @@ func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 			if entitlements.Limits.MaxActiveTasks > 0 && int(activeCount) >= entitlements.Limits.MaxActiveTasks {
 				return errors.New(fmt.Sprintf("普通用户最多创建%d个未结束任务，开通VIP后不受限制", entitlements.Limits.MaxActiveTasks))
 			}
+			if err := validateTaskStartTimeLimit(task, entitlements.Limits.MaxStartDelayDays); err != nil {
+				return err
+			}
 			if task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled {
 				return errors.New("AI分析仅限VIP开启")
+			}
+		} else {
+			if err := validateTaskStartTimeLimit(task, entitlements.Limits.MaxStartDelayDays); err != nil {
+				return err
 			}
 		}
 	}
@@ -78,6 +97,7 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	task.Enabled = existing.Enabled
 	task.Stats = existing.Stats
 	task.CreatedAt = existing.CreatedAt
+	task.StartTime = existing.StartTime
 	if task.AIAnalysisEnabled == nil {
 		task.AIAnalysisEnabled = existing.AIAnalysisEnabled
 	}
