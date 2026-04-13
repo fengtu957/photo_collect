@@ -31,6 +31,85 @@
     <view class="photo-size-tip" wx:if="{{task && task.photo_spec && task.photo_spec.max_size_kb > 0}}">
       <text class="photo-size-tip-text">当前任务限制 {{task.photo_spec.max_size_kb}}K，超出后会自动压缩，仍超出则无法提交。</text>
     </view>
+
+    <view class="analysis-panel analysis-panel-existing" wx:if="{{analysisState === 'existing' && analysisMessage}}">
+      <text class="analysis-note">{{analysisMessage}}</text>
+    </view>
+
+    <view class="analysis-panel analysis-panel-loading" wx:if="{{analysisState === 'analyzing'}}">
+      <view class="analysis-panel-head">
+        <text class="analysis-badge analysis-badge-loading">检查中</text>
+        <text class="analysis-headline">AI 正在检查这张照片</text>
+      </view>
+      <text class="analysis-note">{{analysisMessage}}</text>
+    </view>
+
+    <view class="analysis-panel analysis-panel-error" wx:if="{{analysisState === 'error'}}">
+      <view class="analysis-panel-head">
+        <text class="analysis-badge analysis-badge-fail">检查失败</text>
+        <text class="analysis-headline">当前无法完成 AI 检查</text>
+      </view>
+      <text class="analysis-note">{{analysisError}}</text>
+    </view>
+
+    <view class="analysis-panel {{analysisPassed ? 'analysis-panel-pass' : 'analysis-panel-fail'}}" wx:if="{{analysisState === 'success' && analysisResult}}">
+      <view class="analysis-panel-head">
+        <text class="analysis-badge {{analysisPassed ? 'analysis-badge-pass' : 'analysis-badge-fail'}}">{{analysisPassed ? '可提交' : '需重拍'}}</text>
+        <text class="analysis-headline">{{analysisMessage}}</text>
+      </view>
+
+      <view class="analysis-summary">
+        <view class="analysis-summary-item">
+          <text class="analysis-summary-label">AI总分</text>
+          <text class="analysis-summary-value">{{analysisResult.score}}</text>
+        </view>
+        <view class="analysis-summary-item">
+          <text class="analysis-summary-label">识别人数</text>
+          <text class="analysis-summary-value">{{analysisResult.person_count}}</text>
+        </view>
+        <view class="analysis-summary-item">
+          <text class="analysis-summary-label">人脸识别</text>
+          <text class="analysis-summary-value">{{analysisResult.face_detected ? '已检测到' : '未检测到'}}</text>
+        </view>
+      </view>
+
+      <view class="analysis-breakdown">
+        <view class="analysis-breakdown-item">
+          <text class="analysis-breakdown-label">清晰度</text>
+          <text class="analysis-breakdown-value">{{analysisResult.breakdown.clarity || 0}}</text>
+        </view>
+        <view class="analysis-breakdown-item">
+          <text class="analysis-breakdown-label">光线</text>
+          <text class="analysis-breakdown-value">{{analysisResult.breakdown.lighting || 0}}</text>
+        </view>
+        <view class="analysis-breakdown-item">
+          <text class="analysis-breakdown-label">角度</text>
+          <text class="analysis-breakdown-value">{{analysisResult.breakdown.angle || 0}}</text>
+        </view>
+        <view class="analysis-breakdown-item">
+          <text class="analysis-breakdown-label">背景</text>
+          <text class="analysis-breakdown-value">{{analysisResult.breakdown.background || 0}}</text>
+        </view>
+        <view class="analysis-breakdown-item">
+          <text class="analysis-breakdown-label">表情</text>
+          <text class="analysis-breakdown-value">{{analysisResult.breakdown.expression || 0}}</text>
+        </view>
+        <view class="analysis-breakdown-item">
+          <text class="analysis-breakdown-label">构图</text>
+          <text class="analysis-breakdown-value">{{analysisResult.breakdown.composition || 0}}</text>
+        </view>
+      </view>
+
+      <view class="analysis-list" wx:if="{{analysisResult.issues && analysisResult.issues.length > 0}}">
+        <text class="analysis-list-title">主要问题</text>
+        <text class="analysis-list-item" wx:for="{{analysisResult.issues}}" wx:key="*this" wx:for-item="issue">{{issue}}</text>
+      </view>
+
+      <view class="analysis-list" wx:if="{{analysisResult.suggestions && analysisResult.suggestions.length > 0}}">
+        <text class="analysis-list-title">调整建议</text>
+        <text class="analysis-list-item" wx:for="{{analysisResult.suggestions}}" wx:key="*this" wx:for-item="suggestion">{{suggestion}}</text>
+      </view>
+    </view>
   </view>
 
   <!-- 自定义字段 -->
@@ -100,8 +179,8 @@
   <!-- 提交按钮 -->
   <view class="footer-placeholder"></view>
   <view class="footer">
-    <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath || !!taskUnavailableMessage}}">
-      {{taskUnavailableMessage ? '当前不可提交' : (isEditMode ? '更新' : '提交')}}
+    <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath || !!taskUnavailableMessage || !canSubmit || analysisState === 'analyzing'}}">
+      {{taskUnavailableMessage ? '当前不可提交' : (analysisState === 'analyzing' ? 'AI检查中...' : (isEditMode ? '更新' : '提交'))}}
     </button>
   </view>
 </view>

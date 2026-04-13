@@ -60,6 +60,13 @@ export interface SubmitPhotoParams {
   custom_data?: Record<string, any>;
 }
 
+export interface AnalyzePhotoPreviewParams {
+  task_id: string;
+  photo: {
+    url: string;
+  };
+}
+
 export interface SubmissionAnalysisResult {
   model: string;
   passed: boolean;

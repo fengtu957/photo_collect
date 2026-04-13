@@ -1,5 +1,5 @@
 import { request } from '../utils/request';
-import { Submission, SubmissionAnalysisResult, SubmissionListResponse, SubmitPhotoParams } from '../types/submission';
+import { AnalyzePhotoPreviewParams, Submission, SubmissionAnalysisResult, SubmissionListResponse, SubmitPhotoParams } from '../types/submission';
 
 export async function createSubmission(params: SubmitPhotoParams) {
   return request<{ id: string }>('/submissions', {
@@ -19,9 +19,10 @@ export async function getSubmission(id: string) {
   return request<Submission>(`/submissions/${id}`, { method: 'GET' });
 }
 
-export async function analyzeSubmission(id: string) {
-  return request<SubmissionAnalysisResult>(`/submissions/${id}/analyze`, {
-    method: 'POST'
+export async function analyzePhotoPreview(params: AnalyzePhotoPreviewParams) {
+  return request<SubmissionAnalysisResult>('/submissions/analyze-preview', {
+    method: 'POST',
+    data: params
   });
 }
 

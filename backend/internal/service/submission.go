@@ -20,6 +20,13 @@ type SubmissionService struct {
 	qiniuSvc *QiniuService
 }
 
+type AnalyzePreviewRequest struct {
+	TaskID string `json:"task_id"`
+	Photo  struct {
+		URL string `json:"url"`
+	} `json:"photo"`
+}
+
 func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, evalUC *biz.EvaluationUsecase, qiniuSvc *QiniuService) *SubmissionService {
 	return &SubmissionService{uc: uc, taskUC: taskUC, evalUC: evalUC, qiniuSvc: qiniuSvc}
 }
@@ -72,6 +79,19 @@ func greatestCommonDivisor(a int, b int) int {
 	return a
 }
 
+func (s *SubmissionService) evaluateTaskPhoto(taskID string, photoKey string) (*biz.EvaluationResult, error) {
+	task, err := s.taskUC.GetTask(context.Background(), taskID)
+	if err != nil {
+		return nil, err
+	}
+	if task == nil {
+		return nil, nil
+	}
+
+	photoURL := s.qiniuSvc.GetFileURLWithTTL(photoKey, 10*time.Minute)
+	return s.evalUC.EvaluatePhoto(context.Background(), photoURL, buildPhotoSpecText(task))
+}
+
 func (s *SubmissionService) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	var sub data.Submission
 	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
@@ -117,43 +137,34 @@ func (s *SubmissionService) UpdateSubmission(w http.ResponseWriter, r *http.Requ
 	Success(w, map[string]interface{}{"id": id})
 }
 
-func (s *SubmissionService) AnalyzeSubmission(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	userID, ok := r.Context().Value(UserIDKey).(string)
+func (s *SubmissionService) AnalyzePreview(w http.ResponseWriter, r *http.Request) {
+	_, ok := r.Context().Value(UserIDKey).(string)
 	if !ok {
-		Error(w, 2008, "unauthorized")
+		Error(w, 2011, "unauthorized")
 		return
 	}
 
-	submission, err := s.uc.GetSubmission(context.Background(), id, userID)
-	if err != nil {
-		Error(w, 2009, err.Error())
+	var req AnalyzePreviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		Error(w, 2011, err.Error())
 		return
 	}
-	if submission == nil {
-		Error(w, 2009, "提交记录不存在")
+	if req.TaskID == "" {
+		Error(w, 2011, "task_id 不能为空")
 		return
 	}
-	if submission.Photo.URL == "" {
-		Error(w, 2009, "照片不存在")
-		return
-	}
-
-	task, err := s.taskUC.GetTask(context.Background(), submission.TaskID.Hex())
-	if err != nil {
-		Error(w, 2009, err.Error())
-		return
-	}
-	if task == nil {
-		Error(w, 2009, "任务不存在")
+	if req.Photo.URL == "" {
+		Error(w, 2011, "照片不存在")
 		return
 	}
 
-	photoURL := s.qiniuSvc.GetFileURLWithTTL(submission.Photo.URL, 10*time.Minute)
-	result, err := s.evalUC.EvaluatePhoto(context.Background(), photoURL, buildPhotoSpecText(task))
+	result, err := s.evaluateTaskPhoto(req.TaskID, req.Photo.URL)
 	if err != nil {
-		Error(w, 2010, err.Error())
+		Error(w, 2012, err.Error())
+		return
+	}
+	if result == nil {
+		Error(w, 2012, "任务不存在")
 		return
 	}
 

@@ -1,7 +1,8 @@
 import { getTask } from '../../services/task';
 import { getUploadToken } from '../../services/upload';
-import { analyzeSubmission, createSubmission, getSubmission, updateSubmission } from '../../services/submission';
-import { showError, showSuccess, showLoading, hideLoading } from '../../utils/request';
+import { analyzePhotoPreview, createSubmission, getSubmission, updateSubmission } from '../../services/submission';
+import { SubmissionAnalysisResult } from '../../types/submission';
+import { showError, showLoading, hideLoading } from '../../utils/request';
 import { isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
 
@@ -149,28 +150,32 @@ async function getPhotoMeta(filePath: string) {
   };
 }
 
-function formatAnalysisResult(result: any): string {
-  const breakdown = (result && result.breakdown) || {};
-  const passed = !!(result && result.passed);
-  const personCount = Number((result && result.person_count) || 0);
-  const faceDetected = !!(result && result.face_detected);
-  const issues = Array.isArray(result && result.issues) && result.issues.length > 0
-    ? result.issues.join('；')
-    : '未发现明显问题';
-  const suggestions = Array.isArray(result && result.suggestions) && result.suggestions.length > 0
-    ? result.suggestions.join('；')
-    : '可直接使用当前照片';
+function createUploadKey() {
+  const openid = wx.getStorageSync('openid') || 'unknown';
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10000);
+  return `photo_${openid}_${timestamp}_${random}.jpg`;
+}
 
-  return [
-    `分析结果：${passed ? '通过' : '不通过'}`,
-    `人数：${personCount}  人脸：${faceDetected ? '已检测到' : '未检测到'}`,
-    `AI总分：${Number((result && result.score) || 0)}`,
-    `清晰度：${Number(breakdown.clarity || 0)}  光线：${Number(breakdown.lighting || 0)}`,
-    `角度：${Number(breakdown.angle || 0)}  背景：${Number(breakdown.background || 0)}`,
-    `表情：${Number(breakdown.expression || 0)}  构图：${Number(breakdown.composition || 0)}`,
-    `问题：${issues}`,
-    `建议：${suggestions}`
-  ].join('\n');
+function uploadPhotoToQiniu(filePath: string, key: string): Promise<void> {
+  return getUploadToken().then(({ token }) => {
+    return new Promise((resolve, reject) => {
+      wx.uploadFile({
+        url: 'https://up-z2.qiniup.com',
+        filePath,
+        name: 'file',
+        formData: { token, key },
+        success: (uploadRes) => {
+          if (uploadRes.statusCode !== 200) {
+            reject(new Error('上传失败'));
+            return;
+          }
+          resolve();
+        },
+        fail: () => reject(new Error('上传失败'))
+      });
+    });
+  });
 }
 
 Page({
@@ -183,6 +188,12 @@ Page({
     photoPath: '',
     photoKey: '',
     photoMeta: { fileSize: 0, width: 0, height: 0 },
+    analysisState: '' as '' | 'existing' | 'analyzing' | 'success' | 'error',
+    analysisResult: null as SubmissionAnalysisResult | null,
+    analysisPassed: false,
+    analysisError: '',
+    analysisMessage: '',
+    canSubmit: false,
     customData: {} as Record<string, any>,
     multiSelectState: {} as Record<string, Record<string, boolean>>,
     isEditMode: false
@@ -246,7 +257,13 @@ Page({
           fileSize: Number((submission.photo && submission.photo.file_size) || 0),
           width: Number((submission.photo && submission.photo.width) || 0),
           height: Number((submission.photo && submission.photo.height) || 0)
-        }
+        },
+        analysisState: photoUrl ? 'existing' : '',
+        analysisResult: null,
+        analysisPassed: !!photoUrl,
+        analysisError: '',
+        analysisMessage: photoUrl ? '当前为已保存照片，可直接提交；如果重新选择照片，会先进行 AI 检查。' : '',
+        canSubmit: !!photoUrl
       });
     } catch (err: any) {
       showError(err.message || '加载提交数据失败');
@@ -284,11 +301,7 @@ Page({
       events: {
         photoSelected: (data: any) => {
           if (!data || !data.tempFilePath) return;
-          this.setData({
-            photoPath: data.tempFilePath,
-            photoKey: '',
-            photoMeta: { fileSize: 0, width: 0, height: 0 }
-          });
+          this.handleSelectedPhoto(data.tempFilePath);
         }
       }
     });
@@ -301,13 +314,62 @@ Page({
       sizeType: ['original'],
       sourceType: ['album'],
       success: (res) => {
-        this.setData({
-          photoPath: res.tempFiles[0].tempFilePath,
-          photoKey: '',
-          photoMeta: { fileSize: 0, width: 0, height: 0 }
-        });
+        this.handleSelectedPhoto(res.tempFiles[0].tempFilePath);
       }
     });
+  },
+
+  handleSelectedPhoto(filePath: string) {
+    this.setData({
+      photoPath: filePath,
+      photoKey: '',
+      photoMeta: { fileSize: 0, width: 0, height: 0 },
+      analysisState: 'analyzing',
+      analysisResult: null,
+      analysisPassed: false,
+      analysisError: '',
+      analysisMessage: '正在检查照片，请稍候…',
+      canSubmit: false
+    });
+    this.prepareAndAnalyzePhoto(filePath);
+  },
+
+  async prepareAndAnalyzePhoto(filePath: string) {
+    try {
+      showLoading('处理照片中...');
+      const preparedPhoto = await this.preparePhotoForUpload(filePath);
+      const key = createUploadKey();
+
+      showLoading('AI检查中...');
+      await uploadPhotoToQiniu(preparedPhoto.filePath, key);
+      const result = await analyzePhotoPreview({
+        task_id: this.data.taskId,
+        photo: { url: key }
+      });
+
+      this.setData({
+        photoKey: key,
+        analysisState: 'success',
+        analysisResult: result,
+        analysisPassed: !!(result && result.passed),
+        analysisError: '',
+        analysisMessage: result && result.passed
+          ? '照片已通过 AI 检查，可以继续填写信息并提交。'
+          : '照片未通过 AI 检查，请根据下方问题和建议重新选择。',
+        canSubmit: !!(result && result.passed)
+      });
+    } catch (err: any) {
+      this.setData({
+        analysisState: 'error',
+        analysisResult: null,
+        analysisPassed: false,
+        analysisError: (err && err.message) || 'AI 检查失败，请重新选择照片',
+        analysisMessage: '',
+        canSubmit: false
+      });
+    } finally {
+      hideLoading();
+    }
   },
 
   onCustomFieldInput(e: any) {
@@ -351,6 +413,11 @@ Page({
       return;
     }
 
+    if (!this.data.canSubmit) {
+      showError('请先选择一张通过 AI 检查的照片');
+      return;
+    }
+
     // 验证必填字段
     const task = this.data.task;
     if (task && task.custom_fields) {
@@ -373,48 +440,13 @@ Page({
       return;
     }
 
-    showLoading('处理照片中...');
+    if (!this.data.photoKey) {
+      showError('当前照片尚未完成 AI 检查，请重新选择');
+      return;
+    }
 
-    this.preparePhotoForUpload(this.data.photoPath).then((preparedPhoto) => {
-      showLoading('上传中...');
-      return getUploadToken().then(({ token }) => ({
-        token,
-        preparedPhoto
-      }));
-    }).then(({ token, preparedPhoto }) => {
-      const openid = wx.getStorageSync('openid') || 'unknown';
-      const timestamp = Date.now();
-      const random = Math.floor(Math.random() * 10000);
-      const key = `photo_${openid}_${timestamp}_${random}.jpg`;
-
-      // 2. 上传到七牛云
-      wx.uploadFile({
-        url: 'https://up-z2.qiniup.com',
-        filePath: preparedPhoto.filePath,
-        name: 'file',
-        formData: { token, key },
-        success: (uploadRes) => {
-          console.log('七牛云上传成功:', uploadRes);
-
-          if (uploadRes.statusCode !== 200) {
-            hideLoading();
-            showError('上传失败');
-            return;
-          }
-
-          // 3. 提交到后端
-          this.saveSubmission(key, preparedPhoto);
-        },
-        fail: (err) => {
-          console.error('七牛云上传失败:', err);
-          hideLoading();
-          showError('上传失败');
-        }
-      });
-    }).catch((err: any) => {
-      hideLoading();
-      showError(err.message || '照片处理失败');
-    });
+    showLoading('提交中...');
+    this.saveSubmission(this.data.photoKey, this.data.photoMeta);
   },
 
   async preparePhotoForUpload(filePath: string) {
@@ -466,40 +498,9 @@ Page({
       ? updateSubmission(this.data.submissionId, params)
       : createSubmission(params);
 
-    submitPromise.then((res) => {
-      const successText = this.data.isEditMode ? '更新成功' : '提交成功';
-      const submissionId = (res && res.id) || this.data.submissionId;
-
-      if (!submissionId) {
-        hideLoading();
-        showSuccess(successText);
-        setTimeout(() => wx.navigateBack(), 1500);
-        return;
-      }
-
+    submitPromise.then(() => {
       hideLoading();
-      showLoading('AI分析中...');
-      analyzeSubmission(submissionId).then((result) => {
-        hideLoading();
-        wx.showModal({
-          title: successText,
-          content: formatAnalysisResult(result),
-          showCancel: false,
-          success: () => {
-            wx.navigateBack();
-          }
-        });
-      }).catch((err: any) => {
-        hideLoading();
-        wx.showModal({
-          title: successText,
-          content: `已成功保存提交。\n\n未获取到 AI 分析结果：${(err && err.message) || '分析失败'}`,
-          showCancel: false,
-          success: () => {
-            wx.navigateBack();
-          }
-        });
-      });
+      wx.navigateBack();
     }).catch((err: any) => {
       hideLoading();
       showError(err.message || '提交失败');
