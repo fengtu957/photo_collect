@@ -35,9 +35,6 @@
     <view class="photo-size-tip" wx:if="{{task && task.photo_spec && task.photo_spec.max_size_kb > 0}}">
       <text class="photo-size-tip-text">当前任务限制 {{task.photo_spec.max_size_kb}}K，超出后会自动压缩，仍超出则无法提交。</text>
     </view>
-    <view class="photo-size-tip" wx:if="{{!aiAnalysisEnabled}}">
-      <text class="photo-size-tip-text">当前任务未开启 AI 分析，选择照片并填写信息后可直接提交。</text>
-    </view>
 
     <view class="analysis-panel analysis-panel-existing" wx:if="{{aiAnalysisEnabled && analysisState === 'existing' && analysisMessage}}">
       <text class="analysis-note">{{analysisMessage}}</text>

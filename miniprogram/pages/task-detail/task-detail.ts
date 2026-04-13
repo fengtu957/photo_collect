@@ -5,7 +5,7 @@ import { formatTime, isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
 import { drawQrCode } from '../../utils/qrcode';
 import { isTaskAIAnalysisEnabled } from '../../utils/task';
-const PAGE_SIZE = 2;
+const PAGE_SIZE = 20;
 const QR_CANVAS_ID = 'taskQrCanvas';
 const QR_CANVAS_SIZE = 360;
 let exportStatusTimer = 0;

@@ -131,5 +131,8 @@ func (uc *TaskUsecase) DeleteTask(ctx context.Context, id string, userID string)
 	if task.UserID != userID {
 		return errors.New("无权限删除此任务")
 	}
+	if err := uc.subRepo.DeleteByTaskID(ctx, id); err != nil {
+		return err
+	}
 	return uc.repo.Delete(ctx, id)
 }

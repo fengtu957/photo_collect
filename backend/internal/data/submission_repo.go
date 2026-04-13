@@ -146,3 +146,13 @@ func (r *SubmissionRepo) FindDistinctTaskIDsByUserID(ctx context.Context, userID
 	}
 	return ids, nil
 }
+
+func (r *SubmissionRepo) DeleteByTaskID(ctx context.Context, taskID string) error {
+	objID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.data.DB().Collection("submissions").DeleteMany(ctx, bson.M{"task_id": objID})
+	return err
+}

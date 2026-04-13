@@ -106,7 +106,7 @@ function buildMultiSelectState(task: any, customData: Record<string, any>): Reco
   return state;
 }
 
-function getLocalFileInfo(filePath: string): Promise<WechatMiniprogram.GetFileInfoSuccessCallbackResult> {
+function getLocalFileInfo(filePath: string): Promise<WechatMiniprogram.WxGetFileInfoSuccessCallbackResult> {
   return new Promise((resolve, reject) => {
     wx.getFileInfo({
       filePath,
@@ -116,7 +116,7 @@ function getLocalFileInfo(filePath: string): Promise<WechatMiniprogram.GetFileIn
   });
 }
 
-function getLocalImageInfo(filePath: string): Promise<WechatMiniprogram.GetImageInfoSuccessCallbackResult> {
+function getLocalImageInfo(filePath: string): Promise<WechatMiniprogram.WxGetImageInfoSuccessCallbackResult> {
   return new Promise((resolve, reject) => {
     wx.getImageInfo({
       src: filePath,
