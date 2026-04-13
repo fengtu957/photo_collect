@@ -15,6 +15,12 @@ export async function updateSubmission(id: string, params: SubmitPhotoParams) {
   });
 }
 
+export async function deleteSubmission(id: string) {
+  return request<{ id: string }>(`/submissions/${id}`, {
+    method: 'DELETE'
+  });
+}
+
 export async function getSubmission(id: string) {
   return request<Submission>(`/submissions/${id}`, { method: 'GET' });
 }

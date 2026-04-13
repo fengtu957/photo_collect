@@ -315,9 +315,21 @@
   color: #999;
 }
 
+.submission-actions {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
 .edit-link {
   font-size: 28rpx;
   color: #1989fa;
+  padding: 8rpx 16rpx;
+}
+
+.delete-link {
+  font-size: 28rpx;
+  color: #ff4444;
   padding: 8rpx 16rpx;
 }
 

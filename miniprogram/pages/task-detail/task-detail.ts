@@ -1,5 +1,5 @@
 import { getTask, deleteTask, exportTask as requestExportTask, authorizeExportLink, syncExportStatus as requestSyncExportStatus } from '../../services/task';
-import { listSubmissions } from '../../services/submission';
+import { listSubmissions, deleteSubmission } from '../../services/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
@@ -636,6 +636,35 @@ Page({
           setTimeout(() => wx.navigateBack(), 1500);
         } catch (err: any) {
           wx.showToast({ title: err.message || '删除失败', icon: 'none' });
+        }
+      }
+    });
+  },
+
+  deleteSubmissionRecord(e: any) {
+    const submissionId = e.currentTarget.dataset.id;
+    if (!submissionId || !this.data.isCreator) {
+      return;
+    }
+
+    wx.showModal({
+      title: '确认删除',
+      content: '删除后该提交记录将无法恢复，确认删除？',
+      confirmText: '删除',
+      confirmColor: '#ff4444',
+      success: async (res) => {
+        if (!res.confirm) return;
+
+        try {
+          showLoading('删除中...');
+          await deleteSubmission(submissionId);
+          hideLoading();
+          wx.showToast({ title: '删除成功', icon: 'success' });
+          this.setData({ page: 1, submissions: [], hasMore: true });
+          this.loadData();
+        } catch (err: any) {
+          hideLoading();
+          showError(err.message || '删除失败');
         }
       }
     });

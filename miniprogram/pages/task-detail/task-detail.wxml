@@ -110,9 +110,14 @@
         <text class="nickname">{{item.user_info.nick_name}}</text>
         <text class="time">{{item.createdAtFormatted}}</text>
       </view>
-      <text class="edit-link" catchtap="editSubmission" data-id="{{item.id}}" wx:if="{{isCreator || item.user_id === currentUserId}}">
-        编辑
-      </text>
+      <view class="submission-actions">
+        <text class="edit-link" catchtap="editSubmission" data-id="{{item.id}}" wx:if="{{isCreator || item.user_id === currentUserId}}">
+          编辑
+        </text>
+        <text class="delete-link" catchtap="deleteSubmissionRecord" data-id="{{item.id}}" wx:if="{{isCreator}}">
+          删除
+        </text>
+      </view>
     </view>
 
     <view class="ai-evaluation" wx:if="{{aiAnalysisEnabled && item.ai_evaluation && item.ai_evaluation.status === 'success'}}">

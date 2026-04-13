@@ -117,6 +117,16 @@ func (r *SubmissionRepo) FindByID(ctx context.Context, id string) (*Submission, 
 	return &sub, nil
 }
 
+func (r *SubmissionRepo) Delete(ctx context.Context, id string) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.data.DB().Collection("submissions").DeleteOne(ctx, bson.M{"_id": objID})
+	return err
+}
+
 func (r *SubmissionRepo) CountByTaskID(ctx context.Context, taskID string) (int64, error) {
 	objID, _ := primitive.ObjectIDFromHex(taskID)
 	count, err := r.data.DB().Collection("submissions").CountDocuments(ctx, bson.M{"task_id": objID})

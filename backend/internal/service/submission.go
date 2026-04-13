@@ -144,6 +144,23 @@ func (s *SubmissionService) UpdateSubmission(w http.ResponseWriter, r *http.Requ
 	Success(w, map[string]interface{}{"id": id})
 }
 
+func (s *SubmissionService) DeleteSubmission(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 2008, "unauthorized")
+		return
+	}
+
+	if err := s.uc.DeleteSubmission(context.Background(), id, userID); err != nil {
+		Error(w, 2009, err.Error())
+		return
+	}
+
+	Success(w, map[string]interface{}{"id": id})
+}
+
 func (s *SubmissionService) AnalyzePreview(w http.ResponseWriter, r *http.Request) {
 	_, ok := r.Context().Value(UserIDKey).(string)
 	if !ok {

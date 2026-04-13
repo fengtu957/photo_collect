@@ -56,6 +56,7 @@ func main() {
 	api.HandleFunc("/submissions/analyze-preview", subSvc.AnalyzePreview).Methods("POST")
 	api.HandleFunc("/submissions/{id}", subSvc.GetSubmission).Methods("GET")
 	api.HandleFunc("/submissions/{id}", subSvc.UpdateSubmission).Methods("PUT")
+	api.HandleFunc("/submissions/{id}", subSvc.DeleteSubmission).Methods("DELETE")
 	api.HandleFunc("/tasks/{taskId}/submissions", subSvc.ListSubmissions).Methods("GET")
 	api.HandleFunc("/upload/token", uploadSvc.GetUploadToken).Methods("GET")
 

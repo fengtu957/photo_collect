@@ -150,6 +150,29 @@ func (uc *SubmissionUsecase) GetSubmission(ctx context.Context, id string, userI
 	return submission, nil
 }
 
+func (uc *SubmissionUsecase) DeleteSubmission(ctx context.Context, id string, userID string) error {
+	submission, err := uc.repo.FindByID(ctx, id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return errors.New("提交记录不存在")
+		}
+		return err
+	}
+
+	task, err := uc.taskRepo.FindByID(ctx, submission.TaskID.Hex())
+	if err != nil {
+		return err
+	}
+	if task == nil {
+		return errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return errors.New("只有创建者可以删除提交记录")
+	}
+
+	return uc.repo.Delete(ctx, id)
+}
+
 type SubmissionListResult struct {
 	List    []*data.Submission `json:"list"`
 	Total   int64              `json:"total"`
