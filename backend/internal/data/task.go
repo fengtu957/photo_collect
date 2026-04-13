@@ -20,6 +20,7 @@ type CustomField struct {
 	Type        string   `bson:"type" json:"type"`
 	Label       string   `bson:"label" json:"label"`
 	Required    bool     `bson:"required" json:"required"`
+	Unique      bool     `bson:"unique,omitempty" json:"unique,omitempty"`
 	Options     []string `bson:"options,omitempty" json:"options,omitempty"`
 	Placeholder string   `bson:"placeholder,omitempty" json:"placeholder,omitempty"`
 }

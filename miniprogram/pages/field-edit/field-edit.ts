@@ -10,7 +10,7 @@ Page({
     mode: 'add',
     index: -1,
     typeLabel: '文本',
-    field: { id: '', type: 'text', label: '', placeholder: '', required: false, options: [] as string[] }
+    field: { id: '', type: 'text', label: '', placeholder: '', required: false, unique: false, options: [] as string[] }
   },
 
   onLoad(options: any) {
@@ -18,7 +18,12 @@ Page({
     this.setData({ mode: options.mode });
     if (options.mode === 'edit') {
       const index = parseInt(options.index);
-      const field = { ...appInstance.globalData.customFields[index], options: appInstance.globalData.customFields[index].options || [] };
+      const currentField = appInstance.globalData.customFields[index];
+      const field = {
+        ...currentField,
+        unique: !!(currentField && currentField.unique),
+        options: (currentField && currentField.options) || []
+      };
       const typeObj = TYPES.find(t => t.value === field.type);
       const typeLabel = typeObj ? typeObj.label : '文本';
       this.setData({ index, field, typeLabel });
@@ -34,13 +39,25 @@ Page({
     this.setData({ 'field.required': e.detail.value });
   },
 
+  onUniqueChange(e: any) {
+    this.setData({ 'field.unique': e.detail.value });
+  },
+
   showTypeMenu() {
     wx.showActionSheet({
       itemList: TYPES.map(t => t.label),
       success: (res) => {
         const t = TYPES[res.tapIndex];
         const options = (t.value === 'select' || t.value === 'multiselect') ? ['', ''] : [];
-        this.setData({ 'field.type': t.value, typeLabel: t.label, 'field.options': options });
+        const nextData: any = {
+          'field.type': t.value,
+          typeLabel: t.label,
+          'field.options': options
+        };
+        if (t.value === 'multiselect') {
+          nextData['field.unique'] = false;
+        }
+        this.setData(nextData);
       }
     });
   },

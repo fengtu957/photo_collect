@@ -12,6 +12,7 @@ export interface CustomField {
   type: 'text' | 'number' | 'select' | 'multiselect';
   label: string;
   required: boolean;
+  unique?: boolean;
   options?: string[];
   placeholder?: string;
 }

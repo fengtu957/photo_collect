@@ -3,7 +3,9 @@ package biz
 import (
 	"context"
 	"errors"
+	"fmt"
 	"photo-backend/internal/data"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -51,6 +53,121 @@ func validateSubmissionPhoto(task *data.Task, sub *data.Submission) error {
 	return nil
 }
 
+func isSupportedUniqueFieldType(fieldType string) bool {
+	return fieldType == "text" || fieldType == "number" || fieldType == "select"
+}
+
+func normalizeCustomFieldValue(fieldType string, value interface{}) interface{} {
+	switch v := value.(type) {
+	case string:
+		if fieldType == "text" || fieldType == "number" || fieldType == "select" {
+			return strings.TrimSpace(v)
+		}
+		return value
+	case []string:
+		if fieldType != "multiselect" {
+			return value
+		}
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			result = append(result, strings.TrimSpace(item))
+		}
+		return result
+	case []interface{}:
+		if fieldType != "multiselect" {
+			return value
+		}
+		result := make([]interface{}, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				result = append(result, strings.TrimSpace(s))
+				continue
+			}
+			result = append(result, item)
+		}
+		return result
+	default:
+		return value
+	}
+}
+
+func normalizeSubmissionCustomData(task *data.Task, customData map[string]interface{}) map[string]interface{} {
+	normalized := make(map[string]interface{})
+	for key, value := range customData {
+		normalized[key] = value
+	}
+	if task == nil {
+		return normalized
+	}
+	for _, field := range task.CustomFields {
+		value, ok := normalized[field.ID]
+		if !ok {
+			continue
+		}
+		normalized[field.ID] = normalizeCustomFieldValue(field.Type, value)
+	}
+	return normalized
+}
+
+func normalizeUniqueComparableValue(fieldType string, value interface{}) string {
+	if !isSupportedUniqueFieldType(fieldType) || value == nil {
+		return ""
+	}
+	switch v := value.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	default:
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
+}
+
+func (uc *SubmissionUsecase) validateUniqueCustomFields(ctx context.Context, task *data.Task, sub *data.Submission, excludeSubmissionID string) error {
+	if task == nil || sub == nil || len(task.CustomFields) == 0 {
+		return nil
+	}
+
+	hasUniqueField := false
+	for _, field := range task.CustomFields {
+		if field.Unique && isSupportedUniqueFieldType(field.Type) {
+			hasUniqueField = true
+			break
+		}
+	}
+	if !hasUniqueField {
+		return nil
+	}
+
+	submissions, err := uc.repo.FindAllByTaskID(ctx, sub.TaskID.Hex())
+	if err != nil {
+		return err
+	}
+
+	for _, field := range task.CustomFields {
+		if !field.Unique || !isSupportedUniqueFieldType(field.Type) {
+			continue
+		}
+
+		candidate := normalizeUniqueComparableValue(field.Type, sub.CustomData[field.ID])
+		if candidate == "" {
+			continue
+		}
+
+		for _, existing := range submissions {
+			if existing == nil {
+				continue
+			}
+			if excludeSubmissionID != "" && existing.ID.Hex() == excludeSubmissionID {
+				continue
+			}
+			if normalizeUniqueComparableValue(field.Type, existing.CustomData[field.ID]) == candidate {
+				return errors.New(field.Label + "不能重复")
+			}
+		}
+	}
+
+	return nil
+}
+
 func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Submission) error {
 	// 查任务，判断当前用户是否为创建者
 	task, err := uc.taskRepo.FindByID(ctx, sub.TaskID.Hex())
@@ -69,6 +186,10 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 		}
 	}
 	if err := validateSubmissionPhoto(task, sub); err != nil {
+		return err
+	}
+	sub.CustomData = normalizeSubmissionCustomData(task, sub.CustomData)
+	if err := uc.validateUniqueCustomFields(ctx, task, sub, ""); err != nil {
 		return err
 	}
 
@@ -116,6 +237,10 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 		sub.Photo.Height = existing.Photo.Height
 	}
 	if err := validateSubmissionPhoto(task, sub); err != nil {
+		return err
+	}
+	sub.CustomData = normalizeSubmissionCustomData(task, sub.CustomData)
+	if err := uc.validateUniqueCustomFields(ctx, task, sub, existing.ID.Hex()); err != nil {
 		return err
 	}
 

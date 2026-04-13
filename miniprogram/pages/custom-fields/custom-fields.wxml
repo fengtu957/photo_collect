@@ -3,7 +3,13 @@
     <view class="item" wx:for="{{fields}}" wx:key="id">
       <view class="item-content">
         <view class="del-icon" catchtap="removeField" data-index="{{index}}">−</view>
-        <text class="item-text" bindtap="editField" data-index="{{index}}">{{item.label}}</text>
+        <view class="item-main" bindtap="editField" data-index="{{index}}">
+          <text class="item-text">{{item.label}}</text>
+          <view class="item-tags" wx:if="{{item.required || item.unique}}">
+            <text class="item-tag" wx:if="{{item.required}}">必填</text>
+            <text class="item-tag item-tag-unique" wx:if="{{item.unique}}">唯一</text>
+          </view>
+        </view>
         <view class="sort-btns">
           <text class="sort-btn" catchtap="moveUp" data-index="{{index}}" wx:if="{{index > 0}}">↑</text>
           <text class="sort-btn" catchtap="moveDown" data-index="{{index}}" wx:if="{{index < fields.length - 1}}">↓</text>

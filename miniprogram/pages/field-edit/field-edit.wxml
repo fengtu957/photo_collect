@@ -26,6 +26,10 @@
       <text class="required-text">设置为必填</text>
       <switch checked="{{field.required}}" bindchange="onRequiredChange" />
     </view>
+    <view class="required-row" wx:if="{{field.type === 'text' || field.type === 'number' || field.type === 'select'}}">
+      <text class="required-text">设置为唯一</text>
+      <switch checked="{{field.unique}}" bindchange="onUniqueChange" />
+    </view>
   </view>
 
   <view class="footer">
