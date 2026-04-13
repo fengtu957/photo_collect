@@ -7,11 +7,12 @@ import (
 )
 
 type PhotoSpec struct {
-	Name      string `bson:"name" json:"name"`
-	Width     int    `bson:"width" json:"width"`
-	Height    int    `bson:"height" json:"height"`
-	DPI       int    `bson:"dpi,omitempty" json:"dpi,omitempty"`
-	MaxSizeKB int    `bson:"max_size_kb,omitempty" json:"max_size_kb,omitempty"`
+	Name            string `bson:"name" json:"name"`
+	Width           int    `bson:"width" json:"width"`
+	Height          int    `bson:"height" json:"height"`
+	DPI             int    `bson:"dpi,omitempty" json:"dpi,omitempty"`
+	MaxSizeKB       int    `bson:"max_size_kb,omitempty" json:"max_size_kb,omitempty"`
+	BackgroundColor string `bson:"background_color,omitempty" json:"background_color,omitempty"`
 }
 
 type CustomField struct {

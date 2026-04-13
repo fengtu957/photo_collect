@@ -36,12 +36,15 @@ func buildPhotoSpecText(task *data.Task) string {
 		return ""
 	}
 
-	parts := make([]string, 0, 2)
+	parts := make([]string, 0, 3)
 	if task.PhotoSpec.Name != "" {
 		parts = append(parts, "规格名称："+task.PhotoSpec.Name)
 	}
 	if task.PhotoSpec.Width > 0 && task.PhotoSpec.Height > 0 {
 		parts = append(parts, "照片比例："+buildPhotoRatioText(task.PhotoSpec.Width, task.PhotoSpec.Height))
+	}
+	if task.PhotoSpec.BackgroundColor != "" {
+		parts = append(parts, "背景色要求："+task.PhotoSpec.BackgroundColor)
 	}
 
 	return strings.Join(parts, "；")

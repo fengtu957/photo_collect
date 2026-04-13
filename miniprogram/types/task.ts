@@ -4,6 +4,7 @@ export interface PhotoSpec {
   height: number;
   dpi?: number;
   max_size_kb?: number;
+  background_color?: string;
 }
 
 export interface CustomField {

@@ -14,6 +14,11 @@
       <text class="value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
     </view>
 
+    <view class="info-row" wx:if="{{task.photo_spec.background_color}}">
+      <text class="label">背景色要求：</text>
+      <text class="value">{{task.photo_spec.background_color}}</text>
+    </view>
+
     <view class="info-row" wx:if="{{task.photo_spec.max_size_kb > 0}}">
       <text class="label">大小限制：</text>
       <text class="value">{{task.photo_spec.max_size_kb}}K，超出自动压缩</text>
@@ -39,7 +44,12 @@
       <text class="value">{{customFieldSummary}}</text>
     </view>
 
-    <view class="export-panel" wx:if="{{isCreator}}">
+    <view class="export-panel export-panel-tip" wx:if="{{isCreator && !canExportTask}}">
+      <text class="export-title">导出图片</text>
+      <text class="export-locked-tip">活动结束后才能导出图片</text>
+    </view>
+
+    <view class="export-panel" wx:elif="{{isCreator && canExportTask}}">
       <text class="export-title">导出图片</text>
       <text class="export-label">文件命名模板</text>
       <textarea

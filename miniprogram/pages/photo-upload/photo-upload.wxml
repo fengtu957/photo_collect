@@ -7,6 +7,10 @@
       <text class="spec-label">照片规格：</text>
       <text class="spec-value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
     </view>
+    <view class="spec-info" wx:if="{{task.photo_spec.background_color}}">
+      <text class="spec-label">背景色要求：</text>
+      <text class="spec-value">{{task.photo_spec.background_color}}</text>
+    </view>
     <view class="spec-info" wx:if="{{task.photo_spec.max_size_kb > 0}}">
       <text class="spec-label">大小限制：</text>
       <text class="spec-value">{{task.photo_spec.max_size_kb}}K，超出会自动压缩</text>

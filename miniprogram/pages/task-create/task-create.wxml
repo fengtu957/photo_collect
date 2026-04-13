@@ -11,27 +11,20 @@
     </view>
 
     <view class="section">
-      <text class="label">照片规格</text>
-      <view class="row">
-        <view class="row-item">
-          <text class="sub-label">规格名称</text>
-          <input class="input" placeholder="如：一寸" bindinput="onSpecInput" data-field="name" value="{{form.photo_spec.name}}" adjust-position="{{false}}" />
-        </view>
-      </view>
-      <view class="row">
-        <view class="row-item">
-          <text class="sub-label">宽(mm)</text>
-          <input class="input" type="number" placeholder="25" bindinput="onSpecInput" data-field="width" value="{{form.photo_spec.width}}" adjust-position="{{false}}" />
-        </view>
-        <view class="row-item">
-          <text class="sub-label">高(mm)</text>
-          <input class="input" type="number" placeholder="35" bindinput="onSpecInput" data-field="height" value="{{form.photo_spec.height}}" adjust-position="{{false}}" />
+      <view class="row-link spec-entry" bindtap="goToPhotoSpecSelect">
+        <text class="label">照片规格 *</text>
+        <view class="spec-entry-content">
+          <text class="spec-summary" wx:if="{{form.photo_spec.name}}">
+            {{form.photo_spec.name}} {{form.photo_spec.width}}×{{form.photo_spec.height}}mm{{form.photo_spec.background_color ? '，' + form.photo_spec.background_color : ''}}
+          </text>
+          <text class="spec-placeholder" wx:else>请选择规格</text>
+          <text class="spec-entry-arrow">›</text>
         </view>
       </view>
       <view class="row">
         <view class="row-item">
           <text class="sub-label">大小限制(K)</text>
-          <input class="input" type="number" placeholder="0表示不限制" bindinput="onSpecInput" data-field="max_size_kb" value="{{form.photo_spec.max_size_kb}}" adjust-position="{{false}}" />
+          <input class="input" type="number" placeholder="0表示不限制" bindinput="onSpecInput" data-field="max_size_kb" value="{{maxSizeKBInput}}" adjust-position="{{false}}" />
         </view>
       </view>
     </view>

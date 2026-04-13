@@ -2,6 +2,7 @@ import { createTask, getTask, updateTask } from '../../services/task';
 import { showError, showSuccess } from '../../utils/request';
 import { isEffectiveTime, toRFC3339 } from '../../utils/time';
 import { formatDate } from '../../utils/format';
+import { normalizePhotoSpec } from '../../constants/photo-spec';
 
 function isValidDateTime(value: string): boolean {
   if (!value) return false;
@@ -10,15 +11,17 @@ function isValidDateTime(value: string): boolean {
 
 function validateTaskForm(form: any): string {
   const title = String(form.title || '').trim();
-  const photoSpec = form.photo_spec || {};
-  const photoSpecName = String(photoSpec.name || '').trim();
-  const width = Number(photoSpec.width || 0);
-  const height = Number(photoSpec.height || 0);
-  const maxSizeKB = Number(photoSpec.max_size_kb || 0);
-  const hasPhotoSpecInput = !!photoSpecName || width > 0 || height > 0;
+  const photoSpec = normalizePhotoSpec(form.photo_spec || {});
+  const photoSpecName = photoSpec.name;
+  const width = photoSpec.width;
+  const height = photoSpec.height;
+  const maxSizeKB = photoSpec.max_size_kb;
 
   if (!title) {
     return '请填写任务标题';
+  }
+  if (!photoSpecName || width <= 0 || height <= 0) {
+    return '请选择照片规格';
   }
   if (!form.end_time) {
     return '请填写截止时间';
@@ -31,14 +34,6 @@ function validateTaskForm(form: any): string {
   }
   if (form.start_time && new Date(form.start_time).getTime() > new Date(form.end_time).getTime()) {
     return '开始时间不能晚于截止时间';
-  }
-  if (hasPhotoSpecInput) {
-    if (!photoSpecName) {
-      return '请填写规格名称';
-    }
-    if (width <= 0 || height <= 0) {
-      return '照片规格宽高必须大于 0';
-    }
   }
   if (maxSizeKB < 0) {
     return '文件大小限制不能小于 0';
@@ -67,12 +62,13 @@ Page({
     taskId: '',
     isEditMode: false,
     taskLoaded: false,
+    maxSizeKBInput: '',
     startDate: '', startTime: '',
     endDate: '', endTime: '',
     form: {
       title: '',
       description: '',
-      photo_spec: { name: '', width: 0, height: 0, max_size_kb: 0 },
+      photo_spec: { name: '', width: 0, height: 0, max_size_kb: 0, background_color: '' },
       start_time: '',
       end_time: '',
       custom_fields: [] as any[]
@@ -82,7 +78,13 @@ Page({
   onLoad(options: any) {
     const taskId = options.id || '';
     const isEditMode = !!taskId;
-    this.setData({ taskId, isEditMode, taskLoaded: !isEditMode });
+    this.setData({
+      taskId,
+      isEditMode,
+      taskLoaded: !isEditMode,
+      maxSizeKBInput: isEditMode ? '' : '128',
+      'form.photo_spec.max_size_kb': isEditMode ? 0 : 128
+    });
 
     if (isEditMode) {
       wx.setNavigationBarTitle({ title: '编辑任务' });
@@ -105,10 +107,12 @@ Page({
       const task = await getTask(taskId);
       const appInstance = getApp<any>();
       const customFields = cloneCustomFields((task && task.custom_fields) || []);
+      const photoSpec = normalizePhotoSpec((task && task.photo_spec) || {});
       appInstance.globalData.customFields = cloneCustomFields(customFields);
 
       this.setData({
         taskLoaded: true,
+        maxSizeKBInput: String(photoSpec.max_size_kb),
         startDate: isEffectiveTime(task.start_time) ? formatDate(task.start_time) : '',
         startTime: isEffectiveTime(task.start_time) ? formatPickerTime(task.start_time) : '',
         endDate: isEffectiveTime(task.end_time) ? formatDate(task.end_time) : '',
@@ -116,12 +120,7 @@ Page({
         form: {
           title: task.title || '',
           description: task.description || '',
-          photo_spec: {
-            name: (task.photo_spec && task.photo_spec.name) || '',
-            width: Number((task.photo_spec && task.photo_spec.width) || 0),
-            height: Number((task.photo_spec && task.photo_spec.height) || 0),
-            max_size_kb: Number((task.photo_spec && task.photo_spec.max_size_kb) || 0)
-          },
+          photo_spec: photoSpec,
           start_time: isEffectiveTime(task.start_time) ? task.start_time : '',
           end_time: isEffectiveTime(task.end_time) ? task.end_time : '',
           custom_fields: customFields
@@ -139,11 +138,21 @@ Page({
   onSpecInput(e: any) {
     const field = e.currentTarget.dataset.field;
     const value = e.detail.value;
+    if (field === 'max_size_kb') {
+      this.setData({
+        maxSizeKBInput: value,
+        'form.photo_spec.max_size_kb': Number(value || 0)
+      });
+      return;
+    }
+
     this.setData({
-      [`form.photo_spec.${field}`]: field === 'width' || field === 'height' || field === 'max_size_kb'
-        ? Number(value || 0)
-        : value
+      [`form.photo_spec.${field}`]: Number(value || 0)
     });
+  },
+
+  goToPhotoSpecSelect() {
+    wx.navigateTo({ url: '/pages/photo-spec-select/photo-spec-select' });
   },
 
   onStartDateChange(e: any) {

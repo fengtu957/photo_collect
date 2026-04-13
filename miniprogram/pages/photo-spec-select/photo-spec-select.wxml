@@ -1,0 +1,60 @@
+<view class="page">
+  <view class="search-card">
+    <input
+      class="input"
+      placeholder="搜索规格名称或用途"
+      value="{{keyword}}"
+      bindinput="onKeywordInput"
+      adjust-position="{{false}}"
+    />
+  </view>
+
+  <view class="color-card">
+    <text class="color-title">背景色要求</text>
+    <text class="color-tip">非必填，不限制可选“无要求”</text>
+    <view class="color-options">
+      <view
+        class="color-option {{selectedBackgroundColor === item.value ? 'color-option-active' : ''}}"
+        wx:for="{{backgroundColorOptions}}"
+        wx:key="value"
+        bindtap="selectBackgroundColor"
+        data-value="{{item.value}}"
+      >
+        <view class="color-dot {{item.dot_class}}"></view>
+        <text class="color-label">{{item.label}}</text>
+      </view>
+    </view>
+    <view class="custom-color-input-wrap" wx:if="{{selectedBackgroundColor === '__custom__'}}">
+      <input
+        class="input custom-color-input"
+        placeholder="请输入其他背景要求，如：只要是纯色就行"
+        value="{{customBackgroundColor}}"
+        bindinput="onCustomBackgroundInput"
+        adjust-position="{{false}}"
+      />
+    </view>
+  </view>
+
+  <view class="spec-grid" wx:if="{{filteredOptions.length > 0}}">
+    <view
+      class="spec-card {{selectedPhotoSpecId === item.id ? 'spec-card-active' : ''}}"
+      wx:for="{{filteredOptions}}"
+      wx:key="id"
+      bindtap="selectSpec"
+      data-id="{{item.id}}"
+    >
+      <text class="spec-card-title">{{item.name}}</text>
+      <text class="spec-card-size">{{item.size_text}}</text>
+      <text class="spec-card-desc">{{item.desc}}</text>
+    </view>
+  </view>
+
+  <view class="empty-card" wx:else>
+    <text class="empty-title">没有匹配的规格</text>
+    <text class="empty-desc">换个关键词试试，或者清空搜索。</text>
+  </view>
+
+  <view class="footer">
+    <button class="confirm-btn" bindtap="confirmSelection">选择</button>
+  </view>
+</view>

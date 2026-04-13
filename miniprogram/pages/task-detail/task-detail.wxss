@@ -85,6 +85,10 @@
   border-top: 1rpx solid #f5f5f5;
 }
 
+.export-panel-tip {
+  padding-bottom: 4rpx;
+}
+
 .export-title {
   display: block;
   font-size: 28rpx;
@@ -98,6 +102,13 @@
   font-size: 26rpx;
   color: #666;
   margin-bottom: 12rpx;
+}
+
+.export-locked-tip {
+  display: block;
+  font-size: 26rpx;
+  color: #999;
+  line-height: 1.6;
 }
 
 .export-textarea {

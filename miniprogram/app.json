@@ -2,6 +2,7 @@
   "pages": [
     "pages/task-list/task-list",
     "pages/task-create/task-create",
+    "pages/photo-spec-select/photo-spec-select",
     "pages/task-detail/task-detail",
     "pages/photo-upload/photo-upload",
     "pages/camera-shoot/camera-shoot",

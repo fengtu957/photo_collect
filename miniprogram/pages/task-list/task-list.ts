@@ -76,7 +76,7 @@ Page({
         ...t,
         status: getTaskStatus(t),
         spec_text: (t && t.photo_spec && t.photo_spec.name)
-          ? `${t.photo_spec.name}${t.description ? '，' + t.description : ''}`
+          ? `${t.photo_spec.name}${(t.photo_spec && t.photo_spec.background_color) ? '，' + t.photo_spec.background_color : ''}${t.description ? '，' + t.description : ''}`
           : (t.description || '未设置'),
         created_at_formatted: formatTime(String(t.created_at || '')),
         end_time_formatted: formatTime(String(t.end_time || '')),

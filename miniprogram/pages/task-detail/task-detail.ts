@@ -32,6 +32,14 @@ function getTaskStatus(task: any): string {
   return '';
 }
 
+function canExportTask(task: any): boolean {
+  if (!task || !isEffectiveTime(task.end_time)) {
+    return false;
+  }
+
+  return new Date().getTime() > new Date(task.end_time).getTime();
+}
+
 function formatSubmissions(list: any[], customFields: any[]) {
   const fieldLabelMap: Record<string, string> = {};
   (customFields || []).forEach((f: any) => {
@@ -220,6 +228,7 @@ Page({
     startTime: '',
     endTime: '',
     isCreator: false,
+    canExportTask: false,
     fromShare: false,
     currentUserId: '',
     mySubmissionId: '',
@@ -296,6 +305,7 @@ Page({
         startTime,
         endTime,
         isCreator,
+        canExportTask: canExportTask(task),
         currentUserId: currentOpenid,
         mySubmissionId: (mySubmission && mySubmission.id) || '',
         page: 1,
@@ -403,7 +413,7 @@ Page({
   },
 
   async fetchAuthorizedExportLink(silent: boolean = false) {
-    if (!this.data.isCreator || !this.data.exportFileName || this.data.exportStatus !== 'success') {
+    if (!this.data.isCreator || !this.data.canExportTask || !this.data.exportFileName || this.data.exportStatus !== 'success') {
       return;
     }
 
@@ -425,7 +435,7 @@ Page({
   },
 
   async syncExportStatus(silent: boolean = false) {
-    if (!this.data.isCreator || !this.data.exportFileName) {
+    if (!this.data.isCreator || !this.data.canExportTask || !this.data.exportFileName) {
       return;
     }
 
@@ -456,6 +466,10 @@ Page({
   },
 
   refreshExportStatus() {
+    if (!this.data.canExportTask) {
+      showError('活动结束后才能导出');
+      return;
+    }
     this.syncExportStatus(false);
   },
 
@@ -496,6 +510,10 @@ Page({
       showError('只有创建者可导出');
       return;
     }
+    if (!this.data.canExportTask) {
+      showError('活动结束后才能导出');
+      return;
+    }
 
     const template = String(this.data.exportTemplate || '').trim() || getDefaultExportTemplate(this.data.task);
 
@@ -525,6 +543,10 @@ Page({
   },
 
   copyExportLink() {
+    if (!this.data.canExportTask) {
+      showError('活动结束后才能导出');
+      return;
+    }
     if (this.data.exportStatus !== 'success') {
       showError('导出未完成，请先刷新状态');
       return;
@@ -548,6 +570,10 @@ Page({
   async authorizeTaskExport() {
     if (!this.data.isCreator) {
       showError('只有创建者可操作');
+      return;
+    }
+    if (!this.data.canExportTask) {
+      showError('活动结束后才能导出');
       return;
     }
     if (!this.data.exportFileName) {
