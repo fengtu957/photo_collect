@@ -75,6 +75,11 @@ type QwenResponse struct {
 	} `json:"error,omitempty"`
 }
 
+func isValidJSONObjectContent(content string) bool {
+	trimmed := strings.TrimSpace(content)
+	return trimmed != "" && json.Valid([]byte(trimmed))
+}
+
 func extractResponseContent(raw json.RawMessage) string {
 	var asString string
 	if err := json.Unmarshal(raw, &asString); err == nil {
@@ -92,7 +97,26 @@ func extractResponseContent(raw json.RawMessage) string {
 				parts = append(parts, item.Text)
 			}
 		}
-		return strings.TrimSpace(strings.Join(parts, "\n"))
+
+		for i := len(parts) - 1; i >= 0; i-- {
+			if isValidJSONObjectContent(parts[i]) {
+				log.Printf("[qwen] extracted array content parts=%d strategy=last-valid-json", len(parts))
+				return strings.TrimSpace(parts[i])
+			}
+		}
+
+		longest := ""
+		for _, part := range parts {
+			if len(strings.TrimSpace(part)) > len(strings.TrimSpace(longest)) {
+				longest = part
+			}
+		}
+		if longest != "" {
+			log.Printf("[qwen] extracted array content parts=%d strategy=longest-part", len(parts))
+			return strings.TrimSpace(longest)
+		}
+
+		return ""
 	}
 
 	return strings.TrimSpace(string(raw))
@@ -160,14 +184,17 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 否则 passed=false。
 
 【四、issues 和 suggestions 生成规则】
-1. issues：列出当前图片存在的主要问题，最多 3 条，简洁明确，不要空泛。
-2. suggestions：针对 issues 给出可执行建议，最多 3 条，必须具体。
-3. 如果图片整体较好，也允许 issues 和 suggestions 返回空数组。
+1. issues：列出当前图片存在的主要问题，最多 2 条，简洁明确，不要空泛。
+2. suggestions：针对 issues 给出可执行建议，最多 2 条，必须具体。
+3. issues 和 suggestions 都必须尽量简短，每条尽量控制在 12 个汉字以内，禁止长句，禁止重复表达，禁止一条里塞多个并列建议。
+4. 如果图片整体较好，也允许 issues 和 suggestions 返回空数组。
 
 【五、输出格式要求】
 只允许输出严格 JSON。
 不要输出 markdown，不要输出代码块，不要输出解释，不要输出多余文字。
 不要缺字段，不要增加字段。
+只输出 1 份完整 JSON，禁止重复字段，禁止重复输出 issues 或 suggestions，禁止在 JSON 结束后继续追加任何内容。
+输出完这个 JSON 后立即结束，不要续写第二份 JSON。
 
 固定返回格式如下：
 {"passed":true,"person_count":1,"face_detected":true,"score":85,"breakdown":{"clarity":90,"lighting":85,"angle":88,"background":80,"expression":85,"composition":87},"issues":["光线略显不足"],"suggestions":["建议在自然光充足且光线均匀的环境重拍"]}

@@ -50,6 +50,9 @@
         <text class="analysis-headline">当前无法完成 AI 检查</text>
       </view>
       <text class="analysis-note">{{analysisError}}</text>
+      <view class="analysis-actions">
+        <button class="analysis-action-btn" bindtap="retryAnalyzePhoto">重新检测</button>
+      </view>
     </view>
 
     <view class="analysis-panel {{analysisPassed ? 'analysis-panel-pass' : 'analysis-panel-fail'}}" wx:if="{{analysisState === 'success' && analysisResult}}">

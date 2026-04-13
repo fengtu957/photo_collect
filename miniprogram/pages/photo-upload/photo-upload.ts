@@ -372,6 +372,24 @@ Page({
     }
   },
 
+  retryAnalyzePhoto() {
+    if (!this.data.photoPath) {
+      showError('请先选择照片');
+      return;
+    }
+
+    this.setData({
+      photoKey: '',
+      analysisState: 'analyzing',
+      analysisResult: null,
+      analysisPassed: false,
+      analysisError: '',
+      analysisMessage: '正在重新检查照片，请稍候…',
+      canSubmit: false
+    });
+    this.prepareAndAnalyzePhoto(this.data.photoPath);
+  },
+
   onCustomFieldInput(e: any) {
     const field = e.currentTarget.dataset.field;
     const value = e.detail.value;
