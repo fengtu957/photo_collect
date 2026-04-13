@@ -11,6 +11,16 @@
     </view>
 
     <view class="section">
+      <view class="switch-row">
+        <view class="switch-copy">
+          <text class="label switch-label">开启AI分析</text>
+          <text class="switch-tip">关闭后上传照片不做 AI 检查，也不会生成 AI 评分。</text>
+        </view>
+        <switch checked="{{form.ai_analysis_enabled}}" bindchange="onAIAnalysisChange" color="#1989fa" />
+      </view>
+    </view>
+
+    <view class="section">
       <view class="row-link spec-entry" bindtap="goToPhotoSpecSelect">
         <text class="label">照片规格 *</text>
         <view class="spec-entry-content">

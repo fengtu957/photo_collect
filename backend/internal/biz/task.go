@@ -22,6 +22,10 @@ func validateTask(task *data.Task) error {
 	if task == nil {
 		return errors.New("任务不能为空")
 	}
+	if task.AIAnalysisEnabled == nil {
+		enabled := true
+		task.AIAnalysisEnabled = &enabled
+	}
 	if task.PhotoSpec.MaxSizeKB < 0 {
 		return errors.New("文件大小限制不能小于 0")
 	}
@@ -54,6 +58,9 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	task.Enabled = existing.Enabled
 	task.Stats = existing.Stats
 	task.CreatedAt = existing.CreatedAt
+	if task.AIAnalysisEnabled == nil {
+		task.AIAnalysisEnabled = existing.AIAnalysisEnabled
+	}
 	if err := validateTask(task); err != nil {
 		return err
 	}

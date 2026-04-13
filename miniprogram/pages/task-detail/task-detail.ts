@@ -4,6 +4,7 @@ import { showError, showLoading, hideLoading } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
 import { drawQrCode } from '../../utils/qrcode';
+import { isTaskAIAnalysisEnabled } from '../../utils/task';
 const PAGE_SIZE = 2;
 const QR_CANVAS_ID = 'taskQrCanvas';
 const QR_CANVAS_SIZE = 360;
@@ -224,6 +225,7 @@ Page({
     exportExpiresAt: '',
     exportCount: 0,
     exportErrorMessage: '',
+    aiAnalysisEnabled: true,
     submissions: [] as any[],
     startTime: '',
     endTime: '',
@@ -305,6 +307,7 @@ Page({
         startTime,
         endTime,
         isCreator,
+        aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
         canExportTask: canExportTask(task),
         currentUserId: currentOpenid,
         mySubmissionId: (mySubmission && mySubmission.id) || '',

@@ -31,6 +31,29 @@
   margin-bottom: 8rpx;
 }
 
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.switch-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.switch-label {
+  margin-bottom: 8rpx;
+}
+
+.switch-tip {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  line-height: 1.6;
+}
+
 .input {
   display: block;
   width: 100%;

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
@@ -89,6 +90,9 @@ func (s *SubmissionService) evaluateTaskPhoto(taskID string, photoKey string) (*
 	}
 	if task == nil {
 		return nil, nil
+	}
+	if !task.IsAIAnalysisEnabled() {
+		return nil, errors.New("当前任务未开启AI分析")
 	}
 
 	photoURL := s.qiniuSvc.GetFileURLWithTTL(photoKey, 10*time.Minute)

@@ -3,6 +3,7 @@ import { showError, showSuccess } from '../../utils/request';
 import { isEffectiveTime, toRFC3339 } from '../../utils/time';
 import { formatDate } from '../../utils/format';
 import { normalizePhotoSpec } from '../../constants/photo-spec';
+import { isTaskAIAnalysisEnabled } from '../../utils/task';
 
 function isValidDateTime(value: string): boolean {
   if (!value) return false;
@@ -69,6 +70,7 @@ Page({
       title: '',
       description: '',
       photo_spec: { name: '', width: 0, height: 0, max_size_kb: 0, background_color: '' },
+      ai_analysis_enabled: true,
       start_time: '',
       end_time: '',
       custom_fields: [] as any[]
@@ -121,6 +123,7 @@ Page({
           title: task.title || '',
           description: task.description || '',
           photo_spec: photoSpec,
+          ai_analysis_enabled: isTaskAIAnalysisEnabled(task),
           start_time: isEffectiveTime(task.start_time) ? task.start_time : '',
           end_time: isEffectiveTime(task.end_time) ? task.end_time : '',
           custom_fields: customFields
@@ -148,6 +151,12 @@ Page({
 
     this.setData({
       [`form.photo_spec.${field}`]: Number(value || 0)
+    });
+  },
+
+  onAIAnalysisChange(e: any) {
+    this.setData({
+      'form.ai_analysis_enabled': !!(e.detail && e.detail.value)
     });
   },
 

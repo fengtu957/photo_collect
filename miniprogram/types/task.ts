@@ -38,6 +38,7 @@ export interface Task {
   title: string;
   description: string;
   photo_spec: PhotoSpec;
+  ai_analysis_enabled?: boolean;
   start_time: string;
   end_time: string;
   enabled: boolean;
@@ -52,6 +53,7 @@ export interface CreateTaskParams {
   title: string;
   description: string;
   photo_spec: PhotoSpec;
+  ai_analysis_enabled?: boolean;
   start_time: string;
   end_time: string;
   custom_fields: CustomField[];

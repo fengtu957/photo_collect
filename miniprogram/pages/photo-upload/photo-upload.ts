@@ -5,6 +5,7 @@ import { SubmissionAnalysisResult } from '../../types/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
+import { isTaskAIAnalysisEnabled } from '../../utils/task';
 
 const COMPRESS_QUALITY_STEPS = [90, 80, 70, 60, 50, 40, 30, 20];
 
@@ -194,6 +195,7 @@ Page({
     analysisError: '',
     analysisMessage: '',
     canSubmit: false,
+    aiAnalysisEnabled: true,
     customData: {} as Record<string, any>,
     multiSelectState: {} as Record<string, Record<string, boolean>>,
     isEditMode: false
@@ -235,6 +237,7 @@ Page({
         task,
         taskStatusText,
         taskUnavailableMessage: unavailableMessage,
+        aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
         multiSelectState: buildMultiSelectState(task, this.data.customData)
       });
     } catch (err: any) {
@@ -247,6 +250,7 @@ Page({
       const submission = await getSubmission(this.data.submissionId);
       const photoUrl = (submission.photo && submission.photo.url) || '';
       const normalizedCustomData = normalizeCustomData(this.data.task, submission.custom_data || {});
+      const aiAnalysisEnabled = isTaskAIAnalysisEnabled(this.data.task);
 
       this.setData({
         customData: normalizedCustomData,
@@ -258,11 +262,13 @@ Page({
           width: Number((submission.photo && submission.photo.width) || 0),
           height: Number((submission.photo && submission.photo.height) || 0)
         },
-        analysisState: photoUrl ? 'existing' : '',
+        analysisState: aiAnalysisEnabled && photoUrl ? 'existing' : '',
         analysisResult: null,
         analysisPassed: !!photoUrl,
         analysisError: '',
-        analysisMessage: photoUrl ? '当前为已保存照片，可直接提交；如果重新选择照片，会先进行 AI 检查。' : '',
+        analysisMessage: aiAnalysisEnabled
+          ? (photoUrl ? '当前为已保存照片，可直接提交；如果重新选择照片，会先进行 AI 检查。' : '')
+          : '',
         canSubmit: !!photoUrl
       });
     } catch (err: any) {
@@ -320,6 +326,22 @@ Page({
   },
 
   handleSelectedPhoto(filePath: string) {
+    if (!this.data.aiAnalysisEnabled) {
+      this.setData({
+        photoPath: filePath,
+        photoKey: '',
+        photoMeta: { fileSize: 0, width: 0, height: 0 },
+        analysisState: '',
+        analysisResult: null,
+        analysisPassed: false,
+        analysisError: '',
+        analysisMessage: '',
+        canSubmit: false
+      });
+      this.preparePhotoWithoutAI(filePath);
+      return;
+    }
+
     this.setData({
       photoPath: filePath,
       photoKey: '',
@@ -332,6 +354,25 @@ Page({
       canSubmit: false
     });
     this.prepareAndAnalyzePhoto(filePath);
+  },
+
+  async preparePhotoWithoutAI(filePath: string) {
+    try {
+      showLoading('处理照片中...');
+      await this.preparePhotoForUpload(filePath);
+      this.setData({
+        canSubmit: true
+      });
+    } catch (err: any) {
+      this.setData({
+        photoKey: '',
+        photoMeta: { fileSize: 0, width: 0, height: 0 },
+        canSubmit: false
+      });
+      showError((err && err.message) || '处理照片失败');
+    } finally {
+      hideLoading();
+    }
   },
 
   async prepareAndAnalyzePhoto(filePath: string) {
@@ -373,6 +414,9 @@ Page({
   },
 
   retryAnalyzePhoto() {
+    if (!this.data.aiAnalysisEnabled) {
+      return;
+    }
     if (!this.data.photoPath) {
       showError('请先选择照片');
       return;
@@ -432,7 +476,7 @@ Page({
     }
 
     if (!this.data.canSubmit) {
-      showError('请先选择一张通过 AI 检查的照片');
+      showError(this.data.aiAnalysisEnabled ? '请先选择一张通过 AI 检查的照片' : '请先选择照片');
       return;
     }
 
@@ -458,6 +502,11 @@ Page({
       return;
     }
 
+    if (!this.data.aiAnalysisEnabled) {
+      this.uploadPreparedPhotoAndSave();
+      return;
+    }
+
     if (!this.data.photoKey) {
       showError('当前照片尚未完成 AI 检查，请重新选择');
       return;
@@ -465,6 +514,19 @@ Page({
 
     showLoading('提交中...');
     this.saveSubmission(this.data.photoKey, this.data.photoMeta);
+  },
+
+  async uploadPreparedPhotoAndSave() {
+    try {
+      showLoading('提交中...');
+      const preparedPhoto = await this.preparePhotoForUpload(this.data.photoPath);
+      const key = createUploadKey();
+      await uploadPhotoToQiniu(preparedPhoto.filePath, key);
+      this.saveSubmission(key, preparedPhoto);
+    } catch (err: any) {
+      hideLoading();
+      showError((err && err.message) || '提交失败');
+    }
   },
 
   async preparePhotoForUpload(filePath: string) {

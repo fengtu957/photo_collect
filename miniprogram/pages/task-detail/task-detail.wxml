@@ -25,6 +25,11 @@
     </view>
 
     <view class="info-row">
+      <text class="label">AI分析：</text>
+      <text class="value">{{aiAnalysisEnabled ? '已开启' : '已关闭'}}</text>
+    </view>
+
+    <view class="info-row">
       <text class="label">开始时间：</text>
       <text class="value">{{startTime}}</text>
     </view>
@@ -110,7 +115,7 @@
       </text>
     </view>
 
-    <view class="ai-evaluation" wx:if="{{item.ai_evaluation && item.ai_evaluation.status === 'success'}}">
+    <view class="ai-evaluation" wx:if="{{aiAnalysisEnabled && item.ai_evaluation && item.ai_evaluation.status === 'success'}}">
       <view class="score-row">
         <text class="score-label">AI评分：</text>
         <text class="score-value">{{item.ai_evaluation.score}}</text>
@@ -154,11 +159,11 @@
       </view>
     </view>
 
-    <view class="ai-evaluation" wx:if="{{item.ai_evaluation && item.ai_evaluation.status === 'pending'}}">
+    <view class="ai-evaluation" wx:if="{{aiAnalysisEnabled && item.ai_evaluation && item.ai_evaluation.status === 'pending'}}">
       <text class="ai-pending">AI评估中...</text>
     </view>
 
-    <view class="ai-evaluation" wx:if="{{item.ai_evaluation && item.ai_evaluation.status === 'failed'}}">
+    <view class="ai-evaluation" wx:if="{{aiAnalysisEnabled && item.ai_evaluation && item.ai_evaluation.status === 'failed'}}">
       <text class="ai-error">AI评估失败：{{item.ai_evaluation.error}}</text>
     </view>
 

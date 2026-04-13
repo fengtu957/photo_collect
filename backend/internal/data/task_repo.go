@@ -92,13 +92,14 @@ func (r *TaskRepo) Update(ctx context.Context, id string, task *Task) error {
 	task.UpdatedAt = time.Now()
 	_, err = r.data.DB().Collection("tasks").UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
 		"$set": bson.M{
-			"title":         task.Title,
-			"description":   task.Description,
-			"photo_spec":    task.PhotoSpec,
-			"start_time":    task.StartTime,
-			"end_time":      task.EndTime,
-			"custom_fields": task.CustomFields,
-			"updated_at":    task.UpdatedAt,
+			"title":               task.Title,
+			"description":         task.Description,
+			"photo_spec":          task.PhotoSpec,
+			"ai_analysis_enabled": task.AIAnalysisEnabled,
+			"start_time":          task.StartTime,
+			"end_time":            task.EndTime,
+			"custom_fields":       task.CustomFields,
+			"updated_at":          task.UpdatedAt,
 		},
 	})
 	return err

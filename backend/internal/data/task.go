@@ -41,17 +41,26 @@ type TaskExportInfo struct {
 }
 
 type Task struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	UserID       string             `bson:"user_id" json:"user_id"`
-	Title        string             `bson:"title" json:"title"`
-	Description  string             `bson:"description" json:"description"`
-	PhotoSpec    PhotoSpec          `bson:"photo_spec" json:"photo_spec"`
-	StartTime    time.Time          `bson:"start_time" json:"start_time"`
-	EndTime      time.Time          `bson:"end_time" json:"end_time"`
-	Enabled      bool               `bson:"enabled" json:"enabled"`
-	CustomFields []CustomField      `bson:"custom_fields" json:"custom_fields"`
-	Stats        TaskStats          `bson:"stats" json:"stats"`
-	ExportInfo   TaskExportInfo     `bson:"export_info,omitempty" json:"export_info,omitempty"`
-	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt    time.Time          `bson:"updated_at" json:"updated_at"`
+	ID                primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID            string             `bson:"user_id" json:"user_id"`
+	Title             string             `bson:"title" json:"title"`
+	Description       string             `bson:"description" json:"description"`
+	PhotoSpec         PhotoSpec          `bson:"photo_spec" json:"photo_spec"`
+	AIAnalysisEnabled *bool              `bson:"ai_analysis_enabled,omitempty" json:"ai_analysis_enabled,omitempty"`
+	StartTime         time.Time          `bson:"start_time" json:"start_time"`
+	EndTime           time.Time          `bson:"end_time" json:"end_time"`
+	Enabled           bool               `bson:"enabled" json:"enabled"`
+	CustomFields      []CustomField      `bson:"custom_fields" json:"custom_fields"`
+	Stats             TaskStats          `bson:"stats" json:"stats"`
+	ExportInfo        TaskExportInfo     `bson:"export_info,omitempty" json:"export_info,omitempty"`
+	CreatedAt         time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt         time.Time          `bson:"updated_at" json:"updated_at"`
+}
+
+func (t *Task) IsAIAnalysisEnabled() bool {
+	if t == nil || t.AIAnalysisEnabled == nil {
+		return true
+	}
+
+	return *t.AIAnalysisEnabled
 }
