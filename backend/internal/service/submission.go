@@ -29,18 +29,47 @@ func buildPhotoSpecText(task *data.Task) string {
 		return ""
 	}
 
-	parts := make([]string, 0, 4)
+	parts := make([]string, 0, 2)
 	if task.PhotoSpec.Name != "" {
 		parts = append(parts, "规格名称："+task.PhotoSpec.Name)
 	}
 	if task.PhotoSpec.Width > 0 && task.PhotoSpec.Height > 0 {
-		parts = append(parts, "尺寸："+strconv.Itoa(task.PhotoSpec.Width)+"×"+strconv.Itoa(task.PhotoSpec.Height)+"mm")
-	}
-	if task.PhotoSpec.MaxSizeKB > 0 {
-		parts = append(parts, "文件大小限制："+strconv.Itoa(task.PhotoSpec.MaxSizeKB)+"K")
+		parts = append(parts, "照片比例："+buildPhotoRatioText(task.PhotoSpec.Width, task.PhotoSpec.Height))
 	}
 
 	return strings.Join(parts, "；")
+}
+
+func buildPhotoRatioText(width int, height int) string {
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+
+	divisor := greatestCommonDivisor(width, height)
+	if divisor <= 0 {
+		return strconv.Itoa(width) + ":" + strconv.Itoa(height)
+	}
+
+	return strconv.Itoa(width/divisor) + ":" + strconv.Itoa(height/divisor)
+}
+
+func greatestCommonDivisor(a int, b int) int {
+	if a < 0 {
+		a = -a
+	}
+	if b < 0 {
+		b = -b
+	}
+
+	for b != 0 {
+		a, b = b, a%b
+	}
+
+	if a == 0 {
+		return 1
+	}
+
+	return a
 }
 
 func (s *SubmissionService) CreateSubmission(w http.ResponseWriter, r *http.Request) {

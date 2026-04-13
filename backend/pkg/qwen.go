@@ -103,28 +103,83 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 		return "", fmt.Errorf("QWEN_API_KEY 未配置")
 	}
 
-	prompt := fmt.Sprintf(`你是专业的证件照质量评估专家。请评估这张证件照的质量。
+	prompt := fmt.Sprintf(`你是专业的证件照质量评估专家。请根据输入图片，严格评估其是否符合证件照要求。
 
 证件照规格要求：%s
 
-请严格先做准入判断，再做质量评分。
+任务分两步，必须严格按顺序执行：
+第一步：准入判断
+第二步：仅在准入通过后，再做质量评分
 
-硬性规则：
+【一、准入判断规则】
+先判断以下硬性条件：
+
 1. 画面中必须恰好有 1 个人。
-2. 必须能清晰看到 1 张人脸。
-3. 如果是空白图、风景图、物品图、没有人脸，必须判定不通过。
-4. 如果出现多人，必须判定不通过。
+2. 必须能清晰识别到 1 张人脸。
+3. 如果是空白图、纯背景图、风景图、物品图、卡通图、宠物图、截图、模糊到无法识别人脸的图片，必须判定不通过。
+4. 如果出现多人、半张脸、严重遮挡导致无法确认人脸，必须判定不通过。
+5. 如果人物不是主要主体，或人脸太小无法判断证件照质量，必须判定不通过。
 
-只有在“恰好 1 人且有人脸”时，才继续按以下维度打分（每项 0-100 分）：
-1. 人脸清晰度 2. 光线质量 3. 人脸角度 4. 背景干净度 5. 表情规范性 6. 构图合理性
+准入不通过时，直接返回：
+- passed=false
+- score=0
+- breakdown 六项全部为 0
+不得继续做质量评分。
 
-判定规则：
-- 空白图/无人脸/多人：passed=false，score=0，六项 breakdown 都返回 0。
-- 单人且有人脸：再根据质量决定 passed=true 或 false。
+【二、质量评分规则】
+只有在“恰好 1 人且能识别到 1 张清晰人脸”时，才继续评分。
 
-只返回严格 JSON，不要 markdown，不要代码块，不要额外说明。
-返回格式：
-{"passed":true,"person_count":1,"face_detected":true,"score":85,"breakdown":{"clarity":90,"lighting":85,"angle":88,"background":80,"expression":85,"composition":87},"issues":["光线略显不足"],"suggestions":["建议在自然光充足的环境重拍"]}`, photoSpec)
+评分维度（每项 0-100 分）：
+1. clarity：人脸清晰度
+2. lighting：光线质量
+3. angle：人脸角度
+4. background：背景干净度
+5. expression：表情规范性
+6. composition：构图合理性
+
+评分要求：
+- 0 分表示极差/完全不符合
+- 60 分表示基本可用但存在明显问题
+- 80 分表示良好
+- 90 分以上表示优秀
+
+总分 score 取六项的整数平均值（四舍五入）。
+
+【三、passed 判定规则】
+只有在准入通过的前提下，再按以下规则判断最终 passed：
+
+当且仅当同时满足以下条件时，passed=true：
+- score >= 70
+- clarity >= 60
+- lighting >= 60
+- angle >= 60
+- background >= 60
+- expression >= 60
+- composition >= 60
+
+否则 passed=false。
+
+【四、issues 和 suggestions 生成规则】
+1. issues：列出当前图片存在的主要问题，最多 3 条，简洁明确，不要空泛。
+2. suggestions：针对 issues 给出可执行建议，最多 3 条，必须具体。
+3. 如果图片整体较好，也允许 issues 和 suggestions 返回空数组。
+
+【五、输出格式要求】
+只允许输出严格 JSON。
+不要输出 markdown，不要输出代码块，不要输出解释，不要输出多余文字。
+不要缺字段，不要增加字段。
+
+固定返回格式如下：
+{"passed":true,"person_count":1,"face_detected":true,"score":85,"breakdown":{"clarity":90,"lighting":85,"angle":88,"background":80,"expression":85,"composition":87},"issues":["光线略显不足"],"suggestions":["建议在自然光充足且光线均匀的环境重拍"]}
+
+【六、特殊强制规则】
+- 空白图 / 无人：person_count=0，face_detected=false，score=0，passed=false
+- 多人时：person_count 返回实际识别人数，face_detected=true，score=0，passed=false
+- 单人但无人脸时：person_count=1，face_detected=false，score=0，passed=false
+- 以上不通过场景的 breakdown 都必须返回 {"clarity":0,"lighting":0,"angle":0,"background":0,"expression":0,"composition":0}
+- 以上不通过场景的 issues 建议返回 ["不符合准入要求"]
+- 以上不通过场景的 suggestions 建议返回 ["请上传恰好包含1名人物且可清晰识别人脸的证件照"]
+- 无法判断时，从严处理，判定为不通过`, photoSpec)
 
 	req := QwenRequest{
 		Model:          c.model,
