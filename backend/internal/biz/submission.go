@@ -160,7 +160,7 @@ func (uc *SubmissionUsecase) validateUniqueCustomFields(ctx context.Context, tas
 				continue
 			}
 			if normalizeUniqueComparableValue(field.Type, existing.CustomData[field.ID]) == candidate {
-				return errors.New(field.Label + "不能重复")
+				return errors.New(field.Label + "已被占用，请更换后再提交")
 			}
 		}
 	}
