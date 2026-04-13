@@ -29,11 +29,13 @@ type UserEntitlementUsage struct {
 }
 
 type UserEntitlements struct {
-	IsVIP    bool                  `json:"is_vip"`
-	PlanCode string                `json:"plan_code,omitempty"`
-	ExpireAt *time.Time            `json:"expire_at,omitempty"`
-	Limits   UserEntitlementLimits `json:"limits"`
-	Usage    UserEntitlementUsage  `json:"usage"`
+	IsVIP        bool                  `json:"is_vip"`
+	PlanCode     string                `json:"plan_code,omitempty"`
+	ExpireAt     *time.Time            `json:"expire_at,omitempty"`
+	ContactLabel string                `json:"contact_label,omitempty"`
+	ContactValue string                `json:"contact_value,omitempty"`
+	Limits       UserEntitlementLimits `json:"limits"`
+	Usage        UserEntitlementUsage  `json:"usage"`
 }
 
 type CreateActivationCodesRequest struct {

@@ -189,19 +189,13 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 	if err := validateSubmissionPhoto(task, sub); err != nil {
 		return err
 	}
-	if uc.vipUC != nil {
-		entitlements, err := uc.vipUC.GetUserEntitlements(ctx, task.UserID)
+	if task.MaxSubmissions > 0 {
+		total, err := uc.repo.CountByTaskID(ctx, sub.TaskID.Hex())
 		if err != nil {
 			return err
 		}
-		if !entitlements.IsVIP && entitlements.Limits.MaxSubmissionsPerTask > 0 {
-			total, err := uc.repo.CountByTaskID(ctx, sub.TaskID.Hex())
-			if err != nil {
-				return err
-			}
-			if int(total) >= entitlements.Limits.MaxSubmissionsPerTask {
-				return errors.New(fmt.Sprintf("当前任务已达到免费版%d人收集上限，开通VIP后可继续收集", entitlements.Limits.MaxSubmissionsPerTask))
-			}
+		if int(total) >= task.MaxSubmissions {
+			return errors.New(fmt.Sprintf("当前任务最多支持%d人提交", task.MaxSubmissions))
 		}
 	}
 	sub.CustomData = normalizeSubmissionCustomData(task, sub.CustomData)

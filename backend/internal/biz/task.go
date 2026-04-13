@@ -76,10 +76,12 @@ func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 			if task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled {
 				return errors.New("AI分析仅限VIP开启")
 			}
+			task.MaxSubmissions = entitlements.Limits.MaxSubmissionsPerTask
 		} else {
 			if err := validateTaskOpenDurationLimit(task, entitlements.Limits.MaxOpenDurationDays); err != nil {
 				return err
 			}
+			task.MaxSubmissions = 0
 		}
 	}
 	task.Enabled = true
@@ -105,6 +107,7 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	task.Stats = existing.Stats
 	task.CreatedAt = existing.CreatedAt
 	task.StartTime = existing.StartTime
+	task.MaxSubmissions = existing.MaxSubmissions
 	if task.AIAnalysisEnabled == nil {
 		task.AIAnalysisEnabled = existing.AIAnalysisEnabled
 	}
@@ -118,6 +121,11 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 		}
 		if err := validateTaskOpenDurationLimit(task, entitlements.Limits.MaxOpenDurationDays); err != nil {
 			return err
+		}
+		if entitlements.IsVIP {
+			task.MaxSubmissions = 0
+		} else {
+			task.MaxSubmissions = entitlements.Limits.MaxSubmissionsPerTask
 		}
 		existingAIEnabled := existing.AIAnalysisEnabled != nil && *existing.AIAnalysisEnabled
 		nextAIEnabled := task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled

@@ -13,6 +13,8 @@ export interface UserEntitlements {
   is_vip: boolean;
   plan_code?: string;
   expire_at?: string;
+  contact_label?: string;
+  contact_value?: string;
   limits: UserEntitlementLimits;
   usage: UserEntitlementUsage;
 }

@@ -39,6 +39,11 @@
       <text class="value">{{endTime}}</text>
     </view>
 
+    <view class="info-row">
+      <text class="label">最多人数：</text>
+      <text class="value">{{task.max_submissions > 0 ? task.max_submissions + '人' : '不限制'}}</text>
+    </view>
+
     <view class="info-row" wx:if="{{taskStatusText}}">
       <text class="label">当前状态：</text>
       <text class="value status-text">{{taskStatusText}}</text>
@@ -49,9 +54,8 @@
       <text class="value">{{customFieldSummary}}</text>
     </view>
 
-    <view class="vip-limit-card" wx:if="{{isCreator && submissionLimitText}}">
+    <view class="vip-limit-card" wx:if="{{submissionLimitText}}">
       <text class="vip-limit-title">{{submissionLimitText}}</text>
-      <text class="vip-limit-link" wx:if="{{entitlements && !entitlements.is_vip}}" bindtap="goToVIPCenter">开通VIP ›</text>
     </view>
 
     <view class="export-panel export-panel-tip" wx:if="{{isCreator && !canExportTask}}">

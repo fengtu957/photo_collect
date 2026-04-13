@@ -48,6 +48,7 @@ type Task struct {
 	Description       string             `bson:"description" json:"description"`
 	PhotoSpec         PhotoSpec          `bson:"photo_spec" json:"photo_spec"`
 	AIAnalysisEnabled *bool              `bson:"ai_analysis_enabled,omitempty" json:"ai_analysis_enabled,omitempty"`
+	MaxSubmissions    int                `bson:"max_submissions,omitempty" json:"max_submissions,omitempty"`
 	StartTime         time.Time          `bson:"start_time" json:"start_time"`
 	EndTime           time.Time          `bson:"end_time" json:"end_time"`
 	Enabled           bool               `bson:"enabled" json:"enabled"`

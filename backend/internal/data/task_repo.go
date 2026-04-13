@@ -107,6 +107,7 @@ func (r *TaskRepo) Update(ctx context.Context, id string, task *Task) error {
 			"description":         task.Description,
 			"photo_spec":          task.PhotoSpec,
 			"ai_analysis_enabled": task.AIAnalysisEnabled,
+			"max_submissions":     task.MaxSubmissions,
 			"start_time":          task.StartTime,
 			"end_time":            task.EndTime,
 			"custom_fields":       task.CustomFields,

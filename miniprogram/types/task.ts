@@ -40,6 +40,7 @@ export interface Task {
   description: string;
   photo_spec: PhotoSpec;
   ai_analysis_enabled?: boolean;
+  max_submissions?: number;
   start_time: string;
   end_time: string;
   enabled: boolean;
