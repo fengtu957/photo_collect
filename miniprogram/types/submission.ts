@@ -62,6 +62,9 @@ export interface SubmitPhotoParams {
 
 export interface SubmissionAnalysisResult {
   model: string;
+  passed: boolean;
+  person_count: number;
+  face_detected: boolean;
   score: number;
   breakdown: AIEvaluationBreakdown;
   issues: string[];

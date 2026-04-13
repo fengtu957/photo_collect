@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"photo-backend/pkg"
 	"strings"
 )
@@ -13,6 +14,9 @@ type EvaluationUsecase struct {
 
 type EvaluationResult struct {
 	Model       string         `json:"model"`
+	Passed      bool           `json:"passed"`
+	PersonCount int            `json:"person_count"`
+	FaceDetected bool          `json:"face_detected"`
 	Score       int            `json:"score"`
 	Breakdown   map[string]int `json:"breakdown"`
 	Issues      []string       `json:"issues"`
@@ -37,8 +41,10 @@ func (uc *EvaluationUsecase) EvaluatePhoto(ctx context.Context, photoURL, photoS
 		return nil, err
 	}
 
+	normalizedContent := normalizeJSONString(content)
 	var result EvaluationResult
-	if err := json.Unmarshal([]byte(normalizeJSONString(content)), &result); err != nil {
+	if err := json.Unmarshal([]byte(normalizedContent), &result); err != nil {
+		log.Printf("[ai-evaluation] parse failed model=%s err=%v raw_content=%s", uc.qwen.Model(), err, normalizedContent)
 		return nil, err
 	}
 
@@ -52,5 +58,6 @@ func (uc *EvaluationUsecase) EvaluatePhoto(ctx context.Context, photoURL, photoS
 		result.Suggestions = []string{}
 	}
 	result.Model = uc.qwen.Model()
+	log.Printf("[ai-evaluation] parsed result model=%s passed=%v person_count=%d face_detected=%v score=%d breakdown=%v issues=%v suggestions=%v", result.Model, result.Passed, result.PersonCount, result.FaceDetected, result.Score, result.Breakdown, result.Issues, result.Suggestions)
 	return &result, nil
 }

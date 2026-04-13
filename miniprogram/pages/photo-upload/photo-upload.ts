@@ -151,6 +151,9 @@ async function getPhotoMeta(filePath: string) {
 
 function formatAnalysisResult(result: any): string {
   const breakdown = (result && result.breakdown) || {};
+  const passed = !!(result && result.passed);
+  const personCount = Number((result && result.person_count) || 0);
+  const faceDetected = !!(result && result.face_detected);
   const issues = Array.isArray(result && result.issues) && result.issues.length > 0
     ? result.issues.join('；')
     : '未发现明显问题';
@@ -159,6 +162,8 @@ function formatAnalysisResult(result: any): string {
     : '可直接使用当前照片';
 
   return [
+    `分析结果：${passed ? '通过' : '不通过'}`,
+    `人数：${personCount}  人脸：${faceDetected ? '已检测到' : '未检测到'}`,
     `AI总分：${Number((result && result.score) || 0)}`,
     `清晰度：${Number(breakdown.clarity || 0)}  光线：${Number(breakdown.lighting || 0)}`,
     `角度：${Number(breakdown.angle || 0)}  背景：${Number(breakdown.background || 0)}`,

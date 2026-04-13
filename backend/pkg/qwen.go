@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -106,12 +107,24 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 
 证件照规格要求：%s
 
-请从以下维度进行评估（每项 0-100 分）：
+请严格先做准入判断，再做质量评分。
+
+硬性规则：
+1. 画面中必须恰好有 1 个人。
+2. 必须能清晰看到 1 张人脸。
+3. 如果是空白图、风景图、物品图、没有人脸，必须判定不通过。
+4. 如果出现多人，必须判定不通过。
+
+只有在“恰好 1 人且有人脸”时，才继续按以下维度打分（每项 0-100 分）：
 1. 人脸清晰度 2. 光线质量 3. 人脸角度 4. 背景干净度 5. 表情规范性 6. 构图合理性
+
+判定规则：
+- 空白图/无人脸/多人：passed=false，score=0，六项 breakdown 都返回 0。
+- 单人且有人脸：再根据质量决定 passed=true 或 false。
 
 只返回严格 JSON，不要 markdown，不要代码块，不要额外说明。
 返回格式：
-{"score":85,"breakdown":{"clarity":90,"lighting":85,"angle":88,"background":80,"expression":85,"composition":87},"issues":["光线略显不足"],"suggestions":["建议在自然光充足的环境重拍"]}`, photoSpec)
+{"passed":true,"person_count":1,"face_detected":true,"score":85,"breakdown":{"clarity":90,"lighting":85,"angle":88,"background":80,"expression":85,"composition":87},"issues":["光线略显不足"],"suggestions":["建议在自然光充足的环境重拍"]}`, photoSpec)
 
 	req := QwenRequest{
 		Model:          c.model,
@@ -160,6 +173,8 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 		return "", err
 	}
 
+	log.Printf("[qwen] evaluate photo model=%s status=%s raw_response=%s", c.model, resp.Status, strings.TrimSpace(string(respBody)))
+
 	var qwenResp QwenResponse
 	if err := json.Unmarshal(respBody, &qwenResp); err != nil {
 		return "", err
@@ -178,6 +193,7 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 	if len(qwenResp.Choices) > 0 {
 		content := extractResponseContent(qwenResp.Choices[0].Message.Content)
 		if content != "" {
+			log.Printf("[qwen] extracted content model=%s content=%s", c.model, content)
 			return content, nil
 		}
 	}
