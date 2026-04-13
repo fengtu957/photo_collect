@@ -52,13 +52,6 @@ function formatPickerTime(value: string): string {
   return `${hour}:${minute}`;
 }
 
-function formatDateOnly(value: Date): string {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function cloneCustomFields(fields: any[]): any[] {
   return (fields || []).map((field: any) => ({
     ...field,
@@ -76,8 +69,7 @@ Page({
     aiSwitchDisabled: false,
     aiLimitTip: '',
     createLimitTip: '',
-    startLimitTip: '',
-    startDateMax: '',
+    openDurationTip: '',
     startDate: '', startTime: '',
     endDate: '', endTime: '',
     form: {
@@ -129,16 +121,14 @@ Page({
       let currentAIEnabled = !!(this.data.form && this.data.form.ai_analysis_enabled);
       const maxActiveTasks = (entitlements && entitlements.limits && entitlements.limits.max_active_tasks) || 0;
       const activeTaskCount = (entitlements && entitlements.usage && entitlements.usage.active_task_count) || 0;
-      const maxStartDelayDays = (entitlements && entitlements.limits && entitlements.limits.max_start_delay_days) || 0;
-      const startDateMax = maxStartDelayDays > 0 ? formatDateOnly(new Date(Date.now() + maxStartDelayDays * 24 * 60 * 60 * 1000)) : '';
+      const maxOpenDurationDays = (entitlements && entitlements.limits && entitlements.limits.max_open_duration_days) || 0;
       const nextData: any = {
         entitlements,
         aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : 'AI 分析仅限 VIP 使用，开通后即可开启。',
         createLimitTip: entitlements && entitlements.is_vip
           ? 'VIP 会员创建任务和收集人数不受限制。'
           : `普通用户最多创建 ${maxActiveTasks} 个未结束任务，当前已创建 ${activeTaskCount} 个。`,
-        startLimitTip: maxStartDelayDays > 0 ? `开始时间最多可选未来 ${maxStartDelayDays} 天内` : '',
-        startDateMax
+        openDurationTip: maxOpenDurationDays > 0 ? `开放时间最多 ${maxOpenDurationDays} 天；未设置开始时间时按当前时间计算` : ''
       };
 
       if (!canUseAI && !this.data.isEditMode && currentAIEnabled) {

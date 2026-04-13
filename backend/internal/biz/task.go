@@ -32,16 +32,23 @@ func validateTask(task *data.Task) error {
 	if task.PhotoSpec.MaxSizeKB < 0 {
 		return errors.New("文件大小限制不能小于 0")
 	}
+	if !task.StartTime.IsZero() && !task.EndTime.IsZero() && task.StartTime.After(task.EndTime) {
+		return errors.New("开始时间不能晚于截止时间")
+	}
 	return nil
 }
 
-func validateTaskStartTimeLimit(task *data.Task, maxDays int) error {
-	if task == nil || task.StartTime.IsZero() || maxDays <= 0 {
+func validateTaskOpenDurationLimit(task *data.Task, maxDays int) error {
+	if task == nil || task.EndTime.IsZero() || maxDays <= 0 {
 		return nil
 	}
-	latest := time.Now().AddDate(0, 0, maxDays)
-	if task.StartTime.After(latest) {
-		return errors.New(fmt.Sprintf("开始时间最多只能选择未来%d天内", maxDays))
+	openStart := task.StartTime
+	if openStart.IsZero() {
+		openStart = time.Now()
+	}
+	maxDuration := time.Duration(maxDays) * 24 * time.Hour
+	if task.EndTime.Sub(openStart) > maxDuration {
+		return errors.New(fmt.Sprintf("开放时间最多只能设置%d天", maxDays))
 	}
 	return nil
 }
@@ -63,14 +70,14 @@ func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 			if entitlements.Limits.MaxActiveTasks > 0 && int(activeCount) >= entitlements.Limits.MaxActiveTasks {
 				return errors.New(fmt.Sprintf("普通用户最多创建%d个未结束任务，开通VIP后不受限制", entitlements.Limits.MaxActiveTasks))
 			}
-			if err := validateTaskStartTimeLimit(task, entitlements.Limits.MaxStartDelayDays); err != nil {
+			if err := validateTaskOpenDurationLimit(task, entitlements.Limits.MaxOpenDurationDays); err != nil {
 				return err
 			}
 			if task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled {
 				return errors.New("AI分析仅限VIP开启")
 			}
 		} else {
-			if err := validateTaskStartTimeLimit(task, entitlements.Limits.MaxStartDelayDays); err != nil {
+			if err := validateTaskOpenDurationLimit(task, entitlements.Limits.MaxOpenDurationDays); err != nil {
 				return err
 			}
 		}
@@ -107,6 +114,9 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	if uc.vipUC != nil {
 		entitlements, err := uc.vipUC.GetUserEntitlements(ctx, userID)
 		if err != nil {
+			return err
+		}
+		if err := validateTaskOpenDurationLimit(task, entitlements.Limits.MaxOpenDurationDays); err != nil {
 			return err
 		}
 		existingAIEnabled := existing.AIAnalysisEnabled != nil && *existing.AIAnalysisEnabled
