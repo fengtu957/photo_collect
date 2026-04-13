@@ -1,4 +1,4 @@
-FROM golang:1.24.10-alpine AS builder
+FROM registry.cn-chengdu.aliyuncs.com/fengtu/go:1.24.10-alpine AS builder
 
 WORKDIR /app
 ENV CGO_ENABLED=0
@@ -6,10 +6,11 @@ ENV CGO_ENABLED=0
 COPY . ./
 RUN ls -al && \ 
     mkdir ./bin && \
+    go env -w GOPROXY=https://goproxy.cn,direct && \
     go mod download && \
     go build -o /server ./cmd/server
 
-FROM alpine:3.20
+FROM registry.cn-chengdu.aliyuncs.com/fengtu/alpine:3.20
 
 RUN apk add --no-cache ca-certificates
 
