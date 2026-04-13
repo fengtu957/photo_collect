@@ -2,6 +2,50 @@
   padding: 16rpx;
 }
 
+.vip-banner {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  background: linear-gradient(135deg, #fff4d9 0%, #ffe7ad 100%);
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 8rpx 20rpx rgba(255, 185, 64, 0.16);
+}
+
+.vip-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.vip-title {
+  display: block;
+  font-size: 34rpx;
+  color: #7a4b00;
+  font-weight: bold;
+  margin-bottom: 8rpx;
+}
+
+.vip-summary {
+  display: block;
+  font-size: 26rpx;
+  color: #8b5a00;
+  line-height: 1.6;
+}
+
+.vip-tip {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #9d6a09;
+}
+
+.vip-arrow {
+  font-size: 40rpx;
+  color: #b2760f;
+  flex-shrink: 0;
+}
+
 .card {
   background: white;
   border-radius: 12rpx;

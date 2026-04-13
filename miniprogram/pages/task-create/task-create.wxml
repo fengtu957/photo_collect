@@ -1,5 +1,15 @@
 <scroll-view scroll-y style="height: 100vh;">
   <view class="form">
+    <view class="section vip-notice">
+      <view class="row-link">
+        <view>
+          <text class="label">会员权益</text>
+          <text class="vip-tip">{{createLimitTip}}</text>
+        </view>
+        <text class="vip-link" bindtap="goToVIPCenter">VIP中心 ›</text>
+      </view>
+    </view>
+
     <view class="section">
       <text class="label">任务标题 *</text>
       <input class="input" placeholder="请输入任务标题" bindinput="onInput" data-field="title" value="{{form.title}}" adjust-position="{{false}}" />
@@ -14,9 +24,9 @@
       <view class="switch-row">
         <view class="switch-copy">
           <text class="label switch-label">开启AI分析</text>
-          <text class="switch-tip">关闭后上传照片不做 AI 检查，也不会生成 AI 评分。</text>
+          <text class="switch-tip">{{aiLimitTip}}</text>
         </view>
-        <switch checked="{{form.ai_analysis_enabled}}" bindchange="onAIAnalysisChange" color="#1989fa" />
+        <switch checked="{{form.ai_analysis_enabled}}" bindchange="onAIAnalysisChange" color="#1989fa" disabled="{{aiSwitchDisabled}}" />
       </view>
     </view>
 

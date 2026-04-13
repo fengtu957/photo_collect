@@ -1,4 +1,5 @@
 import { listTasks } from '../../services/task';
+import { getUserEntitlements } from '../../services/vip';
 import { showError } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
 
@@ -64,7 +65,12 @@ function getTaskStatus(task: any) {
 }
 
 Page({
-  data: { tasks: [] as any[] },
+  data: {
+    tasks: [] as any[],
+    entitlements: null as any,
+    vipSummary: '',
+    createTip: ''
+  },
 
   onLoad() { this.loadTasks(); },
   onShow() { this.loadTasks(); },
@@ -72,6 +78,12 @@ Page({
   async loadTasks() {
     try {
       const tasks = await listTasks();
+      let entitlements = null;
+      try {
+        entitlements = await getUserEntitlements();
+        const appInstance = getApp<any>();
+        appInstance.globalData.entitlements = entitlements;
+      } catch (err) {}
       const formatted = (tasks || []).map((t: any) => ({
         ...t,
         status: getTaskStatus(t),
@@ -82,7 +94,18 @@ Page({
         end_time_formatted: formatTime(String(t.end_time || '')),
         start_time_formatted: formatTime(String(t.start_time || '')),
       }));
-      this.setData({ tasks: formatted });
+      const maxActiveTasks = (entitlements && entitlements.limits && entitlements.limits.max_active_tasks) || 0;
+      const activeTaskCount = (entitlements && entitlements.usage && entitlements.usage.active_task_count) || 0;
+      this.setData({
+        tasks: formatted,
+        entitlements,
+        vipSummary: entitlements && entitlements.is_vip
+          ? 'VIP 会员已开通，任务数和收集人数不受限制'
+          : maxActiveTasks > 0 ? `普通用户可创建 ${maxActiveTasks} 个未结束任务，开通 VIP 后不受限制` : '普通用户可升级为 VIP，解锁更多能力',
+        createTip: entitlements && entitlements.is_vip
+          ? '已解锁 AI 分析、任务数不限、收集人数不限'
+          : maxActiveTasks > 0 ? `当前已创建 ${activeTaskCount}/${maxActiveTasks} 个未结束任务` : '可查看会员权益和激活方式'
+      });
     } catch (err: any) {
       showError(err.message || '加载失败');
     }
@@ -90,6 +113,10 @@ Page({
 
   goToCreate() {
     wx.navigateTo({ url: '/pages/task-create/task-create' });
+  },
+
+  goToVIPCenter() {
+    wx.navigateTo({ url: '/pages/vip-center/vip-center' });
   },
 
   scanTask() {

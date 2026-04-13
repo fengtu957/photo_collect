@@ -17,6 +17,7 @@ import (
 type SubmissionService struct {
 	uc       *biz.SubmissionUsecase
 	taskUC   *biz.TaskUsecase
+	vipUC    *biz.VIPUsecase
 	evalUC   *biz.EvaluationUsecase
 	qiniuSvc *QiniuService
 }
@@ -28,8 +29,8 @@ type AnalyzePreviewRequest struct {
 	} `json:"photo"`
 }
 
-func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, evalUC *biz.EvaluationUsecase, qiniuSvc *QiniuService) *SubmissionService {
-	return &SubmissionService{uc: uc, taskUC: taskUC, evalUC: evalUC, qiniuSvc: qiniuSvc}
+func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase, evalUC *biz.EvaluationUsecase, qiniuSvc *QiniuService) *SubmissionService {
+	return &SubmissionService{uc: uc, taskUC: taskUC, vipUC: vipUC, evalUC: evalUC, qiniuSvc: qiniuSvc}
 }
 
 func buildPhotoSpecText(task *data.Task) string {
@@ -93,6 +94,15 @@ func (s *SubmissionService) evaluateTaskPhoto(taskID string, photoKey string) (*
 	}
 	if !task.IsAIAnalysisEnabled() {
 		return nil, errors.New("当前任务未开启AI分析")
+	}
+	if s.vipUC != nil {
+		entitlements, err := s.vipUC.GetUserEntitlements(context.Background(), task.UserID)
+		if err != nil {
+			return nil, err
+		}
+		if !entitlements.IsVIP {
+			return nil, errors.New("当前任务创建者未开通VIP，无法使用AI分析")
+		}
 	}
 
 	photoURL := s.qiniuSvc.GetFileURLWithTTL(photoKey, 10*time.Minute)

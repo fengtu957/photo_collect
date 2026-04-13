@@ -1,4 +1,5 @@
 import { createTask, getTask, updateTask } from '../../services/task';
+import { getUserEntitlements } from '../../services/vip';
 import { showError, showSuccess } from '../../utils/request';
 import { isEffectiveTime, toRFC3339 } from '../../utils/time';
 import { formatDate } from '../../utils/format';
@@ -64,6 +65,10 @@ Page({
     isEditMode: false,
     taskLoaded: false,
     maxSizeKBInput: '',
+    entitlements: null as any,
+    aiSwitchDisabled: false,
+    aiLimitTip: '',
+    createLimitTip: '',
     startDate: '', startTime: '',
     endDate: '', endTime: '',
     form: {
@@ -92,6 +97,7 @@ Page({
       wx.setNavigationBarTitle({ title: '编辑任务' });
       this.loadTask(taskId);
     }
+    this.loadEntitlements();
   },
 
   onShow() {
@@ -102,6 +108,38 @@ Page({
     const appInstance = getApp<any>();
     const fields = cloneCustomFields((appInstance.globalData && appInstance.globalData.customFields) || []);
     this.setData({ 'form.custom_fields': fields });
+    this.loadEntitlements();
+  },
+
+  async loadEntitlements() {
+    try {
+      const entitlements = await getUserEntitlements();
+      const appInstance = getApp<any>();
+      appInstance.globalData.entitlements = entitlements;
+      const canUseAI = !!(entitlements && entitlements.limits && entitlements.limits.can_use_ai_analysis);
+      let currentAIEnabled = !!(this.data.form && this.data.form.ai_analysis_enabled);
+      const maxActiveTasks = (entitlements && entitlements.limits && entitlements.limits.max_active_tasks) || 0;
+      const activeTaskCount = (entitlements && entitlements.usage && entitlements.usage.active_task_count) || 0;
+      const nextData: any = {
+        entitlements,
+        aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : 'AI 分析仅限 VIP 使用，开通后即可开启。',
+        createLimitTip: entitlements && entitlements.is_vip
+          ? 'VIP 会员创建任务和收集人数不受限制。'
+          : `普通用户最多创建 ${maxActiveTasks} 个未结束任务，当前已创建 ${activeTaskCount} 个。`
+      };
+
+      if (!canUseAI && !this.data.isEditMode && currentAIEnabled) {
+        currentAIEnabled = false;
+        nextData['form.ai_analysis_enabled'] = false;
+      }
+
+      this.setData({
+        ...nextData,
+        aiSwitchDisabled: !canUseAI && !currentAIEnabled,
+      });
+    } catch (err: any) {
+      showError(err.message || '加载会员权益失败');
+    }
   },
 
   async loadTask(taskId: string) {
@@ -111,6 +149,8 @@ Page({
       const customFields = cloneCustomFields((task && task.custom_fields) || []);
       const photoSpec = normalizePhotoSpec((task && task.photo_spec) || {});
       appInstance.globalData.customFields = cloneCustomFields(customFields);
+      const canUseAI = !!(this.data.entitlements && this.data.entitlements.limits && this.data.entitlements.limits.can_use_ai_analysis);
+      const aiAnalysisEnabled = isTaskAIAnalysisEnabled(task);
 
       this.setData({
         taskLoaded: true,
@@ -123,11 +163,12 @@ Page({
           title: task.title || '',
           description: task.description || '',
           photo_spec: photoSpec,
-          ai_analysis_enabled: isTaskAIAnalysisEnabled(task),
+          ai_analysis_enabled: aiAnalysisEnabled,
           start_time: isEffectiveTime(task.start_time) ? task.start_time : '',
           end_time: isEffectiveTime(task.end_time) ? task.end_time : '',
           custom_fields: customFields
-        }
+        },
+        aiSwitchDisabled: !canUseAI && !aiAnalysisEnabled
       });
     } catch (err: any) {
       showError(err.message || '加载任务失败');
@@ -155,9 +196,21 @@ Page({
   },
 
   onAIAnalysisChange(e: any) {
+    const nextValue = !!(e.detail && e.detail.value);
+    const canUseAI = !!(this.data.entitlements && this.data.entitlements.limits && this.data.entitlements.limits.can_use_ai_analysis);
+    if (nextValue && !canUseAI) {
+      showError('AI分析仅限VIP开启');
+      this.setData({ 'form.ai_analysis_enabled': false });
+      return;
+    }
     this.setData({
-      'form.ai_analysis_enabled': !!(e.detail && e.detail.value)
+      'form.ai_analysis_enabled': nextValue,
+      aiSwitchDisabled: !canUseAI && !nextValue
     });
+  },
+
+  goToVIPCenter() {
+    wx.navigateTo({ url: '/pages/vip-center/vip-center' });
   },
 
   goToPhotoSpecSelect() {

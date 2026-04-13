@@ -1,5 +1,13 @@
 <scroll-view scroll-y style="height: 100vh;">
   <view class="list">
+    <view class="vip-banner" bindtap="goToVIPCenter">
+      <view class="vip-copy">
+        <text class="vip-title">{{entitlements && entitlements.is_vip ? 'VIP会员' : '升级VIP'}}</text>
+        <text class="vip-summary">{{vipSummary}}</text>
+        <text class="vip-tip">{{createTip}}</text>
+      </view>
+      <text class="vip-arrow">›</text>
+    </view>
     <view class="card" wx:for="{{tasks}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
       <view class="card-top">
         <view class="title-wrap">

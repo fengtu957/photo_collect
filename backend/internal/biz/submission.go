@@ -14,10 +14,11 @@ import (
 type SubmissionUsecase struct {
 	repo     *data.SubmissionRepo
 	taskRepo *data.TaskRepo
+	vipUC    *VIPUsecase
 }
 
-func NewSubmissionUsecase(repo *data.SubmissionRepo, taskRepo *data.TaskRepo) *SubmissionUsecase {
-	return &SubmissionUsecase{repo: repo, taskRepo: taskRepo}
+func NewSubmissionUsecase(repo *data.SubmissionRepo, taskRepo *data.TaskRepo, vipUC *VIPUsecase) *SubmissionUsecase {
+	return &SubmissionUsecase{repo: repo, taskRepo: taskRepo, vipUC: vipUC}
 }
 
 func validateTaskAvailableForSubmission(task *data.Task) error {
@@ -187,6 +188,21 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 	}
 	if err := validateSubmissionPhoto(task, sub); err != nil {
 		return err
+	}
+	if uc.vipUC != nil {
+		entitlements, err := uc.vipUC.GetUserEntitlements(ctx, task.UserID)
+		if err != nil {
+			return err
+		}
+		if !entitlements.IsVIP && entitlements.Limits.MaxSubmissionsPerTask > 0 {
+			total, err := uc.repo.CountByTaskID(ctx, sub.TaskID.Hex())
+			if err != nil {
+				return err
+			}
+			if int(total) >= entitlements.Limits.MaxSubmissionsPerTask {
+				return errors.New(fmt.Sprintf("当前任务已达到免费版%d人收集上限，开通VIP后可继续收集", entitlements.Limits.MaxSubmissionsPerTask))
+			}
+		}
 	}
 	sub.CustomData = normalizeSubmissionCustomData(task, sub.CustomData)
 	if err := uc.validateUniqueCustomFields(ctx, task, sub, ""); err != nil {

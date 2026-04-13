@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -21,16 +22,22 @@ func main() {
 
 	taskRepo := data.NewTaskRepo(d)
 	subRepo := data.NewSubmissionRepo(d)
-	taskUC := biz.NewTaskUsecase(taskRepo, subRepo)
+	vipRepo := data.NewVIPRepo(d)
+	if err := vipRepo.EnsureIndexes(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+	vipUC := biz.NewVIPUsecase(vipRepo)
+	taskUC := biz.NewTaskUsecase(taskRepo, subRepo, vipUC)
 	taskSvc := service.NewTaskService(taskUC)
+	vipSvc := service.NewVIPService(vipUC, taskRepo)
 
 	qiniuSvc := service.NewQiniuService()
 	qwenClient := pkg.NewQwenClient()
 	evalUC := biz.NewEvaluationUsecase(qwenClient)
 	exportSvc := service.NewExportService(taskRepo, subRepo, qiniuSvc)
 
-	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo)
-	subSvc := service.NewSubmissionService(subUC, taskUC, evalUC, qiniuSvc)
+	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo, vipUC)
+	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, qiniuSvc)
 
 	uploadSvc := service.NewUploadService(qiniuSvc)
 
@@ -52,6 +59,8 @@ func main() {
 	api.HandleFunc("/tasks/{id}/export/status", exportSvc.SyncExportStatus).Methods("POST")
 	api.HandleFunc("/tasks/{id}/export/authorize", exportSvc.AuthorizeExportLink).Methods("POST")
 	api.HandleFunc("/tasks/{id}", taskSvc.DeleteTask).Methods("DELETE")
+	api.HandleFunc("/user/entitlements", vipSvc.GetEntitlements).Methods("GET")
+	api.HandleFunc("/vip/redeem", vipSvc.RedeemCode).Methods("POST")
 	api.HandleFunc("/submissions", subSvc.CreateSubmission).Methods("POST")
 	api.HandleFunc("/submissions/analyze-preview", subSvc.AnalyzePreview).Methods("POST")
 	api.HandleFunc("/submissions/{id}", subSvc.GetSubmission).Methods("GET")

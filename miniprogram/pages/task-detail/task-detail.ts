@@ -1,5 +1,6 @@
 import { getTask, deleteTask, exportTask as requestExportTask, authorizeExportLink, syncExportStatus as requestSyncExportStatus } from '../../services/task';
 import { listSubmissions, deleteSubmission } from '../../services/submission';
+import { getUserEntitlements } from '../../services/vip';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
@@ -226,6 +227,8 @@ Page({
     exportCount: 0,
     exportErrorMessage: '',
     aiAnalysisEnabled: true,
+    entitlements: null as any,
+    submissionLimitText: '',
     submissions: [] as any[],
     startTime: '',
     endTime: '',
@@ -294,6 +297,24 @@ Page({
       const exportState = buildExportState(task);
 
       const mySubmission = list.find((s: any) => s.user_id === currentOpenid);
+      let entitlements = null;
+      let submissionLimitText = '';
+      if (isCreator) {
+        try {
+          entitlements = await getUserEntitlements();
+          const appInstance = getApp<any>();
+          appInstance.globalData.entitlements = entitlements;
+          if (entitlements && !entitlements.is_vip) {
+            const maxSubmissions = (entitlements.limits && entitlements.limits.max_submissions_per_task) || 0;
+            submissionLimitText = `免费版最多收集 ${maxSubmissions} 人，当前已收集 ${total} 人`;
+          } else if (entitlements && entitlements.is_vip) {
+            submissionLimitText = 'VIP 会员当前任务收集人数不受限制';
+          }
+        } catch (err) {}
+        if (!submissionLimitText) {
+          submissionLimitText = `当前已收集 ${total} 人`;
+        }
+      }
 
       this.setData({
         task,
@@ -304,6 +325,8 @@ Page({
         exportDownloadUrl: '',
         exportExpiresAt: '',
         submissions: formattedSubmissions,
+        entitlements,
+        submissionLimitText,
         startTime,
         endTime,
         isCreator,
@@ -328,6 +351,10 @@ Page({
     } catch (err: any) {
       showError(err.message || '加载失败');
     }
+  },
+
+  goToVIPCenter() {
+    wx.navigateTo({ url: '/pages/vip-center/vip-center' });
   },
 
   async loadMoreSubmissions() {

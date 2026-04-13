@@ -55,6 +55,17 @@ func (r *TaskRepo) FindByUserID(ctx context.Context, userID string) ([]*Task, er
 	return tasks, nil
 }
 
+func (r *TaskRepo) CountActiveByUserID(ctx context.Context, userID string) (int64, error) {
+	count, err := r.data.DB().Collection("tasks").CountDocuments(ctx, bson.M{
+		"user_id": userID,
+		"enabled": true,
+		"end_time": bson.M{
+			"$gt": time.Now(),
+		},
+	})
+	return count, err
+}
+
 // FindByIDs 按多个ID批量查询任务，按创建时间倒序
 func (r *TaskRepo) FindByIDs(ctx context.Context, ids []primitive.ObjectID) ([]*Task, error) {
 	if len(ids) == 0 {

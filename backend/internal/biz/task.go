@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"errors"
+	"fmt"
 	"photo-backend/internal/data"
 	"sort"
 
@@ -12,10 +13,11 @@ import (
 type TaskUsecase struct {
 	repo    *data.TaskRepo
 	subRepo *data.SubmissionRepo
+	vipUC   *VIPUsecase
 }
 
-func NewTaskUsecase(repo *data.TaskRepo, subRepo *data.SubmissionRepo) *TaskUsecase {
-	return &TaskUsecase{repo: repo, subRepo: subRepo}
+func NewTaskUsecase(repo *data.TaskRepo, subRepo *data.SubmissionRepo, vipUC *VIPUsecase) *TaskUsecase {
+	return &TaskUsecase{repo: repo, subRepo: subRepo, vipUC: vipUC}
 }
 
 func validateTask(task *data.Task) error {
@@ -35,6 +37,24 @@ func validateTask(task *data.Task) error {
 func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 	if err := validateTask(task); err != nil {
 		return err
+	}
+	if uc.vipUC != nil {
+		entitlements, err := uc.vipUC.GetUserEntitlements(ctx, task.UserID)
+		if err != nil {
+			return err
+		}
+		if !entitlements.IsVIP {
+			activeCount, err := uc.repo.CountActiveByUserID(ctx, task.UserID)
+			if err != nil {
+				return err
+			}
+			if entitlements.Limits.MaxActiveTasks > 0 && int(activeCount) >= entitlements.Limits.MaxActiveTasks {
+				return errors.New(fmt.Sprintf("普通用户最多创建%d个未结束任务，开通VIP后不受限制", entitlements.Limits.MaxActiveTasks))
+			}
+			if task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled {
+				return errors.New("AI分析仅限VIP开启")
+			}
+		}
 	}
 	task.Enabled = true
 	task.Stats = data.TaskStats{TotalSubmissions: 0}
@@ -63,6 +83,17 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	}
 	if err := validateTask(task); err != nil {
 		return err
+	}
+	if uc.vipUC != nil {
+		entitlements, err := uc.vipUC.GetUserEntitlements(ctx, userID)
+		if err != nil {
+			return err
+		}
+		existingAIEnabled := existing.AIAnalysisEnabled != nil && *existing.AIAnalysisEnabled
+		nextAIEnabled := task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled
+		if !entitlements.IsVIP && nextAIEnabled && !existingAIEnabled {
+			return errors.New("AI分析仅限VIP开启")
+		}
 	}
 
 	return uc.repo.Update(ctx, id, task)

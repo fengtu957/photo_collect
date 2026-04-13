@@ -16,12 +16,31 @@
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 }
 
+.vip-notice {
+  background: linear-gradient(135deg, #fff8e7 0%, #fff2cc 100%);
+  border-color: #f3e2a8;
+}
+
 .label {
   display: block;
   font-size: 28rpx;
   color: #333;
   font-weight: bold;
   margin-bottom: 16rpx;
+}
+
+.vip-tip {
+  display: block;
+  font-size: 24rpx;
+  color: #8b5a00;
+  line-height: 1.6;
+}
+
+.vip-link {
+  font-size: 28rpx;
+  color: #b2760f;
+  flex-shrink: 0;
+  margin-left: 20rpx;
 }
 
 .sub-label {

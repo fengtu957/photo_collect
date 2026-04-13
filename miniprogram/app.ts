@@ -1,9 +1,11 @@
 // app.ts
 import { login } from './services/auth';
+import { UserEntitlements } from './types/vip';
 
 interface IAppGlobalData {
   userInfo?: WechatMiniprogram.UserInfo;
   customFields: any[];
+  entitlements?: UserEntitlements;
 }
 
 interface ICustomAppOption {

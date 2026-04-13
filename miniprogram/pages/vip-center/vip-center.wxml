@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="hero-card">
+    <text class="hero-title">{{statusTitle}}</text>
+    <text class="hero-desc">{{expireText}}</text>
+    <view class="hero-tags" wx:if="{{entitlements}}">
+      <text class="hero-tag">{{entitlements.is_vip ? '任务数不限' : '最多' + entitlements.limits.max_active_tasks + '个未结束任务'}}</text>
+      <text class="hero-tag">{{entitlements.is_vip ? '收集人数不限' : '单任务最多' + entitlements.limits.max_submissions_per_task + '人'}}</text>
+      <text class="hero-tag">{{entitlements.limits.can_use_ai_analysis ? '支持AI分析' : 'AI分析仅VIP可用'}}</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <text class="card-title">如何成为VIP</text>
+    <text class="card-text">联系管理员购买 VIP，付款后可获得激活码；回到这里输入激活码即可立即生效。</text>
+    <view class="contact-row">
+      <view class="contact-copy">
+        <text class="contact-label">{{contactLabel}}</text>
+        <text class="contact-value">{{contactValue}}</text>
+      </view>
+      <view class="copy-btn" bindtap="copyContact">复制</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <text class="card-title">兑换激活码</text>
+    <input
+      class="input"
+      placeholder="请输入激活码"
+      value="{{redeemCode}}"
+      bindinput="onRedeemInput"
+      adjust-position="{{false}}"
+    />
+    <view class="primary-btn" bindtap="redeemCode">立即兑换</view>
+  </view>
+
+  <view class="card">
+    <text class="card-title">VIP权益</text>
+    <text class="benefit-item">1. 进行中任务数量不限</text>
+    <text class="benefit-item">2. 单任务收集人数不限</text>
+    <text class="benefit-item">3. 可开启 AI 分析</text>
+    <text class="benefit-tip">VIP 到期后按普通用户规则生效，已有任务和提交记录不会删除。</text>
+  </view>
+</view>
