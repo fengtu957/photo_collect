@@ -2,7 +2,7 @@
   <view class="list">
     <view class="vip-banner" bindtap="goToVIPCenter">
       <view class="vip-copy">
-        <text class="vip-title">{{entitlements && entitlements.is_vip ? 'VIP会员' : '升级VIP'}}</text>
+        <text class="vip-title">{{entitlements && entitlements.is_vip ? 'VIP会员' : '会员权益'}}</text>
         <text class="vip-summary">{{vipSummary}}</text>
         <text class="vip-tip">{{createTip}}</text>
       </view>

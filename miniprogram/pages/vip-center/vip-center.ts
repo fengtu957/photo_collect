@@ -9,15 +9,7 @@ function formatExpireText(entitlements: any): string {
   if (!entitlements.is_vip && entitlements.expire_at) {
     return `已于 ${String(entitlements.expire_at).replace('T', ' ').slice(0, 16)} 到期`;
   }
-  return '开通后立即解锁任务数、收集人数和 AI 分析权限';
-}
-
-function getContactLabel(entitlements: any): string {
-  return String((entitlements && entitlements.contact_label) || '微信').trim() || '微信';
-}
-
-function getContactValue(entitlements: any): string {
-  return String((entitlements && entitlements.contact_value) || '').trim();
+  return '激活 VIP 后即可解锁任务数、收集人数和 AI 分析权限';
 }
 
 function showRedeemResultModal(title: string, content: string) {
@@ -35,9 +27,7 @@ Page({
     entitlements: null as any,
     statusTitle: '普通用户',
     expireText: '',
-    redeemCode: '',
-    contactLabel: '',
-    contactValue: ''
+    redeemCode: ''
   },
 
   onLoad() {
@@ -57,9 +47,7 @@ Page({
         loading: false,
         entitlements,
         statusTitle: entitlements.is_vip ? 'VIP会员' : '普通用户',
-        expireText: formatExpireText(entitlements),
-        contactLabel: getContactLabel(entitlements),
-        contactValue: getContactValue(entitlements)
+        expireText: formatExpireText(entitlements)
       });
     } catch (err: any) {
       this.setData({ loading: false });
@@ -69,19 +57,6 @@ Page({
 
   onRedeemInput(e: any) {
     this.setData({ redeemCode: e.detail.value });
-  },
-
-  copyContact() {
-    if (!this.data.contactValue) {
-      return;
-    }
-
-    wx.setClipboardData({
-      data: this.data.contactValue,
-      success: () => {
-        wx.showToast({ title: '联系方式已复制', icon: 'success' });
-      }
-    });
   },
 
   async redeemCode() {
@@ -100,9 +75,7 @@ Page({
         entitlements,
         redeemCode: '',
         statusTitle: entitlements.is_vip ? 'VIP会员' : '普通用户',
-        expireText: formatExpireText(entitlements),
-        contactLabel: getContactLabel(entitlements),
-        contactValue: getContactValue(entitlements)
+        expireText: formatExpireText(entitlements)
       });
       showRedeemResultModal('兑换成功', 'VIP 已生效，可立即使用对应权益。');
     } catch (err: any) {

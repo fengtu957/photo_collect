@@ -104,9 +104,18 @@ function getExportStatusText(status: string): string {
   return '';
 }
 
+function canAuthorizeExportLink(availableUntil: string): boolean {
+  if (!isEffectiveTime(availableUntil)) {
+    return true;
+  }
+
+  return new Date(availableUntil).getTime() > Date.now();
+}
+
 function buildExportState(task: any) {
   const exportInfo = getTaskExportInfo(task);
   const exportStatus = normalizeExportStatus(exportInfo);
+  const availableUntil = String(exportInfo.available_until || '');
   return {
     exportStatus,
     exportStatusText: getExportStatusText(exportStatus),
@@ -114,6 +123,8 @@ function buildExportState(task: any) {
     exportTemplateHint: getExportTemplateHint(task),
     exportFileName: exportInfo.file_name || '',
     exportCount: Number(exportInfo.count || 0),
+    exportAvailableUntil: isEffectiveTime(availableUntil) ? formatTime(availableUntil) : '',
+    canAuthorizeExportLink: canAuthorizeExportLink(availableUntil),
     exportErrorMessage: exportInfo.error_message || ''
   };
 }
@@ -223,6 +234,8 @@ Page({
     exportFileName: '',
     exportDownloadUrl: '',
     exportExpiresAt: '',
+    exportAvailableUntil: '',
+    canAuthorizeExportLink: true,
     exportCount: 0,
     exportErrorMessage: '',
     aiAnalysisEnabled: true,
@@ -321,7 +334,7 @@ Page({
         this.stopExportStatusPolling();
       }
       this.clearAuthorizedExportLink();
-      if (exportState.exportStatus === 'success') {
+      if (exportState.exportStatus === 'success' && exportState.canAuthorizeExportLink) {
         this.fetchAuthorizedExportLink(true);
       }
     } catch (err: any) {
@@ -386,6 +399,7 @@ Page({
       filename_template: extra.filename_template || getTaskExportInfo(this.data.task).filename_template || this.data.exportTemplate,
       file_name: result.file_name,
       count: Number(result.count || 0),
+      available_until: result.available_until || getTaskExportInfo(this.data.task).available_until || '',
       error_message: result.error_message || '',
       exported_at: extra.exported_at || getTaskExportInfo(this.data.task).exported_at || ''
     });
@@ -408,14 +422,20 @@ Page({
   },
 
   applyAuthorizedExportLink(result: any) {
+    const nextTask = mergeTaskExportInfo(this.data.task, {
+      available_until: result.available_until || getTaskExportInfo(this.data.task).available_until || ''
+    });
     this.setData({
+      task: nextTask,
       exportDownloadUrl: result.download_url || '',
-      exportExpiresAt: isEffectiveTime(String(result.expires_at || '')) ? formatTime(String(result.expires_at || '')) : ''
+      exportExpiresAt: isEffectiveTime(String(result.expires_at || '')) ? formatTime(String(result.expires_at || '')) : '',
+      exportAvailableUntil: isEffectiveTime(String(result.available_until || '')) ? formatTime(String(result.available_until || '')) : this.data.exportAvailableUntil,
+      canAuthorizeExportLink: canAuthorizeExportLink(String(result.available_until || ''))
     });
   },
 
   async fetchAuthorizedExportLink(silent: boolean = false) {
-    if (!this.data.isCreator || !this.data.canExportTask || !this.data.exportFileName || this.data.exportStatus !== 'success') {
+    if (!this.data.isCreator || !this.data.canExportTask || !this.data.exportFileName || this.data.exportStatus !== 'success' || !this.data.canAuthorizeExportLink) {
       return;
     }
 

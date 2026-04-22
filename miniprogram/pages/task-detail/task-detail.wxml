@@ -75,7 +75,7 @@
       <view class="export-actions">
         <view class="export-action-btn export-action-primary" bindtap="exportTask">开始导出</view>
         <view class="export-action-btn export-action-secondary" bindtap="refreshExportStatus" wx:if="{{exportFileName && exportStatus !== 'success'}}">刷新导出状态</view>
-        <view class="export-action-btn export-action-secondary" bindtap="authorizeTaskExport" wx:if="{{exportFileName && exportStatus === 'success'}}">重新授权链接</view>
+        <view class="export-action-btn export-action-secondary" bindtap="authorizeTaskExport" wx:if="{{exportFileName && exportStatus === 'success' && canAuthorizeExportLink}}">重新授权链接</view>
         <view class="export-action-btn export-action-secondary" bindtap="copyExportLink" wx:if="{{exportDownloadUrl && exportStatus === 'success'}}">复制链接</view>
       </view>
 
@@ -83,6 +83,7 @@
         <text class="export-result-line" wx:if="{{exportStatusText}}">导出状态：{{exportStatusText}}</text>
         <text class="export-result-line">导出文件：{{exportFileName}}</text>
         <text class="export-result-line">图片数量：{{exportCount}}</text>
+        <text class="export-result-line" wx:if="{{exportAvailableUntil}}">可重新生成链接至：{{exportAvailableUntil}}</text>
         <text class="export-result-line" wx:if="{{exportExpiresAt}}">链接有效期至：{{exportExpiresAt}}</text>
         <text class="export-result-error" wx:if="{{exportErrorMessage}}">{{exportErrorMessage}}</text>
         <text class="export-label">下载链接</text>

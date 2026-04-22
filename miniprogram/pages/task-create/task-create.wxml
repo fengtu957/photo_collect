@@ -6,7 +6,7 @@
           <text class="label">会员权益</text>
           <text class="vip-tip">{{createLimitTip}}</text>
         </view>
-        <text class="vip-link" bindtap="goToVIPCenter">VIP中心 ›</text>
+        <text class="vip-link" bindtap="goToVIPCenter">权益说明 ›</text>
       </view>
     </view>
 

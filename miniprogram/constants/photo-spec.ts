@@ -8,14 +8,14 @@ export interface PresetPhotoSpecItem {
 }
 
 const PHOTO_SPEC_PRESETS = [
-  { id: 'one-inch', name: '一寸', width: 25, height: 35, desc: '常用证件照尺寸' },
-  { id: 'two-inch', name: '二寸', width: 35, height: 49, desc: '常用报名照尺寸' },
-  { id: 'small-two-inch', name: '小二寸', width: 35, height: 45, desc: '签证报名常用' },
-  { id: 'cet', name: '英语四六级考试', width: 33, height: 48, desc: 'CET 常用尺寸' },
-  { id: 'computer-exam', name: '全国计算机等级考试', width: 33, height: 48, desc: 'NCRE 常用尺寸' },
-  { id: 'college-image', name: '大学生图像信息采集', width: 41, height: 54, desc: '学籍照片常用尺寸' },
-  { id: 'teacher', name: '教师资格证', width: 35, height: 45, desc: '证件报名常用尺寸' },
-  { id: 'accounting', name: '初级会计考试', width: 25, height: 35, desc: '报名照常用尺寸' }
+  { id: 'one-inch', name: '一寸（通用）', width: 25, height: 35, desc: '常用标准尺寸' },
+  { id: 'two-inch', name: '二寸（通用）', width: 35, height: 49, desc: '常用大尺寸' },
+  { id: 'small-two-inch', name: '小二寸（通用）', width: 35, height: 45, desc: '常用报名照片' },
+  { id: 'standard-portrait', name: '标准人像照', width: 33, height: 48, desc: '常见提交尺寸' },
+  { id: 'profile-photo', name: '个人资料照片', width: 33, height: 48, desc: '适合线上资料上传' },
+  { id: 'archive-photo', name: '信息留档照片', width: 41, height: 54, desc: '适合资料留存' },
+  { id: 'half-body-photo', name: '标准展示照', width: 35, height: 45, desc: '常见展示尺寸' },
+  { id: 'application-photo', name: '常用提交照片', width: 25, height: 35, desc: '适合表单提交' }
 ];
 
 export function normalizePhotoSpec(spec: any) {

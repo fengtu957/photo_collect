@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
-	"strings"
 )
 
 type VIPService struct {
@@ -17,17 +15,6 @@ type VIPService struct {
 
 func NewVIPService(vipUC *biz.VIPUsecase, taskRepo *data.TaskRepo) *VIPService {
 	return &VIPService{vipUC: vipUC, taskRepo: taskRepo}
-}
-
-func applyVIPContact(entitlements *biz.UserEntitlements) {
-	if entitlements == nil {
-		return
-	}
-
-	contactLabel := strings.TrimSpace(os.Getenv("VIP_CONTACT_LABEL"))
-	contactValue := strings.TrimSpace(os.Getenv("VIP_CONTACT_VALUE"))
-	entitlements.ContactLabel = contactLabel
-	entitlements.ContactValue = contactValue
 }
 
 func (s *VIPService) GetEntitlements(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +36,6 @@ func (s *VIPService) GetEntitlements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	entitlements.Usage.ActiveTaskCount = int(count)
-	applyVIPContact(entitlements)
 
 	Success(w, entitlements)
 }
@@ -81,7 +67,6 @@ func (s *VIPService) RedeemCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	entitlements.Usage.ActiveTaskCount = int(count)
-	applyVIPContact(entitlements)
 
 	Success(w, entitlements)
 }

@@ -67,43 +67,6 @@
   line-height: 1.7;
 }
 
-.contact-row {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-  margin-top: 20rpx;
-}
-
-.contact-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.contact-label {
-  display: block;
-  font-size: 24rpx;
-  color: #999;
-  margin-bottom: 8rpx;
-}
-
-.contact-value {
-  display: block;
-  font-size: 32rpx;
-  color: #333;
-  font-weight: bold;
-  word-break: break-all;
-  overflow-wrap: break-word;
-}
-
-.copy-btn {
-  flex-shrink: 0;
-  padding: 20rpx 28rpx;
-  border-radius: 999rpx;
-  background: #eef5ff;
-  color: #1989fa;
-  font-size: 28rpx;
-}
-
 .input {
   display: block;
   width: 100%;
@@ -131,6 +94,31 @@
   font-size: 32rpx;
   line-height: 88rpx;
   height: 88rpx;
+}
+
+.action-group {
+  display: block;
+  margin-top: 24rpx;
+}
+
+.action-btn {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+}
+
+.action-btn::after {
+  border: none;
+}
+
+.action-btn-primary {
+  background: #1989fa;
+  color: #fff;
 }
 
 .benefit-item {

@@ -10,6 +10,7 @@ export interface ExportTaskResult {
   file_name: string;
   download_url: string;
   expires_at: string;
+  available_until?: string;
   count: number;
   error_message?: string;
 }

@@ -38,6 +38,7 @@ type TaskExportInfo struct {
 	FileName         string    `bson:"file_name,omitempty" json:"file_name,omitempty"`
 	Count            int       `bson:"count,omitempty" json:"count,omitempty"`
 	ExportedAt       time.Time `bson:"exported_at,omitempty" json:"exported_at,omitempty"`
+	AvailableUntil   time.Time `bson:"available_until,omitempty" json:"available_until,omitempty"`
 	ErrorMessage     string    `bson:"error_message,omitempty" json:"error_message,omitempty"`
 }
 

@@ -10,20 +10,9 @@
     </view>
   </view>
 
-  <view class="card" wx:if="{{contactValue}}">
-    <text class="card-title">如何成为VIP</text>
-    <text class="card-text">通过获得激活码；回到这里输入激活码即可立即生效。</text>
-    <view class="contact-row">
-      <view class="contact-copy">
-        <text class="contact-label">{{contactLabel}}</text>
-        <text class="contact-value">{{contactValue}}</text>
-      </view>
-      <view class="copy-btn" bindtap="copyContact">复制</view>
-    </view>
-  </view>
-
   <view class="card">
-    <text class="card-title">兑换激活码</text>
+    <text class="card-title">激活VIP</text>
+    <text class="card-text">输入激活码后即可升级为 VIP，权益会立即生效。</text>
     <input
       class="input"
       placeholder="请输入激活码"
@@ -39,7 +28,16 @@
     <text class="benefit-item">1. 普通用户开放时间最多 7 天，VIP 最多 30 天</text>
     <text class="benefit-item">2. 进行中任务数量不限</text>
     <text class="benefit-item">3. 单任务收集人数不限</text>
-    <text class="benefit-item">4. 可开启 AI 分析</text>
+    <text class="benefit-item">4. 导出完成后，普通用户可在 7 天内重新生成下载链接，VIP 可在 30 天内重新生成下载链接</text>
+    <text class="benefit-item">5. 可开启 AI 分析</text>
     <text class="benefit-tip">VIP 到期后按普通用户规则生效，已有任务和提交记录不会删除。</text>
+  </view>
+
+  <view class="card">
+    <text class="card-title">联系客服</text>
+    <text class="card-text">如需帮助，可通过小程序内客服联系我们。</text>
+    <view class="action-group">
+      <button class="action-btn action-btn-primary" open-type="contact" session-from="vip_center_help">联系客服</button>
+    </view>
   </view>
 </view>

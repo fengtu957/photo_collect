@@ -124,7 +124,7 @@ Page({
       const maxOpenDurationDays = (entitlements && entitlements.limits && entitlements.limits.max_open_duration_days) || 0;
       const nextData: any = {
         entitlements,
-        aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : 'AI 分析仅限 VIP 使用，开通后即可开启。',
+        aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : 'AI 分析仅限 VIP 使用，激活后即可开启。',
         createLimitTip: entitlements && entitlements.is_vip
           ? 'VIP 会员创建任务和收集人数不受限制。'
           : `普通用户最多创建 ${maxActiveTasks} 个未结束任务，当前已创建 ${activeTaskCount} 个。`,

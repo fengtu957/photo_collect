@@ -34,7 +34,7 @@ func main() {
 	qiniuSvc := service.NewQiniuService()
 	qwenClient := pkg.NewQwenClient()
 	evalUC := biz.NewEvaluationUsecase(qwenClient)
-	exportSvc := service.NewExportService(taskRepo, subRepo, qiniuSvc)
+	exportSvc := service.NewExportService(taskRepo, subRepo, qiniuSvc, vipUC)
 
 	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo, vipUC)
 	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, qiniuSvc)

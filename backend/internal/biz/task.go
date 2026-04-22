@@ -68,7 +68,7 @@ func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 				return err
 			}
 			if entitlements.Limits.MaxActiveTasks > 0 && int(activeCount) >= entitlements.Limits.MaxActiveTasks {
-				return errors.New(fmt.Sprintf("普通用户最多创建%d个未结束任务，开通VIP后不受限制", entitlements.Limits.MaxActiveTasks))
+				return errors.New(fmt.Sprintf("普通用户最多创建%d个未结束任务，激活VIP后不受限制", entitlements.Limits.MaxActiveTasks))
 			}
 			if err := validateTaskOpenDurationLimit(task, entitlements.Limits.MaxOpenDurationDays); err != nil {
 				return err

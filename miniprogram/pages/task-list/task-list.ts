@@ -101,10 +101,10 @@ Page({
         entitlements,
         vipSummary: entitlements && entitlements.is_vip
           ? 'VIP 会员已开通，任务数和收集人数不受限制'
-          : maxActiveTasks > 0 ? `普通用户可创建 ${maxActiveTasks} 个未结束任务，开通 VIP 后不受限制` : '普通用户可升级为 VIP，解锁更多能力',
+          : maxActiveTasks > 0 ? `普通用户可创建 ${maxActiveTasks} 个未结束任务，激活 VIP 后不受限制` : '支持使用激活码升级为 VIP，解锁更多能力',
         createTip: entitlements && entitlements.is_vip
           ? '已解锁 AI 分析、任务数不限、收集人数不限'
-          : maxActiveTasks > 0 ? `当前已创建 ${activeTaskCount}/${maxActiveTasks} 个未结束任务` : '可查看会员权益和激活方式'
+          : maxActiveTasks > 0 ? `当前已创建 ${activeTaskCount}/${maxActiveTasks} 个未结束任务` : '可查看会员权益并输入激活码'
       });
     } catch (err: any) {
       showError(err.message || '加载失败');

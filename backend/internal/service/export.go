@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
 	"regexp"
 	"strings"
@@ -19,6 +20,8 @@ import (
 
 const exportLinkTTL = 2 * time.Hour
 const exportSourceURLTTL = 24 * time.Hour
+const freeExportAvailabilityTTL = 7 * 24 * time.Hour
+const vipExportAvailabilityTTL = 30 * 24 * time.Hour
 
 var invalidFileNameChars = regexp.MustCompile(`[\\/:*?"<>|\r\n\t]+`)
 var exportTemplatePattern = regexp.MustCompile(`\{([^{}]+)\}`)
@@ -29,6 +32,7 @@ type ExportService struct {
 	taskRepo *data.TaskRepo
 	subRepo  *data.SubmissionRepo
 	qiniuSvc *QiniuService
+	vipUC    *biz.VIPUsecase
 }
 
 type ExportTaskRequest struct {
@@ -36,12 +40,13 @@ type ExportTaskRequest struct {
 }
 
 type ExportTaskResponse struct {
-	Status       string `json:"status"`
-	FileName     string `json:"file_name"`
-	DownloadURL  string `json:"download_url"`
-	ExpiresAt    string `json:"expires_at"`
-	Count        int    `json:"count"`
-	ErrorMessage string `json:"error_message,omitempty"`
+	Status         string `json:"status"`
+	FileName       string `json:"file_name"`
+	DownloadURL    string `json:"download_url"`
+	ExpiresAt      string `json:"expires_at"`
+	AvailableUntil string `json:"available_until,omitempty"`
+	Count          int    `json:"count"`
+	ErrorMessage   string `json:"error_message,omitempty"`
 }
 
 type preparedExport struct {
@@ -53,11 +58,12 @@ type preparedExport struct {
 	count            int
 }
 
-func NewExportService(taskRepo *data.TaskRepo, subRepo *data.SubmissionRepo, qiniuSvc *QiniuService) *ExportService {
+func NewExportService(taskRepo *data.TaskRepo, subRepo *data.SubmissionRepo, qiniuSvc *QiniuService, vipUC *biz.VIPUsecase) *ExportService {
 	return &ExportService{
 		taskRepo: taskRepo,
 		subRepo:  subRepo,
 		qiniuSvc: qiniuSvc,
+		vipUC:    vipUC,
 	}
 }
 
@@ -176,14 +182,19 @@ func (s *ExportService) AuthorizeExportLink(w http.ResponseWriter, r *http.Reque
 		Error(w, 1016, "当前任务导出文件不存在")
 		return
 	}
+	if !exportInfo.AvailableUntil.IsZero() && time.Now().After(exportInfo.AvailableUntil) {
+		Error(w, 1016, fmt.Sprintf("导出下载有效期已结束，仅可在 %s 前重新生成下载链接", exportInfo.AvailableUntil.Format("2006-01-02 15:04")))
+		return
+	}
 
 	expiresAt := time.Now().Add(exportLinkTTL)
 	Success(w, &ExportTaskResponse{
-		Status:      exportInfo.Status,
-		FileName:    exportInfo.FileName,
-		DownloadURL: s.qiniuSvc.GetFileURLWithTTL(exportInfo.ExportKey, exportLinkTTL),
-		ExpiresAt:   expiresAt.Format(time.RFC3339),
-		Count:       exportInfo.Count,
+		Status:         exportInfo.Status,
+		FileName:       exportInfo.FileName,
+		DownloadURL:    s.qiniuSvc.GetFileURLWithTTL(exportInfo.ExportKey, exportLinkTTL),
+		ExpiresAt:      expiresAt.Format(time.RFC3339),
+		AvailableUntil: formatTimeRFC3339(exportInfo.AvailableUntil),
+		Count:          exportInfo.Count,
 	})
 }
 
@@ -305,6 +316,9 @@ func (s *ExportService) syncExportInfo(ctx context.Context, task *data.Task) (da
 			if next.ExportedAt.IsZero() {
 				next.ExportedAt = time.Now()
 			}
+			if next.AvailableUntil.IsZero() {
+				next.AvailableUntil = s.buildExportAvailableUntil(ctx, task.UserID, next.ExportedAt)
+			}
 		}
 	} else if result.Code == 1 || result.Code == 2 {
 		next.Status = "processing"
@@ -324,12 +338,31 @@ func (s *ExportService) syncExportInfo(ctx context.Context, task *data.Task) (da
 
 func buildExportTaskResponse(exportInfo data.TaskExportInfo) *ExportTaskResponse {
 	response := &ExportTaskResponse{
-		Status:       exportInfo.Status,
-		FileName:     exportInfo.FileName,
-		Count:        exportInfo.Count,
-		ErrorMessage: exportInfo.ErrorMessage,
+		Status:         exportInfo.Status,
+		FileName:       exportInfo.FileName,
+		AvailableUntil: formatTimeRFC3339(exportInfo.AvailableUntil),
+		Count:          exportInfo.Count,
+		ErrorMessage:   exportInfo.ErrorMessage,
 	}
 	return response
+}
+
+func (s *ExportService) buildExportAvailableUntil(ctx context.Context, userID string, exportedAt time.Time) time.Time {
+	ttl := freeExportAvailabilityTTL
+	if s.vipUC != nil {
+		entitlements, err := s.vipUC.GetUserEntitlements(ctx, userID)
+		if err == nil && entitlements != nil && entitlements.IsVIP {
+			ttl = vipExportAvailabilityTTL
+		}
+	}
+	return exportedAt.Add(ttl)
+}
+
+func formatTimeRFC3339(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.Format(time.RFC3339)
 }
 
 func findCompletedExportKey(result *PfopStatusResult) string {

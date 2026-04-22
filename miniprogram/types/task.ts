@@ -30,6 +30,7 @@ export interface TaskExportInfo {
   file_name?: string;
   count?: number;
   exported_at?: string;
+  available_until?: string;
   error_message?: string;
 }
 

@@ -101,7 +101,7 @@ func (s *SubmissionService) evaluateTaskPhoto(taskID string, photoKey string) (*
 			return nil, err
 		}
 		if !entitlements.IsVIP {
-			return nil, errors.New("当前任务创建者未开通VIP，无法使用AI分析")
+			return nil, errors.New("当前任务创建者未激活VIP，无法使用AI分析")
 		}
 	}
 
