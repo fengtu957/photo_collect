@@ -8,9 +8,7 @@
     "pages/camera-shoot/camera-shoot",
     "pages/vip-center/vip-center",
     "pages/custom-fields/custom-fields",
-    "pages/field-edit/field-edit",
-    "pages/index/index",
-    "pages/logs/logs"
+    "pages/field-edit/field-edit"
   ],
   "window": {
     "navigationBarTextStyle": "black",
