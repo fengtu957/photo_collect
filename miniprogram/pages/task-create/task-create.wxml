@@ -1,12 +1,12 @@
 <scroll-view scroll-y style="height: 100vh;">
   <view class="form">
-    <view class="section vip-notice">
+    <view class="section vip-notice" bindtap="goToVIPCenter">
       <view class="row-link">
         <view>
           <text class="label">会员权益</text>
           <text class="vip-tip">{{createLimitTip}}</text>
         </view>
-        <text class="vip-link" bindtap="goToVIPCenter">权益说明 ›</text>
+        <text class="vip-link">›</text>
       </view>
     </view>
 

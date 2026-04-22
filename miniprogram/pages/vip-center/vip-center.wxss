@@ -5,17 +5,17 @@
 }
 
 .hero-card {
-  background: linear-gradient(135deg, #1f6feb 0%, #49a6ff 100%);
+  background: linear-gradient(135deg, #fff4d9 0%, #ffe7ad 100%);
   border-radius: 24rpx;
   padding: 32rpx;
   margin-bottom: 20rpx;
-  box-shadow: 0 12rpx 30rpx rgba(25, 137, 250, 0.2);
+  box-shadow: 0 12rpx 30rpx rgba(255, 185, 64, 0.16);
 }
 
 .hero-title {
   display: block;
   font-size: 40rpx;
-  color: #fff;
+  color: #7a4b00;
   font-weight: bold;
   margin-bottom: 12rpx;
 }
@@ -23,24 +23,28 @@
 .hero-desc {
   display: block;
   font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.88);
+  color: #8b5a00;
   line-height: 1.6;
 }
 
 .hero-tags {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   margin-top: 20rpx;
 }
 
 .hero-tag {
+  display: block;
+  width: 48%;
+  box-sizing: border-box;
   font-size: 24rpx;
-  color: #fff;
-  padding: 10rpx 18rpx;
-  border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.18);
-  margin-right: 12rpx;
+  color: #8b5a00;
+  padding: 0;
   margin-bottom: 12rpx;
+  text-align: left;
+  line-height: 1.4;
+  align-self: flex-start;
 }
 
 .card {
@@ -87,13 +91,15 @@
 
 .primary-btn {
   margin-top: 24rpx;
-  background: #1989fa;
-  color: #fff;
+  background: linear-gradient(135deg, #f8d377 0%, #f1b94a 100%);
+  color: #7a4b00;
   text-align: center;
   border-radius: 999rpx;
   font-size: 32rpx;
+  font-weight: bold;
   line-height: 88rpx;
   height: 88rpx;
+  box-shadow: 0 8rpx 20rpx rgba(255, 185, 64, 0.18);
 }
 
 .action-group {
@@ -116,9 +122,11 @@
   border: none;
 }
 
-.action-btn-primary {
-  background: #1989fa;
-  color: #fff;
+.action-btn-secondary {
+  background: #fff8e8;
+  color: #8b5a00;
+  border: 1rpx solid #f0d28b;
+  box-sizing: border-box;
 }
 
 .benefit-item {

@@ -17,8 +17,10 @@
 }
 
 .vip-notice {
-  background: linear-gradient(135deg, #fff8e7 0%, #fff2cc 100%);
-  border-color: #f3e2a8;
+  background: linear-gradient(135deg, #fff4d9 0%, #ffe7ad 100%);
+  border-width: 0;
+  border-radius: 20rpx;
+  box-shadow: 0 8rpx 20rpx rgba(255, 185, 64, 0.12);
 }
 
 .label {
@@ -37,10 +39,13 @@
 }
 
 .vip-link {
-  font-size: 28rpx;
+  font-size: 40rpx;
   color: #b2760f;
   flex-shrink: 0;
   margin-left: 20rpx;
+  font-weight: normal;
+  line-height: 1;
+  align-self: center;
 }
 
 .sub-label {
@@ -179,6 +184,7 @@
   color: #1989fa;
   max-width: 420rpx;
   text-align: right;
+  line-height: 1.5;
   word-break: break-all;
   overflow-wrap: break-word;
 }
@@ -186,6 +192,7 @@
 .spec-placeholder {
   font-size: 24rpx;
   color: #999;
+  line-height: 1.5;
 }
 
 .spec-entry-arrow {
@@ -194,6 +201,7 @@
   line-height: 1;
   margin-left: 12rpx;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .submit-btn {

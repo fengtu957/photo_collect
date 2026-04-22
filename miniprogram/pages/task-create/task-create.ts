@@ -126,7 +126,7 @@ Page({
         entitlements,
         aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : 'AI 分析仅限 VIP 使用，激活后即可开启。',
         createLimitTip: entitlements && entitlements.is_vip
-          ? 'VIP 会员创建任务和收集人数不受限制。'
+          ? 'VIP会员已生效，当前任务数、收集人数和下载链接时长均已解锁。'
           : `普通用户最多创建 ${maxActiveTasks} 个未结束任务，当前已创建 ${activeTaskCount} 个。`,
         openDurationTip: maxOpenDurationDays > 0 ? `开放时间最多 ${maxOpenDurationDays} 天；未设置开始时间时按当前时间计算` : ''
       };
