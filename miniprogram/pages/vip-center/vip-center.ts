@@ -12,6 +12,14 @@ function formatExpireText(entitlements: any): string {
   return '开通后立即解锁任务数、收集人数和 AI 分析权限';
 }
 
+function getContactLabel(entitlements: any): string {
+  return String((entitlements && entitlements.contact_label) || '微信').trim() || '微信';
+}
+
+function getContactValue(entitlements: any): string {
+  return String((entitlements && entitlements.contact_value) || '').trim();
+}
+
 function showRedeemResultModal(title: string, content: string) {
   wx.showModal({
     title,
@@ -50,8 +58,8 @@ Page({
         entitlements,
         statusTitle: entitlements.is_vip ? 'VIP会员' : '普通用户',
         expireText: formatExpireText(entitlements),
-        contactLabel: entitlements.contact_label || '微信',
-        contactValue: entitlements.contact_value || '请联系管理员获取开通方式'
+        contactLabel: getContactLabel(entitlements),
+        contactValue: getContactValue(entitlements)
       });
     } catch (err: any) {
       this.setData({ loading: false });
@@ -64,6 +72,10 @@ Page({
   },
 
   copyContact() {
+    if (!this.data.contactValue) {
+      return;
+    }
+
     wx.setClipboardData({
       data: this.data.contactValue,
       success: () => {
@@ -89,8 +101,8 @@ Page({
         redeemCode: '',
         statusTitle: entitlements.is_vip ? 'VIP会员' : '普通用户',
         expireText: formatExpireText(entitlements),
-        contactLabel: entitlements.contact_label || '微信',
-        contactValue: entitlements.contact_value || '请联系管理员获取开通方式'
+        contactLabel: getContactLabel(entitlements),
+        contactValue: getContactValue(entitlements)
       });
       showRedeemResultModal('兑换成功', 'VIP 已生效，可立即使用对应权益。');
     } catch (err: any) {

@@ -10,9 +10,9 @@
     </view>
   </view>
 
-  <view class="card">
+  <view class="card" wx:if="{{contactValue}}">
     <text class="card-title">如何成为VIP</text>
-    <text class="card-text">联系管理员购买 VIP，付款后可获得激活码；回到这里输入激活码即可立即生效。</text>
+    <text class="card-text">通过获得激活码；回到这里输入激活码即可立即生效。</text>
     <view class="contact-row">
       <view class="contact-copy">
         <text class="contact-label">{{contactLabel}}</text>

@@ -54,10 +54,6 @@
       <text class="value">{{customFieldSummary}}</text>
     </view>
 
-    <view class="vip-limit-card" wx:if="{{submissionLimitText}}">
-      <text class="vip-limit-title">{{submissionLimitText}}</text>
-    </view>
-
     <view class="export-panel export-panel-tip" wx:if="{{isCreator && !canExportTask}}">
       <text class="export-title">导出图片</text>
       <text class="export-locked-tip">活动结束后才能导出图片</text>

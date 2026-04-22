@@ -226,7 +226,6 @@ Page({
     exportCount: 0,
     exportErrorMessage: '',
     aiAnalysisEnabled: true,
-    submissionLimitText: '',
     submissions: [] as any[],
     startTime: '',
     endTime: '',
@@ -295,13 +294,6 @@ Page({
       const exportState = buildExportState(task);
 
       const mySubmission = list.find((s: any) => s.user_id === currentOpenid);
-      let submissionLimitText = '';
-      if (task && task.max_submissions > 0) {
-        submissionLimitText = `最多支持 ${task.max_submissions} 人，当前已收集 ${total} 人`;
-      } else {
-        submissionLimitText = `当前已收集 ${total} 人`;
-      }
-
       this.setData({
         task,
         taskStatusText: getTaskStatus(task),
@@ -311,7 +303,6 @@ Page({
         exportDownloadUrl: '',
         exportExpiresAt: '',
         submissions: formattedSubmissions,
-        submissionLimitText,
         startTime,
         endTime,
         isCreator,

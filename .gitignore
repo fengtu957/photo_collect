@@ -4,3 +4,4 @@ images/
 .vscode/
 .codex
 .static
+backend/.env.example

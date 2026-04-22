@@ -26,14 +26,6 @@ func applyVIPContact(entitlements *biz.UserEntitlements) {
 
 	contactLabel := strings.TrimSpace(os.Getenv("VIP_CONTACT_LABEL"))
 	contactValue := strings.TrimSpace(os.Getenv("VIP_CONTACT_VALUE"))
-
-	if contactLabel == "" {
-		contactLabel = "微信"
-	}
-	if contactValue == "" {
-		contactValue = "请联系管理员获取开通方式"
-	}
-
 	entitlements.ContactLabel = contactLabel
 	entitlements.ContactValue = contactValue
 }
