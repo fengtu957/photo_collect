@@ -19,6 +19,26 @@
         </view>
       </view>
     </view>
+    <view class="toolbar-card">
+      <view class="filter-list">
+        <view
+          class="filter-chip {{activeFilter === item ? 'filter-chip-active' : ''}}"
+          wx:for="{{filterOptions}}"
+          wx:key="*this"
+          data-value="{{item}}"
+          bindtap="onFilterChange"
+        >
+          {{item}}
+        </view>
+      </view>
+      <input
+        class="search-input"
+        placeholder="搜索任务标题"
+        value="{{searchKeyword}}"
+        bindinput="onSearchInput"
+        adjust-position="{{false}}"
+      />
+    </view>
     <view class="card" wx:for="{{tasks}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
       <view class="card-top">
         <view class="title-wrap">
@@ -51,7 +71,7 @@
         </view>
       </view>
     </view>
-    <view class="empty" wx:if="{{tasks.length === 0}}">暂无任务</view>
+    <view class="empty" wx:if="{{tasks.length === 0}}">{{emptyText}}</view>
   </view>
   <view style="height: 120rpx;"></view>
 </scroll-view>

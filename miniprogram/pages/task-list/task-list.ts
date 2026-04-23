@@ -9,6 +9,14 @@ import {
   buildSubmissionLimitTip
 } from '../../utils/display-limit';
 
+const STATUS_FILTER_OPTIONS = ['全部', '进行中', '未开始', '已截止'];
+const STATUS_SORT_WEIGHT: Record<string, number> = {
+  '进行中': 0,
+  '未开始': 1,
+  '已截止': 2,
+  '已关闭': 3
+};
+
 function extractTaskIdFromScanResult(result: string): string {
   const value = String(result || '').trim();
   if (!value) return '';
@@ -70,9 +78,40 @@ function getTaskStatus(task: any) {
   };
 }
 
+function getTaskSortTime(task: any): number {
+  const endTime = new Date(String(task && task.end_time || '')).getTime();
+  if (!isNaN(endTime) && endTime > 0) {
+    return endTime;
+  }
+
+  const startTime = new Date(String(task && task.start_time || '')).getTime();
+  if (!isNaN(startTime) && startTime > 0) {
+    return startTime;
+  }
+
+  const createdTime = new Date(String(task && task.created_at || '')).getTime();
+  if (!isNaN(createdTime) && createdTime > 0) {
+    return createdTime;
+  }
+
+  return 0;
+}
+
+function buildTaskSearchText(task: any): string {
+  const title = String(task && task.title || '');
+  const description = String(task && task.description || '');
+  const specText = String(task && task.spec_text || '');
+  return `${title} ${description} ${specText}`.toLowerCase();
+}
+
 Page({
   data: {
     tasks: [] as any[],
+    allTasks: [] as any[],
+    filterOptions: STATUS_FILTER_OPTIONS,
+    activeFilter: '进行中',
+    searchKeyword: '',
+    emptyText: '暂无任务',
     createTip: buildActiveTaskTip(null),
     submissionTip: buildSubmissionLimitTip(null),
     durationTip: buildOpenDurationTip(null),
@@ -102,15 +141,75 @@ Page({
         start_time_formatted: formatTime(String(t.start_time || '')),
       }));
       this.setData({
-        tasks: formatted,
+        allTasks: formatted,
         createTip: buildActiveTaskTip(entitlements),
         submissionTip: buildSubmissionLimitTip(entitlements),
         durationTip: buildOpenDurationTip(entitlements),
         retentionTip: buildRetentionTip(entitlements)
       });
+      this.applyTaskFilters();
     } catch (err: any) {
       showError(err.message || '加载失败');
     }
+  },
+
+  applyTaskFilters() {
+    const activeFilter = String(this.data.activeFilter || '全部');
+    const keyword = String(this.data.searchKeyword || '').trim().toLowerCase();
+    const tasks = (this.data.allTasks || []).filter((task: any) => {
+      const statusText = String(task && task.status && task.status.text || '');
+      const searchText = buildTaskSearchText(task);
+      const matchesFilter = activeFilter === '全部' || statusText === activeFilter;
+      const matchesKeyword = !keyword || searchText.indexOf(keyword) >= 0;
+      return matchesFilter && matchesKeyword;
+    }).sort((a: any, b: any) => {
+      const aStatus = String(a && a.status && a.status.text || '');
+      const bStatus = String(b && b.status && b.status.text || '');
+      const aWeight = STATUS_SORT_WEIGHT[aStatus];
+      const bWeight = STATUS_SORT_WEIGHT[bStatus];
+      const statusDiff = (typeof aWeight === 'number' ? aWeight : 99) - (typeof bWeight === 'number' ? bWeight : 99);
+
+      if (statusDiff !== 0) {
+        return statusDiff;
+      }
+
+      const aTime = getTaskSortTime(a);
+      const bTime = getTaskSortTime(b);
+      if (aStatus === '已截止' || aStatus === '已关闭') {
+        return bTime - aTime;
+      }
+
+      return aTime - bTime;
+    });
+
+    let emptyText = '暂无任务';
+    if ((this.data.allTasks || []).length > 0 && tasks.length === 0) {
+      emptyText = '当前筛选下暂无任务';
+    }
+
+    this.setData({
+      tasks,
+      emptyText
+    });
+  },
+
+  onSearchInput(e: any) {
+    this.setData({
+      searchKeyword: e.detail.value || ''
+    });
+    this.applyTaskFilters();
+  },
+
+  onFilterChange(e: any) {
+    const value = String(e.currentTarget.dataset.value || '');
+    if (!value || value === this.data.activeFilter) {
+      return;
+    }
+
+    this.setData({
+      activeFilter: value
+    });
+    this.applyTaskFilters();
   },
 
   goToCreate() {
