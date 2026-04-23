@@ -10,9 +10,7 @@ export interface UserEntitlementUsage {
 }
 
 export interface UserEntitlements {
-  is_vip: boolean;
-  plan_code?: string;
-  expire_at?: string;
   limits: UserEntitlementLimits;
   usage: UserEntitlementUsage;
+  [key: string]: any;
 }

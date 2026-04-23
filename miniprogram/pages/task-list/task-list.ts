@@ -1,7 +1,13 @@
 import { listTasks } from '../../services/task';
-import { getUserEntitlements } from '../../services/vip';
+import { getUserEntitlements } from '../../services/entitlement';
 import { showError } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
+import {
+  buildActiveTaskTip,
+  buildOpenDurationTip,
+  buildRetentionTip,
+  buildSubmissionLimitTip
+} from '../../utils/display-limit';
 
 function extractTaskIdFromScanResult(result: string): string {
   const value = String(result || '').trim();
@@ -67,9 +73,10 @@ function getTaskStatus(task: any) {
 Page({
   data: {
     tasks: [] as any[],
-    entitlements: null as any,
-    vipSummary: '',
-    createTip: ''
+    createTip: buildActiveTaskTip(null),
+    submissionTip: buildSubmissionLimitTip(null),
+    durationTip: buildOpenDurationTip(null),
+    retentionTip: buildRetentionTip(null)
   },
 
   onLoad() { this.loadTasks(); },
@@ -94,17 +101,12 @@ Page({
         end_time_formatted: formatTime(String(t.end_time || '')),
         start_time_formatted: formatTime(String(t.start_time || '')),
       }));
-      const maxActiveTasks = (entitlements && entitlements.limits && entitlements.limits.max_active_tasks) || 0;
-      const activeTaskCount = (entitlements && entitlements.usage && entitlements.usage.active_task_count) || 0;
       this.setData({
         tasks: formatted,
-        entitlements,
-        vipSummary: entitlements && entitlements.is_vip
-          ? 'VIP 会员已开通，任务数和收集人数不受限制'
-          : maxActiveTasks > 0 ? `普通用户可创建 ${maxActiveTasks} 个未结束任务，激活 VIP 后不受限制` : '支持使用激活码升级为 VIP，解锁更多能力',
-        createTip: entitlements && entitlements.is_vip
-          ? '已解锁 AI 分析、任务数不限、收集人数不限'
-          : maxActiveTasks > 0 ? `当前已创建 ${activeTaskCount}/${maxActiveTasks} 个未结束任务` : '可查看会员权益并输入激活码'
+        createTip: buildActiveTaskTip(entitlements),
+        submissionTip: buildSubmissionLimitTip(entitlements),
+        durationTip: buildOpenDurationTip(entitlements),
+        retentionTip: buildRetentionTip(entitlements)
       });
     } catch (err: any) {
       showError(err.message || '加载失败');
@@ -113,10 +115,6 @@ Page({
 
   goToCreate() {
     wx.navigateTo({ url: '/pages/task-create/task-create' });
-  },
-
-  goToVIPCenter() {
-    wx.navigateTo({ url: '/pages/vip-center/vip-center' });
   },
 
   scanTask() {

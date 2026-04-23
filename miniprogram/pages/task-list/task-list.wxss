@@ -2,48 +2,49 @@
   padding: 16rpx;
 }
 
-.vip-banner {
+.notice-banner {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  background: linear-gradient(135deg, #fff4d9 0%, #ffe7ad 100%);
+  background: linear-gradient(135deg, #eef6ff 0%, #dbeeff 100%);
   border-radius: 20rpx;
   padding: 28rpx 24rpx;
   margin-bottom: 16rpx;
-  box-shadow: 0 8rpx 20rpx rgba(255, 185, 64, 0.16);
+  box-shadow: 0 8rpx 20rpx rgba(25, 137, 250, 0.12);
 }
 
-.vip-copy {
+.notice-copy {
   flex: 1;
   min-width: 0;
 }
 
-.vip-title {
+.notice-title {
   display: block;
   font-size: 34rpx;
-  color: #7a4b00;
+  color: #1457a8;
   font-weight: bold;
-  margin-bottom: 8rpx;
+  margin-bottom: 14rpx;
 }
 
-.vip-summary {
-  display: block;
-  font-size: 26rpx;
-  color: #8b5a00;
-  line-height: 1.6;
+.notice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -8rpx;
 }
 
-.vip-tip {
+.notice-item {
+  width: 50%;
+  padding: 0 8rpx;
+  box-sizing: border-box;
+  margin-bottom: 10rpx;
+}
+
+.notice-tip {
   display: block;
-  margin-top: 8rpx;
   font-size: 24rpx;
-  color: #9d6a09;
-}
-
-.vip-arrow {
-  font-size: 40rpx;
-  color: #b2760f;
-  flex-shrink: 0;
+  color: #2b6cb8;
+  line-height: 1.6;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .card {

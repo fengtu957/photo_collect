@@ -6,7 +6,6 @@
     "pages/task-detail/task-detail",
     "pages/photo-upload/photo-upload",
     "pages/camera-shoot/camera-shoot",
-    "pages/vip-center/vip-center",
     "pages/custom-fields/custom-fields",
     "pages/field-edit/field-edit"
   ],

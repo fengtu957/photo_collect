@@ -1,12 +1,20 @@
 <scroll-view scroll-y style="height: 100vh;">
   <view class="form">
-    <view class="section vip-notice" bindtap="goToVIPCenter">
-      <view class="row-link">
-        <view>
-          <text class="label">会员权益</text>
-          <text class="vip-tip">{{createLimitTip}}</text>
+    <view class="section notice-card">
+      <text class="notice-title">使用说明</text>
+      <view class="notice-grid">
+        <view class="notice-item">
+          <text class="notice-tip">· {{createLimitTip}}</text>
         </view>
-        <text class="vip-link">›</text>
+        <view class="notice-item">
+          <text class="notice-tip">· {{submissionLimitTip}}</text>
+        </view>
+        <view class="notice-item">
+          <text class="notice-tip">· {{durationLimitTip}}</text>
+        </view>
+        <view class="notice-item">
+          <text class="notice-tip">· {{retentionTip}}</text>
+        </view>
       </view>
     </view>
 
@@ -90,5 +98,6 @@
     </view>
 
     <button class="submit-btn" bindtap="onSubmit">{{isEditMode ? '保存修改' : '创建任务'}}</button>
+    <button class="contact-btn" open-type="contact">联系客服</button>
   </view>
 </scroll-view>

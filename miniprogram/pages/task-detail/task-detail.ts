@@ -1,10 +1,12 @@
 import { getTask, deleteTask, exportTask as requestExportTask, authorizeExportLink, syncExportStatus as requestSyncExportStatus } from '../../services/task';
+import { getUserEntitlements } from '../../services/entitlement';
 import { listSubmissions, deleteSubmission } from '../../services/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
 import { drawQrCode } from '../../utils/qrcode';
 import { isTaskAIAnalysisEnabled } from '../../utils/task';
+import { buildDownloadLimitTip, buildTaskSubmissionLimitText } from '../../utils/display-limit';
 const PAGE_SIZE = 20;
 const QR_CANVAS_ID = 'taskQrCanvas';
 const QR_CANVAS_SIZE = 360;
@@ -238,6 +240,8 @@ Page({
     canAuthorizeExportLink: true,
     exportCount: 0,
     exportErrorMessage: '',
+    submissionLimitText: buildTaskSubmissionLimitText(null, null),
+    downloadLimitTip: buildDownloadLimitTip(null),
     aiAnalysisEnabled: true,
     submissions: [] as any[],
     startTime: '',
@@ -288,6 +292,13 @@ Page({
 
   async loadData() {
     try {
+      let entitlements = null;
+      try {
+        entitlements = await getUserEntitlements();
+        const appInstance = getApp<any>();
+        appInstance.globalData.entitlements = entitlements;
+      } catch (err) {}
+
       const [task, result] = await Promise.all([
         getTask(this.data.taskId),
         listSubmissions(this.data.taskId, 1, PAGE_SIZE)
@@ -315,6 +326,8 @@ Page({
         ...exportState,
         exportDownloadUrl: '',
         exportExpiresAt: '',
+        submissionLimitText: buildTaskSubmissionLimitText(task, entitlements),
+        downloadLimitTip: buildDownloadLimitTip(entitlements),
         submissions: formattedSubmissions,
         startTime,
         endTime,
@@ -489,7 +502,7 @@ Page({
 
   refreshExportStatus() {
     if (!this.data.canExportTask) {
-      showError('活动结束后才能导出');
+      showError('任务结束后才能导出');
       return;
     }
     this.syncExportStatus(false);
@@ -533,7 +546,7 @@ Page({
       return;
     }
     if (!this.data.canExportTask) {
-      showError('活动结束后才能导出');
+      showError('任务结束后才能导出');
       return;
     }
 
@@ -566,7 +579,7 @@ Page({
 
   copyExportLink() {
     if (!this.data.canExportTask) {
-      showError('活动结束后才能导出');
+      showError('任务结束后才能导出');
       return;
     }
     if (this.data.exportStatus !== 'success') {
@@ -574,7 +587,7 @@ Page({
       return;
     }
     if (!this.data.exportDownloadUrl) {
-      showError(this.data.exportFileName ? '链接已失效，请先重新授权' : '暂无可复制的下载链接');
+      showError(this.data.exportFileName ? '链接已失效，请先重新生成' : '暂无可复制的下载链接');
       return;
     }
 
@@ -595,7 +608,7 @@ Page({
       return;
     }
     if (!this.data.canExportTask) {
-      showError('活动结束后才能导出');
+      showError('任务结束后才能导出');
       return;
     }
     if (!this.data.exportFileName) {
@@ -644,7 +657,7 @@ Page({
   deleteActivity() {
     wx.showModal({
       title: '确认删除',
-      content: '删除后活动及所有提交记录将无法恢复，确认删除？',
+      content: '删除后任务及所有提交记录将无法恢复，确认删除？',
       confirmText: '删除',
       confirmColor: '#ff4444',
       success: async (res) => {

@@ -12,7 +12,7 @@ import (
 
 const (
 	FreeMaxActiveTasks        = 3
-	FreeMaxSubmissionsPerTask = 50
+	FreeMaxSubmissionsPerTask = 20
 	FreeMaxOpenDurationDays   = 7
 	VIPMaxOpenDurationDays    = 30
 )

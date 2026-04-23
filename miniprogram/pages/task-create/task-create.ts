@@ -1,10 +1,17 @@
 import { createTask, getTask, updateTask } from '../../services/task';
-import { getUserEntitlements } from '../../services/vip';
+import { getUserEntitlements } from '../../services/entitlement';
 import { showError, showSuccess } from '../../utils/request';
 import { isEffectiveTime, toRFC3339 } from '../../utils/time';
 import { formatDate } from '../../utils/format';
 import { normalizePhotoSpec } from '../../constants/photo-spec';
-import { isTaskAIAnalysisEnabled } from '../../utils/task';
+import { canUseAIAnalysisFeature, isTaskAIAnalysisEnabled } from '../../utils/task';
+import {
+  buildActiveTaskTip,
+  buildOpenDurationDetailTip,
+  buildOpenDurationTip,
+  buildRetentionTip,
+  buildSubmissionLimitTip
+} from '../../utils/display-limit';
 
 function isValidDateTime(value: string): boolean {
   if (!value) return false;
@@ -64,12 +71,16 @@ Page({
     taskId: '',
     isEditMode: false,
     taskLoaded: false,
+    initialAIAnalysisEnabled: false,
     maxSizeKBInput: '',
     entitlements: null as any,
     aiSwitchDisabled: false,
-    aiLimitTip: '',
-    createLimitTip: '',
-    openDurationTip: '',
+    aiLimitTip: '开启后上传照片会进行 AI 分析。',
+    createLimitTip: buildActiveTaskTip(null),
+    submissionLimitTip: buildSubmissionLimitTip(null),
+    durationLimitTip: buildOpenDurationTip(null),
+    retentionTip: buildRetentionTip(null),
+    openDurationTip: buildOpenDurationDetailTip(null),
     startDate: '', startTime: '',
     endDate: '', endTime: '',
     form: {
@@ -117,18 +128,16 @@ Page({
       const entitlements = await getUserEntitlements();
       const appInstance = getApp<any>();
       appInstance.globalData.entitlements = entitlements;
-      const canUseAI = !!(entitlements && entitlements.limits && entitlements.limits.can_use_ai_analysis);
+      const canUseAI = canUseAIAnalysisFeature(entitlements);
       let currentAIEnabled = !!(this.data.form && this.data.form.ai_analysis_enabled);
-      const maxActiveTasks = (entitlements && entitlements.limits && entitlements.limits.max_active_tasks) || 0;
-      const activeTaskCount = (entitlements && entitlements.usage && entitlements.usage.active_task_count) || 0;
-      const maxOpenDurationDays = (entitlements && entitlements.limits && entitlements.limits.max_open_duration_days) || 0;
       const nextData: any = {
         entitlements,
-        aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : 'AI 分析仅限 VIP 使用，激活后即可开启。',
-        createLimitTip: entitlements && entitlements.is_vip
-          ? 'VIP会员已生效，当前任务数、收集人数和下载链接时长均已解锁。'
-          : `普通用户最多创建 ${maxActiveTasks} 个未结束任务，当前已创建 ${activeTaskCount} 个。`,
-        openDurationTip: maxOpenDurationDays > 0 ? `开放时间最多 ${maxOpenDurationDays} 天；未设置开始时间时按当前时间计算` : ''
+        aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : '当前版本暂不支持开启 AI 分析。',
+        createLimitTip: buildActiveTaskTip(entitlements),
+        submissionLimitTip: buildSubmissionLimitTip(entitlements),
+        durationLimitTip: buildOpenDurationTip(entitlements),
+        retentionTip: buildRetentionTip(entitlements),
+        openDurationTip: buildOpenDurationDetailTip(entitlements)
       };
 
       if (!canUseAI && !this.data.isEditMode && currentAIEnabled) {
@@ -141,7 +150,7 @@ Page({
         aiSwitchDisabled: !canUseAI && !currentAIEnabled,
       });
     } catch (err: any) {
-      showError(err.message || '加载会员权益失败');
+      showError(err.message || '加载功能限制失败');
     }
   },
 
@@ -152,11 +161,12 @@ Page({
       const customFields = cloneCustomFields((task && task.custom_fields) || []);
       const photoSpec = normalizePhotoSpec((task && task.photo_spec) || {});
       appInstance.globalData.customFields = cloneCustomFields(customFields);
-      const canUseAI = !!(this.data.entitlements && this.data.entitlements.limits && this.data.entitlements.limits.can_use_ai_analysis);
+      const canUseAI = canUseAIAnalysisFeature(this.data.entitlements);
       const aiAnalysisEnabled = isTaskAIAnalysisEnabled(task);
 
       this.setData({
         taskLoaded: true,
+        initialAIAnalysisEnabled: aiAnalysisEnabled,
         maxSizeKBInput: String(photoSpec.max_size_kb),
         startDate: isEffectiveTime(task.start_time) ? formatDate(task.start_time) : '',
         startTime: isEffectiveTime(task.start_time) ? formatPickerTime(task.start_time) : '',
@@ -200,9 +210,9 @@ Page({
 
   onAIAnalysisChange(e: any) {
     const nextValue = !!(e.detail && e.detail.value);
-    const canUseAI = !!(this.data.entitlements && this.data.entitlements.limits && this.data.entitlements.limits.can_use_ai_analysis);
+    const canUseAI = canUseAIAnalysisFeature(this.data.entitlements);
     if (nextValue && !canUseAI) {
-      showError('AI分析仅限VIP开启');
+      showError('当前版本暂不支持开启AI分析');
       this.setData({ 'form.ai_analysis_enabled': false });
       return;
     }
@@ -210,10 +220,6 @@ Page({
       'form.ai_analysis_enabled': nextValue,
       aiSwitchDisabled: !canUseAI && !nextValue
     });
-  },
-
-  goToVIPCenter() {
-    wx.navigateTo({ url: '/pages/vip-center/vip-center' });
   },
 
   goToPhotoSpecSelect() {
@@ -247,9 +253,20 @@ Page({
   async onSubmit() {
     const appInstance = getApp<any>();
     const { form } = this.data;
+    const canUseAI = canUseAIAnalysisFeature(this.data.entitlements);
+    const nextAIEnabled = !!(form && form.ai_analysis_enabled);
+    const initialAIEnabled = !!this.data.initialAIAnalysisEnabled;
     const validationMessage = validateTaskForm(form);
     if (validationMessage) {
       showError(validationMessage);
+      return;
+    }
+    if (nextAIEnabled && !canUseAI && !initialAIEnabled) {
+      this.setData({
+        'form.ai_analysis_enabled': false,
+        aiSwitchDisabled: true
+      });
+      showError('当前版本暂不支持开启AI分析');
       return;
     }
     try {

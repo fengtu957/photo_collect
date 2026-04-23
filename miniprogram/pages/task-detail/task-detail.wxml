@@ -41,7 +41,7 @@
 
     <view class="info-row">
       <text class="label">最多人数：</text>
-      <text class="value">{{task.max_submissions > 0 ? task.max_submissions + '人' : '不限制'}}</text>
+      <text class="value">{{submissionLimitText}}</text>
     </view>
 
     <view class="info-row" wx:if="{{taskStatusText}}">
@@ -56,11 +56,13 @@
 
     <view class="export-panel export-panel-tip" wx:if="{{isCreator && !canExportTask}}">
       <text class="export-title">导出图片</text>
-      <text class="export-locked-tip">活动结束后才能导出图片</text>
+      <text class="export-locked-tip">任务结束后才能导出图片</text>
+      <text class="export-locked-tip">{{downloadLimitTip}}</text>
     </view>
 
     <view class="export-panel" wx:elif="{{isCreator && canExportTask}}">
       <text class="export-title">导出图片</text>
+      <text class="export-tip">{{downloadLimitTip}}</text>
       <text class="export-label">文件命名模板</text>
       <textarea
         class="export-textarea"
@@ -75,7 +77,7 @@
       <view class="export-actions">
         <view class="export-action-btn export-action-primary" bindtap="exportTask">开始导出</view>
         <view class="export-action-btn export-action-secondary" bindtap="refreshExportStatus" wx:if="{{exportFileName && exportStatus !== 'success'}}">刷新导出状态</view>
-        <view class="export-action-btn export-action-secondary" bindtap="authorizeTaskExport" wx:if="{{exportFileName && exportStatus === 'success' && canAuthorizeExportLink}}">重新授权链接</view>
+        <view class="export-action-btn export-action-secondary" bindtap="authorizeTaskExport" wx:if="{{exportFileName && exportStatus === 'success' && canAuthorizeExportLink}}">重新生成链接</view>
         <view class="export-action-btn export-action-secondary" bindtap="copyExportLink" wx:if="{{exportDownloadUrl && exportStatus === 'success'}}">复制链接</view>
       </view>
 
@@ -83,8 +85,8 @@
         <text class="export-result-line" wx:if="{{exportStatusText}}">导出状态：{{exportStatusText}}</text>
         <text class="export-result-line">导出文件：{{exportFileName}}</text>
         <text class="export-result-line">图片数量：{{exportCount}}</text>
-        <text class="export-result-line" wx:if="{{exportAvailableUntil}}">可重新生成链接至：{{exportAvailableUntil}}</text>
-        <text class="export-result-line" wx:if="{{exportExpiresAt}}">链接有效期至：{{exportExpiresAt}}</text>
+        <text class="export-result-line" wx:if="{{exportAvailableUntil}}">可重新生成下载链接至：{{exportAvailableUntil}}</text>
+        <text class="export-result-line" wx:if="{{exportExpiresAt}}">本次下载链接有效期至：{{exportExpiresAt}}</text>
         <text class="export-result-error" wx:if="{{exportErrorMessage}}">{{exportErrorMessage}}</text>
         <text class="export-label">下载链接</text>
         <view class="export-link-box">
@@ -196,7 +198,7 @@
 
   <!-- 创建者：双按钮底栏 -->
   <view class="footer" wx:if="{{isCreator}}">
-    <view class="btn-danger" bindtap="deleteActivity">删除活动</view>
+    <view class="btn-danger" bindtap="deleteActivity">删除任务</view>
     <view class="btn-secondary" bindtap="saveTaskQr">保存二维码</view>
     <view class="btn-primary" bindtap="goToUpload">上传照片</view>
   </view>

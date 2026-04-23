@@ -16,11 +16,11 @@
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 }
 
-.vip-notice {
-  background: linear-gradient(135deg, #fff4d9 0%, #ffe7ad 100%);
+.notice-card {
+  background: linear-gradient(135deg, #eef6ff 0%, #dbeeff 100%);
   border-width: 0;
   border-radius: 20rpx;
-  box-shadow: 0 8rpx 20rpx rgba(255, 185, 64, 0.12);
+  box-shadow: 0 8rpx 20rpx rgba(25, 137, 250, 0.12);
 }
 
 .label {
@@ -28,24 +28,37 @@
   font-size: 28rpx;
   color: #333;
   font-weight: bold;
-  margin-bottom: 16rpx;
+  margin-bottom: 14rpx;
 }
 
-.vip-tip {
+.notice-title {
+  display: block;
+  font-size: 34rpx;
+  color: #1457a8;
+  font-weight: bold;
+  margin-bottom: 14rpx;
+}
+
+.notice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -8rpx;
+}
+
+.notice-item {
+  width: 50%;
+  padding: 0 8rpx;
+  box-sizing: border-box;
+  margin-bottom: 10rpx;
+}
+
+.notice-tip {
   display: block;
   font-size: 24rpx;
-  color: #8b5a00;
+  color: #2b6cb8;
   line-height: 1.6;
-}
-
-.vip-link {
-  font-size: 40rpx;
-  color: #b2760f;
-  flex-shrink: 0;
-  margin-left: 20rpx;
-  font-weight: normal;
-  line-height: 1;
-  align-self: center;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .sub-label {
@@ -210,4 +223,15 @@
   border-radius: 60rpx;
   margin-top: 40rpx;
   font-size: 32rpx;
+}
+
+.contact-btn {
+  background: white;
+  color: #1989fa;
+  border-radius: 60rpx;
+  margin-top: 20rpx;
+  margin-bottom: 40rpx;
+  font-size: 32rpx;
+  border: 1rpx solid #cfe2ff;
+  box-shadow: 0 8rpx 20rpx rgba(25, 137, 250, 0.08);
 }
