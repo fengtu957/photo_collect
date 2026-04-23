@@ -3,7 +3,10 @@
   <view class="card" wx:if="{{task}}">
     <view class="card-header">
       <view class="card-title">{{task.title}}</view>
-      <text class="task-edit-link" wx:if="{{isCreator}}" catchtap="editTask">编辑</text>
+      <view class="task-actions" wx:if="{{isCreator}}">
+        <text class="task-action-link" catchtap="editTask">编辑</text>
+        <text class="task-action-link" catchtap="copyTask">复制</text>
+      </view>
     </view>
     <view class="card-desc" wx:if="{{task.description}}">{{task.description}}</view>
 

@@ -33,10 +33,16 @@
   flex: 1;
 }
 
-.task-edit-link {
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  flex-shrink: 0;
+}
+
+.task-action-link {
   font-size: 28rpx;
   color: #1989fa;
-  flex-shrink: 0;
   line-height: 1.6;
 }
 

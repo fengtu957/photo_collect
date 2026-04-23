@@ -97,7 +97,7 @@
       </view>
     </view>
 
-    <button class="submit-btn" bindtap="onSubmit">{{isEditMode ? '保存修改' : '创建任务'}}</button>
+    <button class="submit-btn" bindtap="onSubmit">{{isEditMode ? '保存修改' : (isCopyMode ? '创建副本' : '创建任务')}}</button>
     <button class="contact-btn" open-type="contact">联系客服</button>
   </view>
 </scroll-view>

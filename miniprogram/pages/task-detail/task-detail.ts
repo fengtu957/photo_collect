@@ -654,6 +654,10 @@ Page({
     wx.navigateTo({ url: `/pages/task-create/task-create?id=${this.data.taskId}` });
   },
 
+  copyTask() {
+    wx.navigateTo({ url: `/pages/task-create/task-create?copyFrom=${this.data.taskId}` });
+  },
+
   deleteActivity() {
     wx.showModal({
       title: '确认删除',

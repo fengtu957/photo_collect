@@ -66,10 +66,19 @@ function cloneCustomFields(fields: any[]): any[] {
   }));
 }
 
+function getCopyTaskTimeValue(value: string): string {
+  if (!isEffectiveTime(value)) {
+    return '';
+  }
+
+  return new Date(value).getTime() > Date.now() ? value : '';
+}
+
 Page({
   data: {
     taskId: '',
     isEditMode: false,
+    isCopyMode: false,
     taskLoaded: false,
     initialAIAnalysisEnabled: false,
     maxSizeKBInput: '',
@@ -96,24 +105,31 @@ Page({
 
   onLoad(options: any) {
     const taskId = options.id || '';
-    const isEditMode = !!taskId;
+    const copySourceTaskId = options.copyFrom || '';
+    const isCopyMode = !!copySourceTaskId;
+    const isEditMode = !!taskId && !isCopyMode;
     this.setData({
-      taskId,
+      taskId: isEditMode ? taskId : '',
       isEditMode,
-      taskLoaded: !isEditMode,
-      maxSizeKBInput: isEditMode ? '' : '128',
-      'form.photo_spec.max_size_kb': isEditMode ? 0 : 128
+      isCopyMode,
+      taskLoaded: !isEditMode && !isCopyMode,
+      maxSizeKBInput: isEditMode || isCopyMode ? '' : '128',
+      'form.photo_spec.max_size_kb': isEditMode || isCopyMode ? 0 : 128
     });
 
     if (isEditMode) {
       wx.setNavigationBarTitle({ title: '编辑任务' });
       this.loadTask(taskId);
     }
+    if (isCopyMode) {
+      wx.setNavigationBarTitle({ title: '复制任务' });
+      this.loadTask(copySourceTaskId, true);
+    }
     this.loadEntitlements();
   },
 
   onShow() {
-    if (this.data.isEditMode && !this.data.taskLoaded) {
+    if ((this.data.isEditMode || this.data.isCopyMode) && !this.data.taskLoaded) {
       return;
     }
 
@@ -128,60 +144,68 @@ Page({
       const entitlements = await getUserEntitlements();
       const appInstance = getApp<any>();
       appInstance.globalData.entitlements = entitlements;
-      const canUseAI = canUseAIAnalysisFeature(entitlements);
-      let currentAIEnabled = !!(this.data.form && this.data.form.ai_analysis_enabled);
-      const nextData: any = {
-        entitlements,
-        aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : '当前版本暂不支持开启 AI 分析。',
-        createLimitTip: buildActiveTaskTip(entitlements),
-        submissionLimitTip: buildSubmissionLimitTip(entitlements),
-        durationLimitTip: buildOpenDurationTip(entitlements),
-        retentionTip: buildRetentionTip(entitlements),
-        openDurationTip: buildOpenDurationDetailTip(entitlements)
-      };
-
-      if (!canUseAI && !this.data.isEditMode && currentAIEnabled) {
-        currentAIEnabled = false;
-        nextData['form.ai_analysis_enabled'] = false;
-      }
-
-      this.setData({
-        ...nextData,
-        aiSwitchDisabled: !canUseAI && !currentAIEnabled,
-      });
+      this.syncEntitlementState(entitlements);
     } catch (err: any) {
       showError(err.message || '加载功能限制失败');
     }
   },
 
-  async loadTask(taskId: string) {
+  syncEntitlementState(entitlements: any) {
+    const canUseAI = canUseAIAnalysisFeature(entitlements);
+    const allowLegacyAI = !!this.data.isEditMode && !!this.data.initialAIAnalysisEnabled;
+    let currentAIEnabled = !!(this.data.form && this.data.form.ai_analysis_enabled);
+    const nextData: any = {
+      entitlements,
+      aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : '当前版本暂不支持开启 AI 分析。',
+      createLimitTip: buildActiveTaskTip(entitlements),
+      submissionLimitTip: buildSubmissionLimitTip(entitlements),
+      durationLimitTip: buildOpenDurationTip(entitlements),
+      retentionTip: buildRetentionTip(entitlements),
+      openDurationTip: buildOpenDurationDetailTip(entitlements)
+    };
+
+    if (!canUseAI && !allowLegacyAI && currentAIEnabled) {
+      currentAIEnabled = false;
+      nextData['form.ai_analysis_enabled'] = false;
+    }
+
+    nextData.aiSwitchDisabled = !canUseAI && !currentAIEnabled;
+    this.setData(nextData);
+  },
+
+  async loadTask(taskId: string, isCopyMode: boolean = false) {
     try {
       const task = await getTask(taskId);
       const appInstance = getApp<any>();
       const customFields = cloneCustomFields((task && task.custom_fields) || []);
       const photoSpec = normalizePhotoSpec((task && task.photo_spec) || {});
       appInstance.globalData.customFields = cloneCustomFields(customFields);
-      const canUseAI = canUseAIAnalysisFeature(this.data.entitlements);
       const aiAnalysisEnabled = isTaskAIAnalysisEnabled(task);
+      const copiedStartTime = isCopyMode ? getCopyTaskTimeValue(task.start_time) : task.start_time;
+      const copiedEndTime = isCopyMode ? getCopyTaskTimeValue(task.end_time) : task.end_time;
 
       this.setData({
         taskLoaded: true,
-        initialAIAnalysisEnabled: aiAnalysisEnabled,
+        initialAIAnalysisEnabled: isCopyMode ? false : aiAnalysisEnabled,
         maxSizeKBInput: String(photoSpec.max_size_kb),
-        startDate: isEffectiveTime(task.start_time) ? formatDate(task.start_time) : '',
-        startTime: isEffectiveTime(task.start_time) ? formatPickerTime(task.start_time) : '',
-        endDate: isEffectiveTime(task.end_time) ? formatDate(task.end_time) : '',
-        endTime: isEffectiveTime(task.end_time) ? formatPickerTime(task.end_time) : '',
+        startDate: isEffectiveTime(copiedStartTime) ? formatDate(copiedStartTime) : '',
+        startTime: isEffectiveTime(copiedStartTime) ? formatPickerTime(copiedStartTime) : '',
+        endDate: isEffectiveTime(copiedEndTime) ? formatDate(copiedEndTime) : '',
+        endTime: isEffectiveTime(copiedEndTime) ? formatPickerTime(copiedEndTime) : '',
         form: {
           title: task.title || '',
           description: task.description || '',
           photo_spec: photoSpec,
           ai_analysis_enabled: aiAnalysisEnabled,
-          start_time: isEffectiveTime(task.start_time) ? task.start_time : '',
-          end_time: isEffectiveTime(task.end_time) ? task.end_time : '',
+          start_time: isEffectiveTime(copiedStartTime) ? copiedStartTime : '',
+          end_time: isEffectiveTime(copiedEndTime) ? copiedEndTime : '',
           custom_fields: customFields
         },
-        aiSwitchDisabled: !canUseAI && !aiAnalysisEnabled
+        aiSwitchDisabled: false
+      }, () => {
+        if (this.data.entitlements) {
+          this.syncEntitlementState(this.data.entitlements);
+        }
       });
     } catch (err: any) {
       showError(err.message || '加载任务失败');
