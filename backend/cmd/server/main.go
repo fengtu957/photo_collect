@@ -13,6 +13,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const adminPageRoute = "/paper/hinge-58241/entry"
+
 func main() {
 	mongoURI := os.Getenv("MONGODB_URI")
 	d, err := data.NewData(mongoURI)
@@ -50,8 +52,8 @@ func main() {
 	r := mux.NewRouter()
 
 	// 公开接口
-	r.HandleFunc("/admin", adminSvc.Page).Methods("GET")
-	r.HandleFunc("/admin/", adminSvc.Page).Methods("GET")
+	r.HandleFunc(adminPageRoute, adminSvc.Page).Methods("GET")
+	r.HandleFunc(adminPageRoute+"/", adminSvc.Page).Methods("GET")
 	r.HandleFunc("/api/v1/auth/login", authSvc.Login).Methods("POST")
 	r.HandleFunc("/api/v1/admin/login", adminSvc.Login).Methods("POST")
 

@@ -1,4 +1,4 @@
-<scroll-view scroll-y style="height: 100vh;">
+<view class="page">
   <view class="form">
     <view class="section notice-card">
       <text class="notice-title">使用说明</text>
@@ -128,4 +128,4 @@
     <button class="submit-btn" bindtap="onSubmit">{{isEditMode ? '保存修改' : (isCopyMode ? '创建副本' : '创建任务')}}</button>
     <button class="contact-btn" open-type="contact">联系客服</button>
   </view>
-</scroll-view>
+</view>

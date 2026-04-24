@@ -53,7 +53,7 @@ go run cmd/server/main.go
 启动后可直接在浏览器访问：
 
 ```text
-http://localhost:8000/admin
+http://localhost:8000/paper/hinge-58241/entry
 ```
 
 管理员登录使用环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。
@@ -62,7 +62,7 @@ http://localhost:8000/admin
 
 公开接口：
 
-- `GET /admin`
+- `GET /paper/hinge-58241/entry`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/admin/login`
 
