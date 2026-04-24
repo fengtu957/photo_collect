@@ -1,4 +1,4 @@
-import { listTasks } from '../../services/task';
+import { getTaskByCode, listTasks } from '../../services/task';
 import { getUserEntitlements } from '../../services/entitlement';
 import { showError } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
@@ -98,10 +98,15 @@ function getTaskSortTime(task: any): number {
 }
 
 function buildTaskSearchText(task: any): string {
+  const taskCode = String(task && task.task_code || '');
   const title = String(task && task.title || '');
   const description = String(task && task.description || '');
   const specText = String(task && task.spec_text || '');
-  return `${title} ${description} ${specText}`.toLowerCase();
+  return `${taskCode} ${title} ${description} ${specText}`.toLowerCase();
+}
+
+function normalizeTaskCodeInput(value: any): string {
+  return String(value || '').replace(/\D/g, '').slice(0, 5);
 }
 
 Page({
@@ -111,6 +116,10 @@ Page({
     filterOptions: STATUS_FILTER_OPTIONS,
     activeFilter: '进行中',
     searchKeyword: '',
+    joinTaskCode: '',
+    joiningByCode: false,
+    showJoinActions: false,
+    showTaskCodePanel: false,
     emptyText: '暂无任务',
     createTip: buildActiveTaskTip(null),
     submissionTip: buildSubmissionLimitTip(null),
@@ -200,6 +209,62 @@ Page({
     this.applyTaskFilters();
   },
 
+  onJoinTaskCodeInput(e: any) {
+    this.setData({
+      joinTaskCode: normalizeTaskCodeInput(e.detail.value)
+    });
+  },
+
+  noop() {},
+
+  closeJoinActions() {
+    this.setData({
+      showJoinActions: false,
+      showTaskCodePanel: false
+    });
+  },
+
+  toggleJoinActions() {
+    const nextValue = !this.data.showJoinActions;
+    this.setData({
+      showJoinActions: nextValue,
+      showTaskCodePanel: nextValue ? this.data.showTaskCodePanel : false
+    });
+  },
+
+  openTaskCodePanel() {
+    this.setData({
+      showJoinActions: true,
+      showTaskCodePanel: true
+    });
+  },
+
+  async joinTaskByCode() {
+    const taskCode = normalizeTaskCodeInput(this.data.joinTaskCode);
+    if (taskCode.length !== 5) {
+      showError('请输入 5 位任务码');
+      return;
+    }
+    if (this.data.joiningByCode) {
+      return;
+    }
+
+    this.setData({ joiningByCode: true });
+    try {
+      const task = await getTaskByCode(taskCode);
+      this.setData({
+        joinTaskCode: '',
+        joiningByCode: false,
+        showJoinActions: false,
+        showTaskCodePanel: false
+      });
+      wx.navigateTo({ url: `/pages/task-detail/task-detail?id=${task.id}&fromShare=1` });
+    } catch (err: any) {
+      this.setData({ joiningByCode: false });
+      showError(err.message || '未找到对应任务');
+    }
+  },
+
   onFilterChange(e: any) {
     const value = String(e.currentTarget.dataset.value || '');
     if (!value || value === this.data.activeFilter) {
@@ -213,6 +278,7 @@ Page({
   },
 
   goToCreate() {
+    this.closeJoinActions();
     wx.navigateTo({ url: '/pages/task-create/task-create' });
   },
 
@@ -236,6 +302,11 @@ Page({
         showError('扫码失败，请重试');
       }
     });
+  },
+
+  scanTaskFromJoin() {
+    this.closeJoinActions();
+    this.scanTask();
   },
 
   goToDetail(e: any) {

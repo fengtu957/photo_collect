@@ -14,6 +14,19 @@ type TaskService struct {
 	uc *biz.TaskUsecase
 }
 
+func sanitizeTaskForViewer(task *data.Task, viewerID string) *data.Task {
+	if task == nil {
+		return nil
+	}
+
+	safeTask := *task
+	if safeTask.UserID != viewerID {
+		safeTask.VerificationCode = ""
+	}
+
+	return &safeTask
+}
+
 func NewTaskService(uc *biz.TaskUsecase) *TaskService {
 	return &TaskService{uc: uc}
 }
@@ -43,13 +56,36 @@ func (s *TaskService) CreateTask(w http.ResponseWriter, r *http.Request) {
 
 func (s *TaskService) GetTask(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1004, "unauthorized")
+		return
+	}
+
 	task, err := s.uc.GetTask(context.Background(), id)
 	if err != nil {
 		Error(w, 1004, err.Error())
 		return
 	}
 
-	Success(w, task)
+	Success(w, sanitizeTaskForViewer(task, userID))
+}
+
+func (s *TaskService) GetTaskByCode(w http.ResponseWriter, r *http.Request) {
+	taskCode := mux.Vars(r)["taskCode"]
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1010, "unauthorized")
+		return
+	}
+
+	task, err := s.uc.GetTaskByCode(context.Background(), taskCode)
+	if err != nil {
+		Error(w, 1010, err.Error())
+		return
+	}
+
+	Success(w, sanitizeTaskForViewer(task, userID))
 }
 
 func (s *TaskService) UpdateTask(w http.ResponseWriter, r *http.Request) {
@@ -106,5 +142,10 @@ func (s *TaskService) ListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Success(w, tasks)
+	result := make([]*data.Task, 0, len(tasks))
+	for _, task := range tasks {
+		result = append(result, sanitizeTaskForViewer(task, userID))
+	}
+
+	Success(w, result)
 }

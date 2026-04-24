@@ -12,6 +12,11 @@
 
     <view class="divider"></view>
 
+    <view class="info-row" wx:if="{{task.task_code}}">
+      <text class="label">任务码：</text>
+      <text class="value">{{task.task_code}}</text>
+    </view>
+
     <view class="info-row">
       <text class="label">照片规格：</text>
       <text class="value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
@@ -30,6 +35,13 @@
     <view class="info-row">
       <text class="label">AI分析：</text>
       <text class="value">{{aiAnalysisEnabled ? '已开启' : '已关闭'}}</text>
+    </view>
+
+    <view class="info-row">
+      <text class="label">采集校验：</text>
+      <text class="value" wx:if="{{!task.verification_code_enabled}}">未开启</text>
+      <text class="value" wx:elif="{{task.verification_code}}">已开启，校验码 {{task.verification_code}}</text>
+      <text class="value" wx:else>已开启，提交时需输入校验码</text>
     </view>
 
     <view class="info-row">

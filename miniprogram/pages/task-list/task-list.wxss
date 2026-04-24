@@ -247,6 +247,126 @@
   align-items: center;
   justify-content: space-between;
   gap: 20rpx;
+  z-index: 11;
+}
+
+.join-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.02);
+  z-index: 10;
+}
+
+.join-floating {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.join-code-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100vw - 48rpx);
+  max-width: 720rpx;
+  padding: 40rpx 32rpx;
+  border-radius: 28rpx;
+  background: white;
+  border: 1rpx solid #d6e8ff;
+  box-shadow: 0 20rpx 50rpx rgba(0,0,0,0.14);
+  z-index: 12;
+  box-sizing: border-box;
+}
+
+.join-code-title {
+  display: block;
+  font-size: 38rpx;
+  color: #333;
+  font-weight: bold;
+  margin-bottom: 28rpx;
+}
+
+.join-actions-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 20rpx);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16rpx;
+}
+
+.join-action-item {
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  border-radius: 999rpx;
+  background: white;
+  color: #1989fa;
+  font-size: 28rpx;
+  border: 1rpx solid #d6e8ff;
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.08);
+}
+
+.join-code-input {
+  display: block;
+  width: 100%;
+  font-size: 34rpx;
+  color: #333;
+  border: none;
+  border-bottom: 1rpx solid #eee;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  height: 96rpx;
+  line-height: 96rpx;
+}
+
+.join-code-input::placeholder {
+  color: #999;
+}
+
+.join-code-tip {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: #999;
+}
+
+.join-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 30rpx;
+}
+
+.join-code-cancel {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 999rpx;
+  background: #f3f7fd;
+  color: #5f6f86;
+  font-size: 28rpx;
+}
+
+.join-code-submit {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 999rpx;
+  background: #1989fa;
+  color: white;
+  font-size: 28rpx;
+  box-shadow: 0 8rpx 20rpx rgba(25, 137, 250, 0.2);
+}
+
+.join-code-submit-disabled {
+  opacity: 0.6;
 }
 
 .scan-fab {

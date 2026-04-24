@@ -54,6 +54,35 @@ func validateSubmissionPhoto(task *data.Task, sub *data.Submission) error {
 	return nil
 }
 
+func validateSubmissionVerificationCode(task *data.Task, sub *data.Submission, actingUserID string) error {
+	if task == nil || sub == nil || !task.VerificationCodeEnabled {
+		return nil
+	}
+	if task.UserID == actingUserID {
+		return nil
+	}
+
+	expected := strings.TrimSpace(task.VerificationCode)
+	provided := strings.TrimSpace(sub.VerificationCode)
+	if expected == "" {
+		return errors.New("任务未配置有效校验码")
+	}
+	if provided == "" {
+		return errors.New("请输入数字校验码")
+	}
+	if !isDigitsOnly(provided) {
+		return errors.New("校验码只能填写数字")
+	}
+	if len(provided) > maxVerificationCodeLength {
+		return errors.New(fmt.Sprintf("校验码长度不能超过%d位", maxVerificationCodeLength))
+	}
+	if provided != expected {
+		return errors.New("校验码错误")
+	}
+
+	return nil
+}
+
 func isSupportedUniqueFieldType(fieldType string) bool {
 	return fieldType == "text" || fieldType == "number" || fieldType == "select"
 }
@@ -178,6 +207,9 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 	if err := validateTaskAvailableForSubmission(task); err != nil {
 		return err
 	}
+	if err := validateSubmissionVerificationCode(task, sub, sub.UserID); err != nil {
+		return err
+	}
 
 	// 非创建者限制唯一提交
 	if task.UserID != sub.UserID {
@@ -230,6 +262,9 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 	// 权限检查：只有提交者本人或任务创建者可以更新
 	if existing.UserID != userID && task.UserID != userID {
 		return errors.New("无权限更新此提交")
+	}
+	if err := validateSubmissionVerificationCode(task, sub, userID); err != nil {
+		return err
 	}
 
 	// 保留原有的 ID、TaskID、UserID、CreatedAt

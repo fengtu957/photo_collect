@@ -23,6 +23,12 @@
       <input class="input" placeholder="请输入任务标题" bindinput="onInput" data-field="title" value="{{form.title}}" adjust-position="{{false}}" />
     </view>
 
+    <view class="section" wx:if="{{taskCode}}">
+      <text class="label">任务码</text>
+      <text class="readonly-value">{{taskCode}}</text>
+      <text class="field-tip">任务码由系统自动生成，为固定 5 位数字，可用于后台快速查询。</text>
+    </view>
+
     <view class="section">
       <text class="label">任务描述</text>
       <textarea class="textarea" placeholder="请输入任务描述" bindinput="onInput" data-field="description" value="{{form.description}}" adjust-position="{{false}}" />
@@ -36,6 +42,28 @@
         </view>
         <switch checked="{{form.ai_analysis_enabled}}" bindchange="onAIAnalysisChange" color="#1989fa" disabled="{{aiSwitchDisabled}}" />
       </view>
+    </view>
+
+    <view class="section">
+      <view class="switch-row">
+        <view class="switch-copy">
+          <text class="label switch-label">开启采集校验码</text>
+          <text class="switch-tip">开启后，参与者上传或更新照片时必须输入校验码。</text>
+        </view>
+        <switch checked="{{form.verification_code_enabled}}" bindchange="onVerificationCodeSwitchChange" color="#1989fa" />
+      </view>
+      <input
+        wx:if="{{form.verification_code_enabled}}"
+        class="input input-top-gap"
+        type="number"
+        maxlength="32"
+        placeholder="请输入数字校验码"
+        bindinput="onInput"
+        data-field="verification_code"
+        value="{{form.verification_code}}"
+        adjust-position="{{false}}"
+      />
+      <text class="field-tip" wx:if="{{form.verification_code_enabled}}">建议使用易于口头传达的数字短码，例如 5208、1024。</text>
     </view>
 
     <view class="section">

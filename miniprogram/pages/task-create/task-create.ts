@@ -18,6 +18,10 @@ function isValidDateTime(value: string): boolean {
   return !isNaN(new Date(value).getTime());
 }
 
+function normalizeDigitText(value: any): string {
+  return String(value || '').replace(/\D/g, '');
+}
+
 function validateTaskForm(form: any): string {
   const title = String(form.title || '').trim();
   const photoSpec = normalizePhotoSpec(form.photo_spec || {});
@@ -25,6 +29,8 @@ function validateTaskForm(form: any): string {
   const width = photoSpec.width;
   const height = photoSpec.height;
   const maxSizeKB = photoSpec.max_size_kb;
+  const verificationCodeEnabled = !!form.verification_code_enabled;
+  const verificationCode = String(form.verification_code || '').trim();
 
   if (!title) {
     return '请填写任务标题';
@@ -46,6 +52,15 @@ function validateTaskForm(form: any): string {
   }
   if (maxSizeKB < 0) {
     return '文件大小限制不能小于 0';
+  }
+  if (verificationCodeEnabled && !verificationCode) {
+    return '开启校验码后请填写数字校验码';
+  }
+  if (verificationCode && !/^\d+$/.test(verificationCode)) {
+    return '校验码只能填写数字';
+  }
+  if (verificationCode.length > 32) {
+    return '校验码长度不能超过32位';
   }
 
   return '';
@@ -77,6 +92,7 @@ function getCopyTaskTimeValue(value: string): string {
 Page({
   data: {
     taskId: '',
+    taskCode: '',
     isEditMode: false,
     isCopyMode: false,
     taskLoaded: false,
@@ -97,6 +113,8 @@ Page({
       description: '',
       photo_spec: { name: '', width: 0, height: 0, max_size_kb: 0, background_color: '' },
       ai_analysis_enabled: true,
+      verification_code_enabled: false,
+      verification_code: '',
       start_time: '',
       end_time: '',
       custom_fields: [] as any[]
@@ -186,6 +204,7 @@ Page({
 
       this.setData({
         taskLoaded: true,
+        taskCode: isCopyMode ? '' : String(task.task_code || ''),
         initialAIAnalysisEnabled: isCopyMode ? false : aiAnalysisEnabled,
         maxSizeKBInput: String(photoSpec.max_size_kb),
         startDate: isEffectiveTime(copiedStartTime) ? formatDate(copiedStartTime) : '',
@@ -197,6 +216,8 @@ Page({
           description: task.description || '',
           photo_spec: photoSpec,
           ai_analysis_enabled: aiAnalysisEnabled,
+          verification_code_enabled: !!task.verification_code_enabled,
+          verification_code: task.verification_code || '',
           start_time: isEffectiveTime(copiedStartTime) ? copiedStartTime : '',
           end_time: isEffectiveTime(copiedEndTime) ? copiedEndTime : '',
           custom_fields: customFields
@@ -213,7 +234,11 @@ Page({
   },
 
   onInput(e: any) {
-    this.setData({ [`form.${e.currentTarget.dataset.field}`]: e.detail.value });
+    const field = e.currentTarget.dataset.field;
+    const value = field === 'verification_code'
+      ? normalizeDigitText(e.detail.value)
+      : e.detail.value;
+    this.setData({ [`form.${field}`]: value });
   },
 
   onSpecInput(e: any) {
@@ -244,6 +269,18 @@ Page({
       'form.ai_analysis_enabled': nextValue,
       aiSwitchDisabled: !canUseAI && !nextValue
     });
+  },
+
+  onVerificationCodeSwitchChange(e: any) {
+    const nextValue = !!(e.detail && e.detail.value);
+    this.setData({
+      'form.verification_code_enabled': nextValue
+    });
+    if (!nextValue) {
+      this.setData({
+        'form.verification_code': ''
+      });
+    }
   },
 
   goToPhotoSpecSelect() {

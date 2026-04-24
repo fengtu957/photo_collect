@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"photo-backend/internal/data"
 	"sort"
+	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -17,17 +19,46 @@ type TaskUsecase struct {
 	vipUC   *VIPUsecase
 }
 
+const taskCodeLength = 5
+const maxVerificationCodeLength = 32
+const taskCodeGenerateRetries = 32
+
 func NewTaskUsecase(repo *data.TaskRepo, subRepo *data.SubmissionRepo, vipUC *VIPUsecase) *TaskUsecase {
 	return &TaskUsecase{repo: repo, subRepo: subRepo, vipUC: vipUC}
+}
+
+func isDigitsOnly(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < '0' || value[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func validateTask(task *data.Task) error {
 	if task == nil {
 		return errors.New("任务不能为空")
 	}
+	task.VerificationCode = strings.TrimSpace(task.VerificationCode)
 	if task.AIAnalysisEnabled == nil {
 		enabled := true
 		task.AIAnalysisEnabled = &enabled
+	}
+	if task.VerificationCodeEnabled && task.VerificationCode == "" {
+		return errors.New("开启校验码后必须填写数字校验码")
+	}
+	if task.VerificationCode != "" && !isDigitsOnly(task.VerificationCode) {
+		return errors.New("校验码只能填写数字")
+	}
+	if len(task.VerificationCode) > maxVerificationCodeLength {
+		return errors.New(fmt.Sprintf("校验码长度不能超过%d位", maxVerificationCodeLength))
+	}
+	if !task.VerificationCodeEnabled {
+		task.VerificationCode = ""
 	}
 	if task.PhotoSpec.MaxSizeKB < 0 {
 		return errors.New("文件大小限制不能小于 0")
@@ -53,8 +84,54 @@ func validateTaskOpenDurationLimit(task *data.Task, maxDays int) error {
 	return nil
 }
 
+func generateTaskCode() (string, error) {
+	segment, err := randomCodeSegment("0123456789", taskCodeLength)
+	if err != nil {
+		return "", err
+	}
+
+	return segment, nil
+}
+
+func (uc *TaskUsecase) ensureTaskCode(ctx context.Context, task *data.Task) error {
+	if task == nil {
+		return nil
+	}
+	if strings.TrimSpace(task.TaskCode) != "" {
+		task.TaskCode = strings.TrimSpace(task.TaskCode)
+		if len(task.TaskCode) != taskCodeLength || !isDigitsOnly(task.TaskCode) {
+			return errors.New(fmt.Sprintf("任务码必须是固定%d位数字", taskCodeLength))
+		}
+		return nil
+	}
+
+	for i := 0; i < taskCodeGenerateRetries; i++ {
+		taskCode, err := generateTaskCode()
+		if err != nil {
+			return err
+		}
+
+		existing, err := uc.repo.FindByTaskCode(ctx, taskCode)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			continue
+		}
+
+		task.TaskCode = taskCode
+		return nil
+	}
+
+	return errors.New("生成任务码失败，请重试")
+}
+
 func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
+	task.TaskCode = ""
 	if err := validateTask(task); err != nil {
+		return err
+	}
+	if err := uc.ensureTaskCode(ctx, task); err != nil {
 		return err
 	}
 	if uc.vipUC != nil {
@@ -86,7 +163,21 @@ func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 	}
 	task.Enabled = true
 	task.Stats = data.TaskStats{TotalSubmissions: 0}
-	return uc.repo.Create(ctx, task)
+	for i := 0; i < 3; i++ {
+		err := uc.repo.Create(ctx, task)
+		if err == nil {
+			return nil
+		}
+		if !mongo.IsDuplicateKeyError(err) {
+			return err
+		}
+		task.TaskCode = ""
+		if genErr := uc.ensureTaskCode(ctx, task); genErr != nil {
+			return genErr
+		}
+	}
+
+	return errors.New("创建任务失败，请重试")
 }
 
 func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string, task *data.Task) error {
@@ -106,12 +197,16 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	task.Enabled = existing.Enabled
 	task.Stats = existing.Stats
 	task.CreatedAt = existing.CreatedAt
+	task.TaskCode = existing.TaskCode
 	task.StartTime = existing.StartTime
 	task.MaxSubmissions = existing.MaxSubmissions
 	if task.AIAnalysisEnabled == nil {
 		task.AIAnalysisEnabled = existing.AIAnalysisEnabled
 	}
 	if err := validateTask(task); err != nil {
+		return err
+	}
+	if err := uc.ensureTaskCode(ctx, task); err != nil {
 		return err
 	}
 	if uc.vipUC != nil {
@@ -139,6 +234,23 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 
 func (uc *TaskUsecase) GetTask(ctx context.Context, id string) (*data.Task, error) {
 	return uc.repo.FindByID(ctx, id)
+}
+
+func (uc *TaskUsecase) GetTaskByCode(ctx context.Context, taskCode string) (*data.Task, error) {
+	normalized := strings.TrimSpace(taskCode)
+	if len(normalized) != taskCodeLength || !isDigitsOnly(normalized) {
+		return nil, errors.New(fmt.Sprintf("任务码必须是固定%d位数字", taskCodeLength))
+	}
+
+	task, err := uc.repo.FindByTaskCode(ctx, normalized)
+	if err != nil {
+		return nil, err
+	}
+	if task == nil {
+		return nil, errors.New("任务不存在")
+	}
+
+	return task, nil
 }
 
 func (uc *TaskUsecase) ListTasks(ctx context.Context, userID string) ([]*data.Task, error) {

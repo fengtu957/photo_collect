@@ -32,6 +32,7 @@ type Submission struct {
 	ID           primitive.ObjectID     `bson:"_id,omitempty" json:"id"`
 	TaskID       primitive.ObjectID     `bson:"task_id" json:"task_id"`
 	UserID       string                 `bson:"user_id" json:"user_id"`
+	VerificationCode string             `bson:"-" json:"verification_code,omitempty"`
 	UserInfo     UserInfo               `bson:"user_info" json:"user_info"`
 	CustomData   map[string]interface{} `bson:"custom_data" json:"custom_data"`
 	Photo        PhotoInfo              `bson:"photo" json:"photo"`

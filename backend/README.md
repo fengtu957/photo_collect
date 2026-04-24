@@ -23,6 +23,8 @@ cp .env.example .env
 
 - `MONGODB_URI`
 - `JWT_SECRET`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
 - `WECHAT_APPID`
 - `WECHAT_SECRET`
 - `QINIU_ACCESS_KEY`
@@ -46,11 +48,23 @@ go run cmd/server/main.go
 
 服务默认监听 `http://localhost:8000`。
 
+### 3. 打开后台管理页
+
+启动后可直接在浏览器访问：
+
+```text
+http://localhost:8000/admin
+```
+
+管理员登录使用环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。
+
 ## API 清单
 
 公开接口：
 
+- `GET /admin`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/admin/login`
 
 需要 JWT 的接口：
 
@@ -63,6 +77,11 @@ go run cmd/server/main.go
 - `PUT /api/v1/submissions/{id}`
 - `GET /api/v1/tasks/{taskId}/submissions`
 - `GET /api/v1/upload/token`
+
+需要管理员 JWT 的接口：
+
+- `GET /api/v1/admin/tasks`
+- `POST /api/v1/admin/vip/grant`
 
 ## 联调说明
 

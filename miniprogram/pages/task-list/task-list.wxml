@@ -33,7 +33,7 @@
       </view>
       <input
         class="search-input"
-        placeholder="搜索任务标题"
+        placeholder="搜索任务标题 / 任务码"
         value="{{searchKeyword}}"
         bindinput="onSearchInput"
         adjust-position="{{false}}"
@@ -51,6 +51,7 @@
       </view>
       <view class="card-mid">
         <view class="card-info">
+          <text class="card-line">任务码：{{item.task_code || '自动生成中'}}</text>
           <text class="card-line">规格：{{item.spec_text}}</text>
           <text class="card-line">创建日期：{{item.created_at_formatted}}</text>
           <text class="card-line">截止日期：{{item.end_time_formatted}}</text>
@@ -76,7 +77,35 @@
   <view style="height: 120rpx;"></view>
 </scroll-view>
 
+<view class="join-overlay" wx:if="{{showJoinActions}}" bindtap="closeJoinActions"></view>
+
+<view class="join-code-modal" wx:if="{{showJoinActions && showTaskCodePanel}}" catchtap="noop">
+  <view class="join-code-title">任务码加入采集</view>
+  <input
+    class="join-code-input"
+    type="number"
+    maxlength="5"
+    placeholder="输入5位任务码"
+    value="{{joinTaskCode}}"
+    bindinput="onJoinTaskCodeInput"
+    adjust-position="{{false}}"
+  />
+  <text class="join-code-tip">输入任务码后可直接进入对应采集任务。</text>
+  <view class="join-code-actions">
+    <view class="join-code-cancel" bindtap="closeJoinActions">取消</view>
+    <view class="join-code-submit {{joiningByCode ? 'join-code-submit-disabled' : ''}}" bindtap="joinTaskByCode">
+      {{joiningByCode ? '加入中...' : '确认加入'}}
+    </view>
+  </view>
+</view>
+
 <view class="floating-actions">
-  <view class="scan-fab" bindtap="scanTask">扫一扫</view>
+  <view class="join-floating">
+    <view class="join-actions-panel" wx:if="{{showJoinActions && !showTaskCodePanel}}" catchtap="noop">
+      <view class="join-action-item" bindtap="scanTaskFromJoin">扫一扫</view>
+      <view class="join-action-item" bindtap="openTaskCodePanel">任务码</view>
+    </view>
+    <view class="scan-fab" bindtap="toggleJoinActions">加入任务</view>
+  </view>
   <view class="fab" bindtap="goToCreate">+ 创建任务</view>
 </view>

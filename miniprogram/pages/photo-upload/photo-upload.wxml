@@ -7,6 +7,10 @@
       <text class="spec-label">照片规格：</text>
       <text class="spec-value">{{task.photo_spec.name}} ({{task.photo_spec.width}}×{{task.photo_spec.height}})</text>
     </view>
+    <view class="spec-info" wx:if="{{task.task_code}}">
+      <text class="spec-label">任务码：</text>
+      <text class="spec-value">{{task.task_code}}</text>
+    </view>
     <view class="spec-info" wx:if="{{task.photo_spec.background_color}}">
       <text class="spec-label">背景色要求：</text>
       <text class="spec-value">{{task.photo_spec.background_color}}</text>
@@ -17,6 +21,10 @@
     </view>
     <view class="task-status" wx:if="{{taskStatusText}}">
       <text class="task-status-text">{{taskStatusText}}</text>
+    </view>
+    <view class="photo-size-tip" wx:if="{{task && task.verification_code_enabled}}">
+      <text class="photo-size-tip-text" wx:if="{{requiresVerificationCode}}">当前任务已开启采集校验码，提交前需要输入正确的校验码。</text>
+      <text class="photo-size-tip-text" wx:else>当前任务已开启采集校验码，你作为任务创建者可直接提交。</text>
     </view>
   </view>
 
@@ -116,6 +124,22 @@
         <text class="analysis-list-title">调整建议</text>
         <text class="analysis-list-item" wx:for="{{analysisResult.suggestions}}" wx:key="*this" wx:for-item="suggestion">{{suggestion}}</text>
       </view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{requiresVerificationCode}}">
+    <view class="section-title">输入校验码</view>
+    <view class="card">
+      <input
+        class="input"
+        type="number"
+        maxlength="32"
+        placeholder="请输入数字校验码"
+        value="{{verificationCodeInput}}"
+        bindinput="onVerificationCodeInput"
+        adjust-position="{{false}}"
+      />
+      <text class="verification-tip">该任务开启了校验码，仅支持输入数字，填写正确后才能提交或更新照片。</text>
     </view>
   </view>
 

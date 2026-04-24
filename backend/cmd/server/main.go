@@ -23,6 +23,9 @@ func main() {
 	taskRepo := data.NewTaskRepo(d)
 	subRepo := data.NewSubmissionRepo(d)
 	vipRepo := data.NewVIPRepo(d)
+	if err := taskRepo.EnsureIndexes(context.Background()); err != nil {
+		log.Fatal(err)
+	}
 	if err := vipRepo.EnsureIndexes(context.Background()); err != nil {
 		log.Fatal(err)
 	}
@@ -42,17 +45,28 @@ func main() {
 	uploadSvc := service.NewUploadService(qiniuSvc)
 
 	authSvc := service.NewAuthService()
+	adminSvc := service.NewAdminService(vipUC, taskRepo)
 
 	r := mux.NewRouter()
 
 	// 公开接口
+	r.HandleFunc("/admin", adminSvc.Page).Methods("GET")
+	r.HandleFunc("/admin/", adminSvc.Page).Methods("GET")
 	r.HandleFunc("/api/v1/auth/login", authSvc.Login).Methods("POST")
+	r.HandleFunc("/api/v1/admin/login", adminSvc.Login).Methods("POST")
+
+	// 管理员接口
+	adminAPI := r.PathPrefix("/api/v1/admin").Subrouter()
+	adminAPI.Use(service.AdminAuthMiddleware)
+	adminAPI.HandleFunc("/tasks", adminSvc.ListTasks).Methods("GET")
+	adminAPI.HandleFunc("/vip/grant", adminSvc.GrantVIP).Methods("POST")
 
 	// 需要认证的接口
 	api := r.PathPrefix("/api/v1").Subrouter()
 	api.Use(service.AuthMiddleware)
 	api.HandleFunc("/tasks", taskSvc.CreateTask).Methods("POST")
 	api.HandleFunc("/tasks", taskSvc.ListTasks).Methods("GET")
+	api.HandleFunc("/tasks/code/{taskCode}", taskSvc.GetTaskByCode).Methods("GET")
 	api.HandleFunc("/tasks/{id}", taskSvc.GetTask).Methods("GET")
 	api.HandleFunc("/tasks/{id}", taskSvc.UpdateTask).Methods("PUT")
 	api.HandleFunc("/tasks/{id}/export", exportSvc.ExportTask).Methods("POST")

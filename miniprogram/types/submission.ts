@@ -51,6 +51,7 @@ export interface SubmissionListResponse {
 
 export interface SubmitPhotoParams {
   task_id: string;
+  verification_code?: string;
   photo: {
     url: string;
     file_size?: number;

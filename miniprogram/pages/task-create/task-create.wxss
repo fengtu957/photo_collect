@@ -91,6 +91,14 @@
   line-height: 1.6;
 }
 
+.field-tip {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  line-height: 1.6;
+  margin-top: 12rpx;
+}
+
 .input {
   display: block;
   width: 100%;
@@ -107,6 +115,20 @@
 
 .input::placeholder {
   color: #999;
+}
+
+.input-top-gap {
+  margin-top: 20rpx;
+}
+
+.readonly-value {
+  display: block;
+  font-size: 34rpx;
+  color: #1989fa;
+  font-weight: bold;
+  line-height: 1.5;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .textarea {

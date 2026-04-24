@@ -37,10 +37,13 @@ export interface TaskExportInfo {
 export interface Task {
   id: string;
   user_id: string;
+  task_code?: string;
   title: string;
   description: string;
   photo_spec: PhotoSpec;
   ai_analysis_enabled?: boolean;
+  verification_code_enabled?: boolean;
+  verification_code?: string;
   max_submissions?: number;
   start_time: string;
   end_time: string;
@@ -57,6 +60,8 @@ export interface CreateTaskParams {
   description: string;
   photo_spec: PhotoSpec;
   ai_analysis_enabled?: boolean;
+  verification_code_enabled?: boolean;
+  verification_code?: string;
   start_time: string;
   end_time: string;
   custom_fields: CustomField[];

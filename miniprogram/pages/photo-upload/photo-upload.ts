@@ -9,6 +9,10 @@ import { isTaskAIAnalysisEnabled } from '../../utils/task';
 
 const COMPRESS_QUALITY_STEPS = [90, 80, 70, 60, 50, 40, 30, 20];
 
+function normalizeDigitText(value: any): string {
+  return String(value || '').replace(/\D/g, '');
+}
+
 function isRemoteUrl(path: string): boolean {
   return path.indexOf('http://') === 0 || path.indexOf('https://') === 0;
 }
@@ -186,6 +190,9 @@ Page({
     task: null as any,
     taskStatusText: '',
     taskUnavailableMessage: '',
+    isTaskCreator: false,
+    requiresVerificationCode: false,
+    verificationCodeInput: '',
     photoPath: '',
     photoKey: '',
     photoMeta: { fileSize: 0, width: 0, height: 0 },
@@ -224,6 +231,8 @@ Page({
   async loadTask() {
     try {
       const task = await getTask(this.data.taskId);
+      const currentOpenid = wx.getStorageSync('openid') || '';
+      const isTaskCreator = task.user_id === currentOpenid;
       const unavailableMessage = getTaskUnavailableMessage(task);
       let taskStatusText = '';
 
@@ -237,6 +246,8 @@ Page({
         task,
         taskStatusText,
         taskUnavailableMessage: unavailableMessage,
+        isTaskCreator,
+        requiresVerificationCode: !!(task && task.verification_code_enabled && !isTaskCreator),
         aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
         multiSelectState: buildMultiSelectState(task, this.data.customData)
       });
@@ -440,6 +451,12 @@ Page({
     this.setData({ [`customData.${field}`]: value });
   },
 
+  onVerificationCodeInput(e: any) {
+    this.setData({
+      verificationCodeInput: normalizeDigitText(e.detail.value)
+    });
+  },
+
   onCustomFieldChange(e: any) {
     const field = e.currentTarget.dataset.field;
     const fieldConfig = this.data.task.custom_fields.find((f: any) => f.id === field);
@@ -465,6 +482,8 @@ Page({
   },
 
   submitPhoto() {
+    const verificationCode = normalizeDigitText(this.data.verificationCodeInput);
+
     if (this.data.taskUnavailableMessage) {
       showError(this.data.taskUnavailableMessage);
       return;
@@ -477,6 +496,10 @@ Page({
 
     if (!this.data.canSubmit) {
       showError(this.data.aiAnalysisEnabled ? '请先选择一张通过 AI 检查的照片' : '请先选择照片');
+      return;
+    }
+    if (this.data.requiresVerificationCode && !verificationCode) {
+      showError('请输入数字校验码');
       return;
     }
 
@@ -565,6 +588,7 @@ Page({
     const photoMeta = preparedPhoto || this.data.photoMeta || {};
     const params = {
       task_id: this.data.taskId,
+      verification_code: normalizeDigitText(this.data.verificationCodeInput),
       photo: {
         url: photoKey,
         file_size: Number(photoMeta.fileSize || 0),

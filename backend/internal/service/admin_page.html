@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIP 管理后台</title>
+  <style>
+    :root {
+      --bg: #f3f5ef;
+      --bg-panel: rgba(255, 255, 255, 0.9);
+      --card: #ffffff;
+      --ink: #1d2a1f;
+      --subtle: #6d786d;
+      --line: #e2e7de;
+      --primary: #1f7a5c;
+      --primary-deep: #145640;
+      --danger: #d94b4b;
+      --warning: #b36b00;
+      --shadow: 0 20px 60px rgba(29, 42, 31, 0.08);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(216, 243, 107, 0.45), transparent 28%),
+        radial-gradient(circle at top right, rgba(31, 122, 92, 0.18), transparent 24%),
+        linear-gradient(180deg, #fafbf8 0%, #eef2eb 100%);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(31, 122, 92, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(31, 122, 92, 0.04) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 80%);
+    }
+
+    .shell {
+      width: min(1200px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 32px 0 48px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(243, 255, 214, 0.88));
+      border: 1px solid rgba(31, 122, 92, 0.08);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      max-width: 700px;
+      color: var(--subtle);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .hero-badge {
+      min-width: 150px;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(31, 122, 92, 0.1);
+      color: var(--primary-deep);
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+    }
+
+    .hero-badge.visible {
+      display: block;
+    }
+
+    .card {
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    .card-title {
+      margin: 0 0 16px;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .card-subtitle {
+      margin: -8px 0 20px;
+      color: var(--subtle);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .toolbar-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 2.4fr 0.8fr 1.4fr auto;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .field label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--subtle);
+    }
+
+    .field input {
+      width: 100%;
+      height: 50px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.92);
+      padding: 0 16px;
+      font-size: 15px;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .field input:focus {
+      border-color: rgba(31, 122, 92, 0.55);
+      box-shadow: 0 0 0 4px rgba(31, 122, 92, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .btn {
+      height: 50px;
+      border: 0;
+      border-radius: 14px;
+      padding: 0 18px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      cursor: default;
+      opacity: 0.6;
+      transform: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #28a476);
+      color: #fff;
+      box-shadow: 0 14px 30px rgba(31, 122, 92, 0.22);
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: var(--primary);
+      border: 1px solid rgba(31, 122, 92, 0.16);
+    }
+
+    .toolbar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .toolbar-meta {
+      color: var(--subtle);
+      font-size: 14px;
+    }
+
+    .message {
+      display: none;
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      border: 1px solid transparent;
+    }
+
+    .message.visible {
+      display: block;
+    }
+
+    .message.success {
+      background: rgba(31, 122, 92, 0.08);
+      border-color: rgba(31, 122, 92, 0.15);
+      color: var(--primary-deep);
+    }
+
+    .message.error {
+      background: rgba(217, 75, 75, 0.08);
+      border-color: rgba(217, 75, 75, 0.14);
+      color: #8a2323;
+    }
+
+    .panel {
+      display: none;
+    }
+
+    .panel.visible {
+      display: block;
+    }
+
+    .task-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .task-card {
+      background: var(--card);
+      border: 1px solid rgba(31, 122, 92, 0.08);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 16px 40px rgba(29, 42, 31, 0.06);
+    }
+
+    .task-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .task-title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    .task-badge {
+      flex-shrink: 0;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge-active {
+      background: rgba(31, 122, 92, 0.12);
+      color: var(--primary-deep);
+    }
+
+    .badge-upcoming {
+      background: rgba(179, 107, 0, 0.12);
+      color: var(--warning);
+    }
+
+    .badge-ended {
+      background: rgba(40, 49, 43, 0.08);
+      color: #536057;
+    }
+
+    .badge-disabled {
+      background: rgba(217, 75, 75, 0.1);
+      color: var(--danger);
+    }
+
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 18px;
+    }
+
+    .task-meta {
+      min-width: 0;
+    }
+
+    .task-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--subtle);
+      margin-bottom: 4px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .task-value {
+      font-size: 15px;
+      line-height: 1.6;
+      word-break: break-all;
+    }
+
+    .task-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .task-vip {
+      margin-top: 14px;
+      font-size: 14px;
+      color: var(--primary-deep);
+    }
+
+    .task-empty,
+    .task-loading {
+      padding: 60px 16px;
+      border-radius: 20px;
+      text-align: center;
+      color: var(--subtle);
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px dashed rgba(31, 122, 92, 0.18);
+    }
+
+    .footer-action {
+      display: flex;
+      justify-content: center;
+      margin-top: 16px;
+    }
+
+    .footer-action .btn {
+      min-width: 180px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 960px) {
+      .toolbar-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .toolbar-grid .field:first-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100vw - 20px, 1200px);
+        padding-top: 20px;
+      }
+
+      .hero,
+      .toolbar-head {
+        flex-direction: column;
+      }
+
+      .form-grid,
+      .toolbar-grid,
+      .task-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .task-actions {
+        flex-direction: column;
+      }
+
+      .task-actions .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <h1>VIP 管理后台</h1>
+        <p>通过 5 位任务码、任务标题、任务 ID 或用户 ID 快速定位采集任务，直接为对应 `user_id` 开通 VIP。页面由后端直接提供，管理员登录与普通小程序用户登录完全分离。</p>
+      </div>
+      <div id="sessionBadge" class="hero-badge"></div>
+    </section>
+
+    <div id="message" class="message"></div>
+
+    <section id="loginPanel" class="card panel visible">
+      <h2 class="card-title">管理员登录</h2>
+      <p class="card-subtitle">账号密码来自后端环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。</p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="loginUsername">账号</label>
+          <input id="loginUsername" type="text" autocomplete="username" placeholder="请输入管理员账号">
+        </div>
+        <div class="field">
+          <label for="loginPassword">密码</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="请输入管理员密码">
+        </div>
+      </div>
+      <div class="footer-action" style="justify-content:flex-start;margin-top:20px;">
+        <button id="loginBtn" class="btn btn-primary">登录后台</button>
+      </div>
+    </section>
+
+    <section id="adminPanel" class="panel">
+      <section class="card">
+        <div class="toolbar-head">
+          <div>
+            <h2 class="card-title" style="margin-bottom:6px;">任务检索</h2>
+            <div id="resultMeta" class="toolbar-meta">可搜索 5 位任务码、任务标题、任务 ID、用户 ID。</div>
+          </div>
+          <button id="logoutBtn" class="btn btn-secondary">退出登录</button>
+        </div>
+
+        <div class="toolbar-grid">
+          <div class="field">
+            <label for="keywordInput">搜索条件</label>
+            <input id="keywordInput" type="text" placeholder="5位任务码 / 任务标题 / 任务ID / 用户ID">
+          </div>
+          <div class="field">
+            <label for="vipDaysInput">VIP 天数</label>
+            <input id="vipDaysInput" type="number" min="1" value="30">
+          </div>
+          <div class="field">
+            <label for="vipRemarkInput">备注</label>
+            <input id="vipRemarkInput" type="text" value="后台开通" placeholder="例如：人工补偿">
+          </div>
+          <button id="searchBtn" class="btn btn-primary">查询任务</button>
+        </div>
+      </section>
+
+      <div id="taskList" class="task-list"></div>
+
+      <div class="footer-action">
+        <button id="loadMoreBtn" class="btn btn-secondary hidden">加载更多</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const API_BASE = '/api/v1';
+      const TOKEN_KEY = 'photo_admin_token';
+      const USERNAME_KEY = 'photo_admin_username';
+      const PAGE_SIZE = 20;
+
+      const state = {
+        token: localStorage.getItem(TOKEN_KEY) || '',
+        username: localStorage.getItem(USERNAME_KEY) || '',
+        tasks: [],
+        total: 0,
+        page: 1,
+        loading: false,
+        grantingUserId: '',
+        vipStatusByUserId: {}
+      };
+
+      const messageEl = document.getElementById('message');
+      const loginPanelEl = document.getElementById('loginPanel');
+      const adminPanelEl = document.getElementById('adminPanel');
+      const sessionBadgeEl = document.getElementById('sessionBadge');
+      const resultMetaEl = document.getElementById('resultMeta');
+      const taskListEl = document.getElementById('taskList');
+      const loadMoreBtnEl = document.getElementById('loadMoreBtn');
+
+      const loginUsernameEl = document.getElementById('loginUsername');
+      const loginPasswordEl = document.getElementById('loginPassword');
+      const keywordInputEl = document.getElementById('keywordInput');
+      const vipDaysInputEl = document.getElementById('vipDaysInput');
+      const vipRemarkInputEl = document.getElementById('vipRemarkInput');
+      const loginBtnEl = document.getElementById('loginBtn');
+      const searchBtnEl = document.getElementById('searchBtn');
+      const logoutBtnEl = document.getElementById('logoutBtn');
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function setSession(token, username) {
+        state.token = token || '';
+        state.username = username || '';
+        localStorage.setItem(TOKEN_KEY, state.token);
+        localStorage.setItem(USERNAME_KEY, state.username);
+      }
+
+      function clearSession() {
+        state.token = '';
+        state.username = '';
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USERNAME_KEY);
+      }
+
+      function showMessage(type, text) {
+        messageEl.className = 'message visible ' + type;
+        messageEl.textContent = text;
+      }
+
+      function clearMessage() {
+        messageEl.className = 'message';
+        messageEl.textContent = '';
+      }
+
+      async function request(path, options) {
+        const requestOptions = options || {};
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+
+        if (state.token) {
+          headers.Authorization = 'Bearer ' + state.token;
+        }
+
+        const response = await fetch(path, {
+          method: requestOptions.method || 'GET',
+          headers: headers,
+          body: requestOptions.body ? JSON.stringify(requestOptions.body) : undefined
+        });
+
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          payload = null;
+        }
+
+        if (!payload || payload.code !== 0) {
+          const message = payload && payload.message ? payload.message : '请求失败';
+          if (message === 'unauthorized' || message === 'admin only') {
+            clearSession();
+            syncView();
+          }
+          throw new Error(message);
+        }
+
+        return payload.data;
+      }
+
+      function syncView() {
+        const loggedIn = !!state.token;
+        loginPanelEl.classList.toggle('visible', !loggedIn);
+        adminPanelEl.classList.toggle('visible', loggedIn);
+
+        if (loggedIn) {
+          sessionBadgeEl.className = 'hero-badge visible';
+          sessionBadgeEl.textContent = '管理员：' + state.username;
+        } else {
+          sessionBadgeEl.className = 'hero-badge';
+          sessionBadgeEl.textContent = '';
+          taskListEl.innerHTML = '';
+          resultMetaEl.textContent = '可搜索 5 位任务码、任务标题、任务 ID、用户 ID。';
+        }
+      }
+
+      function formatTime(value) {
+        if (!value) {
+          return '';
+        }
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return String(value);
+        }
+        const pad = function (num) {
+          return String(num).padStart(2, '0');
+        };
+        return [
+          date.getFullYear(),
+          pad(date.getMonth() + 1),
+          pad(date.getDate())
+        ].join('-') + ' ' + [pad(date.getHours()), pad(date.getMinutes())].join(':');
+      }
+
+      function taskStatus(task) {
+        if (task && task.enabled === false) {
+          return { text: '已关闭', className: 'badge-disabled' };
+        }
+
+        const now = Date.now();
+        const startTime = task && task.start_time ? new Date(task.start_time).getTime() : 0;
+        const endTime = task && task.end_time ? new Date(task.end_time).getTime() : 0;
+
+        if (startTime && now < startTime) {
+          return { text: '未开始', className: 'badge-upcoming' };
+        }
+        if (endTime && now > endTime) {
+          return { text: '已截止', className: 'badge-ended' };
+        }
+        return { text: '进行中', className: 'badge-active' };
+      }
+
+      function buildSpecText(task) {
+        const photoSpec = task && task.photo_spec ? task.photo_spec : {};
+        const parts = [];
+
+        if (photoSpec.name) {
+          parts.push(photoSpec.name);
+        }
+        if (photoSpec.background_color) {
+          parts.push(photoSpec.background_color);
+        }
+        if (task && task.description) {
+          parts.push(task.description);
+        }
+
+        return parts.length > 0 ? parts.join(' / ') : '未设置';
+      }
+
+      function buildVipText(userId) {
+        return state.vipStatusByUserId[userId] || '';
+      }
+
+      function renderTasks() {
+        if (state.loading && state.tasks.length === 0) {
+          taskListEl.innerHTML = '<div class="task-loading">加载中...</div>';
+          loadMoreBtnEl.classList.add('hidden');
+          return;
+        }
+
+        if (state.tasks.length === 0) {
+          taskListEl.innerHTML = '<div class="task-empty">没有匹配的采集任务</div>';
+          loadMoreBtnEl.classList.add('hidden');
+          return;
+        }
+
+        const html = state.tasks.map(function (task) {
+          const status = taskStatus(task);
+          const userId = task && task.user_id ? String(task.user_id) : '';
+          const isGranting = state.grantingUserId === userId;
+          const vipText = buildVipText(userId) || (task && task.vip_status_text ? String(task.vip_status_text) : '');
+
+          return '' +
+            '<article class="task-card">' +
+              '<div class="task-head">' +
+                '<div>' +
+                  '<h3 class="task-title">' + escapeHtml(task && task.title ? task.title : '未命名任务') + '</h3>' +
+                '</div>' +
+                '<span class="task-badge ' + status.className + '">' + status.text + '</span>' +
+              '</div>' +
+              '<div class="task-grid">' +
+                '<div class="task-meta"><span class="task-label">任务码</span><div class="task-value">' + escapeHtml(task && task.task_code ? task.task_code : '未生成') + '</div></div>' +
+                '<div class="task-meta"><span class="task-label">任务 ID</span><div class="task-value">' + escapeHtml(task && task.id ? task.id : '') + '</div></div>' +
+                '<div class="task-meta"><span class="task-label">用户 ID</span><div class="task-value">' + escapeHtml(userId) + '</div></div>' +
+                '<div class="task-meta"><span class="task-label">规格 / 描述</span><div class="task-value">' + escapeHtml(buildSpecText(task)) + '</div></div>' +
+                '<div class="task-meta"><span class="task-label">采集数量</span><div class="task-value">' + escapeHtml(task && task.stats && task.stats.total_submissions ? task.stats.total_submissions : 0) + '</div></div>' +
+                '<div class="task-meta"><span class="task-label">创建时间</span><div class="task-value">' + escapeHtml(formatTime(task && task.created_at)) + '</div></div>' +
+                '<div class="task-meta"><span class="task-label">有效时间</span><div class="task-value">' + escapeHtml(formatTime(task && task.start_time)) + ' 至 ' + escapeHtml(formatTime(task && task.end_time)) + '</div></div>' +
+                '<div class="task-meta"><span class="task-label">采集校验</span><div class="task-value">' + escapeHtml(task && task.verification_code_enabled ? '已开启' : '未开启') + '</div></div>' +
+              '</div>' +
+              (vipText ? '<div class="task-vip">' + escapeHtml(vipText) + '</div>' : '') +
+              '<div class="task-actions">' +
+                '<button class="btn btn-secondary" data-action="copy-user-id" data-user-id="' + escapeHtml(userId) + '">复制用户ID</button>' +
+                '<button class="btn btn-primary" data-action="grant-vip" data-user-id="' + escapeHtml(userId) + '"' + (isGranting ? ' disabled' : '') + '>' + (isGranting ? '开通中...' : '给该用户开通 VIP') + '</button>' +
+              '</div>' +
+            '</article>';
+        }).join('');
+
+        taskListEl.innerHTML = html;
+
+        if (state.tasks.length < state.total) {
+          loadMoreBtnEl.classList.remove('hidden');
+          loadMoreBtnEl.disabled = state.loading;
+          loadMoreBtnEl.textContent = state.loading ? '加载中...' : '加载更多';
+        } else {
+          loadMoreBtnEl.classList.add('hidden');
+        }
+      }
+
+      function updateMeta() {
+        if (!state.token) {
+          resultMetaEl.textContent = '可搜索 5 位任务码、任务标题、任务 ID、用户 ID。';
+          return;
+        }
+
+        const keyword = keywordInputEl.value.trim();
+        if (keyword) {
+          resultMetaEl.textContent = '关键字 “' + keyword + '” 共找到 ' + state.total + ' 条任务';
+        } else {
+          resultMetaEl.textContent = '当前共加载 ' + state.tasks.length + ' / ' + state.total + ' 条任务';
+        }
+      }
+
+      async function loadTasks(reset) {
+        if (!state.token || state.loading) {
+          return;
+        }
+
+        state.loading = true;
+        if (reset) {
+          state.page = 1;
+          state.tasks = [];
+          state.total = 0;
+          renderTasks();
+        } else {
+          loadMoreBtnEl.disabled = true;
+          loadMoreBtnEl.textContent = '加载中...';
+        }
+
+        try {
+          const params = new URLSearchParams();
+          const keyword = keywordInputEl.value.trim();
+          if (keyword) {
+            params.set('keyword', keyword);
+          }
+          params.set('page', String(reset ? 1 : state.page + 1));
+          params.set('page_size', String(PAGE_SIZE));
+
+          const result = await request(API_BASE + '/admin/tasks?' + params.toString());
+          state.tasks = reset ? (result.items || []) : state.tasks.concat(result.items || []);
+          state.total = Number(result.total || 0);
+          state.page = Number(result.page || 1);
+          updateMeta();
+          renderTasks();
+        } catch (error) {
+          showMessage('error', error.message || '加载任务失败');
+        } finally {
+          state.loading = false;
+          updateMeta();
+          renderTasks();
+        }
+      }
+
+      async function submitLogin() {
+        const username = loginUsernameEl.value.trim();
+        const password = loginPasswordEl.value;
+
+        if (!username) {
+          showMessage('error', '请输入管理员账号');
+          return;
+        }
+        if (!password) {
+          showMessage('error', '请输入管理员密码');
+          return;
+        }
+
+        loginBtnEl.disabled = true;
+        loginBtnEl.textContent = '登录中...';
+        clearMessage();
+
+        try {
+          const result = await request(API_BASE + '/admin/login', {
+            method: 'POST',
+            body: {
+              username: username,
+              password: password
+            }
+          });
+
+          setSession(result.token, result.username);
+          loginPasswordEl.value = '';
+          syncView();
+          showMessage('success', '登录成功');
+          await loadTasks(true);
+        } catch (error) {
+          showMessage('error', error.message || '登录失败');
+        } finally {
+          loginBtnEl.disabled = false;
+          loginBtnEl.textContent = '登录后台';
+        }
+      }
+
+      async function grantVip(userId) {
+        const days = parseInt(vipDaysInputEl.value, 10);
+        const remark = vipRemarkInputEl.value.trim();
+
+        if (!userId) {
+          showMessage('error', '未获取到用户 ID');
+          return;
+        }
+        if (!(days > 0)) {
+          showMessage('error', '请输入正确的 VIP 天数');
+          return;
+        }
+
+        const confirmed = window.confirm('确认给用户 ' + userId + ' 开通 ' + days + ' 天 VIP 吗？');
+        if (!confirmed) {
+          return;
+        }
+
+        state.grantingUserId = userId;
+        renderTasks();
+        clearMessage();
+
+        try {
+          const result = await request(API_BASE + '/admin/vip/grant', {
+            method: 'POST',
+            body: {
+              user_id: userId,
+              plan_code: 'vip_admin',
+              duration_day: days,
+              remark: remark
+            }
+          });
+
+          const entitlements = result && result.entitlements ? result.entitlements : null;
+          if (entitlements && entitlements.expire_at) {
+            state.vipStatusByUserId[userId] = 'VIP 有效期至：' + formatTime(entitlements.expire_at);
+          } else {
+            state.vipStatusByUserId[userId] = '已开通 VIP';
+          }
+          showMessage('success', '用户 ' + userId + ' 已开通 VIP');
+        } catch (error) {
+          showMessage('error', error.message || '开通 VIP 失败');
+        } finally {
+          state.grantingUserId = '';
+          renderTasks();
+        }
+      }
+
+      function logout() {
+        clearSession();
+        state.tasks = [];
+        state.total = 0;
+        state.page = 1;
+        state.grantingUserId = '';
+        state.vipStatusByUserId = {};
+        syncView();
+        clearMessage();
+      }
+
+      function copyText(value) {
+        const text = String(value || '');
+        if (!text) {
+          showMessage('error', '未获取到用户 ID');
+          return;
+        }
+
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(function () {
+            showMessage('success', '已复制用户 ID');
+          }).catch(function () {
+            fallbackCopy(text);
+          });
+          return;
+        }
+
+        fallbackCopy(text);
+      }
+
+      function fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+          document.execCommand('copy');
+          showMessage('success', '已复制用户 ID');
+        } catch (error) {
+          showMessage('error', '复制失败，请手动复制');
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      }
+
+      loginBtnEl.addEventListener('click', submitLogin);
+      searchBtnEl.addEventListener('click', function () {
+        clearMessage();
+        loadTasks(true);
+      });
+      logoutBtnEl.addEventListener('click', logout);
+      loadMoreBtnEl.addEventListener('click', function () {
+        loadTasks(false);
+      });
+
+      loginPasswordEl.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          submitLogin();
+        }
+      });
+
+      keywordInputEl.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          clearMessage();
+          loadTasks(true);
+        }
+      });
+
+      taskListEl.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+
+        const action = target.getAttribute('data-action');
+        const userId = target.getAttribute('data-user-id');
+        if (action === 'copy-user-id') {
+          copyText(userId);
+          return;
+        }
+        if (action === 'grant-vip') {
+          grantVip(userId);
+        }
+      });
+
+      syncView();
+      if (state.token) {
+        loadTasks(true);
+      }
+    })();
+  </script>
+</body>
+</html>
