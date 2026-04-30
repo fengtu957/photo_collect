@@ -146,7 +146,7 @@ func (s *TaskService) GetTaskMiniCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imageData, contentType, err := s.auth.GetUnlimitedMiniProgramCode("pages/task-detail/task-detail", task.ID.Hex())
+	imageData, contentType, err := s.auth.GetUnlimitedMiniProgramCode("pages/task-detail/task-detail", "id="+task.ID.Hex())
 	if err != nil {
 		Error(w, 1012, err.Error())
 		return
