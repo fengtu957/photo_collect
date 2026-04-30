@@ -33,7 +33,8 @@ func main() {
 	}
 	vipUC := biz.NewVIPUsecase(vipRepo)
 	taskUC := biz.NewTaskUsecase(taskRepo, subRepo, vipUC)
-	taskSvc := service.NewTaskService(taskUC)
+	authSvc := service.NewAuthService()
+	taskSvc := service.NewTaskService(taskUC, authSvc)
 	vipSvc := service.NewVIPService(vipUC, taskRepo)
 
 	qiniuSvc := service.NewQiniuService()
@@ -46,7 +47,6 @@ func main() {
 
 	uploadSvc := service.NewUploadService(qiniuSvc)
 
-	authSvc := service.NewAuthService()
 	adminSvc := service.NewAdminService(vipUC, taskRepo)
 
 	r := mux.NewRouter()
@@ -70,6 +70,7 @@ func main() {
 	api.HandleFunc("/tasks", taskSvc.ListTasks).Methods("GET")
 	api.HandleFunc("/tasks/code/{taskCode}", taskSvc.GetTaskByCode).Methods("GET")
 	api.HandleFunc("/tasks/{id}", taskSvc.GetTask).Methods("GET")
+	api.HandleFunc("/tasks/{id}/mini-code", taskSvc.GetTaskMiniCode).Methods("GET")
 	api.HandleFunc("/tasks/{id}", taskSvc.UpdateTask).Methods("PUT")
 	api.HandleFunc("/tasks/{id}/export", exportSvc.ExportTask).Methods("POST")
 	api.HandleFunc("/tasks/{id}/export/status", exportSvc.SyncExportStatus).Methods("POST")

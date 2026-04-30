@@ -11,7 +11,8 @@ import (
 )
 
 type TaskService struct {
-	uc *biz.TaskUsecase
+	uc   *biz.TaskUsecase
+	auth *AuthService
 }
 
 func sanitizeTaskForViewer(task *data.Task, viewerID string) *data.Task {
@@ -27,8 +28,8 @@ func sanitizeTaskForViewer(task *data.Task, viewerID string) *data.Task {
 	return &safeTask
 }
 
-func NewTaskService(uc *biz.TaskUsecase) *TaskService {
-	return &TaskService{uc: uc}
+func NewTaskService(uc *biz.TaskUsecase, auth *AuthService) *TaskService {
+	return &TaskService{uc: uc, auth: auth}
 }
 
 func (s *TaskService) CreateTask(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +127,41 @@ func (s *TaskService) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Success(w, nil)
+}
+
+func (s *TaskService) GetTaskMiniCode(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	if _, ok := r.Context().Value(UserIDKey).(string); !ok {
+		Error(w, 1011, "unauthorized")
+		return
+	}
+
+	task, err := s.uc.GetTask(context.Background(), id)
+	if err != nil {
+		Error(w, 1011, err.Error())
+		return
+	}
+	if task == nil {
+		Error(w, 1011, "任务不存在")
+		return
+	}
+
+	imageData, contentType, err := s.auth.GetUnlimitedMiniProgramCode("pages/task-detail/task-detail", task.ID.Hex())
+	if err != nil {
+		Error(w, 1012, err.Error())
+		return
+	}
+
+	if contentType == "" {
+		contentType = "image/png"
+	}
+
+	fileName := "task_" + task.ID.Hex() + "_mini_code.png"
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", "inline; filename=\""+fileName+"\"")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(imageData)
 }
 
 func (s *TaskService) ListTasks(w http.ResponseWriter, r *http.Request) {
