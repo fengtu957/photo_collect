@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
@@ -244,6 +245,8 @@ func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Reque
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
+
+	log.Printf("[submission] list submissions raw_task_id=%q path=%q page=%d limit=%d user=%q", taskID, r.URL.Path, page, limit, userID)
 
 	result, err := s.uc.ListSubmissions(context.Background(), taskID, userID, page, limit)
 	if err != nil {
