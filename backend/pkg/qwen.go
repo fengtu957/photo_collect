@@ -132,7 +132,9 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 func (c *QwenClient) EvaluatePhotoRetry(imageURL, photoSpec string) (string, error) {
 	return c.evaluatePhoto(imageURL, photoSpec, `
 
-这是对上一次结果的重试。请只返回一份可被 JSON 解析器直接解析的完整 JSON，禁止 Markdown、代码块、前后解释文字或重复 JSON。`)
+这是对上一次结果的重试。请只返回一份可被 JSON 解析器直接解析的完整 JSON，禁止 Markdown、代码块、前后解释文字或重复 JSON。
+请严格只返回提示词列出的原始观察字段、breakdown、issues 和 suggestions，不要返回准入、总分、通过或硬失败字段。
+无论硬性字段取值如何都必须填写完整 breakdown；背景、眼镜反光、光线、服装、表情、角度和构图不得改变人物与脸部相关布尔字段。`)
 }
 
 func (c *QwenClient) evaluatePhoto(imageURL, photoSpec, retryHint string) (string, error) {

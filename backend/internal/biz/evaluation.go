@@ -39,8 +39,6 @@ type EvaluationResult struct {
 }
 
 type evaluationPayload struct {
-	Passed              *bool                      `json:"passed"`
-	AdmissionPassed     *bool                      `json:"admission_passed"`
 	PersonCount         json.RawMessage            `json:"person_count"`
 	RealPerson          *bool                      `json:"real_person"`
 	FaceDetected        *bool                      `json:"face_detected"`
@@ -49,7 +47,6 @@ type evaluationPayload struct {
 	ShouldersVisible    *bool                      `json:"shoulders_visible"`
 	FaceCentered        *bool                      `json:"face_centered"`
 	FaceSizeAppropriate *bool                      `json:"face_size_appropriate"`
-	Score               json.RawMessage            `json:"score"`
 	Breakdown           map[string]json.RawMessage `json:"breakdown"`
 	Issues              *[]string                  `json:"issues"`
 	Suggestions         *[]string                  `json:"suggestions"`
@@ -165,9 +162,6 @@ func buildHardFailures(personCount int, payload evaluationPayload) []string {
 		}
 	}
 
-	if !*payload.AdmissionPassed && len(failures) == 0 {
-		failures = append(failures, "不符合证件照准入要求")
-	}
 	return failures
 }
 
@@ -270,10 +264,10 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 	if err := decoder.Decode(&payload); err != nil {
 		return nil, err
 	}
-	if payload.Passed == nil || payload.AdmissionPassed == nil || len(payload.PersonCount) == 0 ||
-		payload.RealPerson == nil || payload.FaceDetected == nil || payload.FaceComplete == nil ||
+	if len(payload.PersonCount) == 0 || payload.RealPerson == nil ||
+		payload.FaceDetected == nil || payload.FaceComplete == nil ||
 		payload.HeadComplete == nil || payload.ShouldersVisible == nil || payload.FaceCentered == nil ||
-		payload.FaceSizeAppropriate == nil || len(payload.Score) == 0 || payload.Breakdown == nil ||
+		payload.FaceSizeAppropriate == nil || payload.Breakdown == nil ||
 		payload.Issues == nil || payload.Suggestions == nil {
 		return nil, fmt.Errorf("模型结果缺少必要字段")
 	}
@@ -284,9 +278,6 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 	}
 	if personCount < 0 {
 		return nil, fmt.Errorf("person_count 无效")
-	}
-	if _, err := parseJSONInt(payload.Score); err != nil {
-		return nil, fmt.Errorf("score 无效: %w", err)
 	}
 
 	breakdown := make(map[string]int, len(evaluationDimensions))
@@ -309,16 +300,15 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 		}
 	}
 
-	hardFailures := buildHardFailures(personCount, payload)
-	admissionPassed := *payload.AdmissionPassed &&
-		personCount == 1 &&
+	hardConditionsPassed := personCount == 1 &&
 		*payload.RealPerson &&
 		*payload.FaceDetected &&
 		*payload.FaceComplete &&
 		*payload.HeadComplete &&
 		*payload.ShouldersVisible &&
-		*payload.FaceSizeAppropriate &&
-		len(hardFailures) == 0
+		*payload.FaceSizeAppropriate
+	hardFailures := buildHardFailures(personCount, payload)
+	admissionPassed := hardConditionsPassed && len(hardFailures) == 0
 
 	score := 0
 	passed := false
@@ -330,7 +320,7 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 		suggestions = buildHardFailureSuggestions(hardFailures)
 	} else {
 		score = (totalScore + len(evaluationDimensions)/2) / len(evaluationDimensions)
-		passed = *payload.Passed && score >= 70 && allDimensionsPassed
+		passed = score >= 70 && allDimensionsPassed
 		issues, suggestions = buildQualityFeedback(*payload.FaceCentered, passed, breakdown, *payload.Issues, *payload.Suggestions)
 	}
 

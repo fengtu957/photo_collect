@@ -140,3 +140,21 @@ func TestParseEvaluationContentPassesQualifiedPhoto(t *testing.T) {
 		t.Fatalf("qualified photo feedback = issues:%#v suggestions:%#v", result.Issues, result.Suggestions)
 	}
 }
+
+func TestParseEvaluationContentDerivesAdmissionAndPassResult(t *testing.T) {
+	content := `{"person_count":1,"real_person":true,"face_detected":true,"face_complete":true,"head_complete":true,"shoulders_visible":true,"face_centered":true,"face_size_appropriate":true,"breakdown":{"clarity":80,"lighting":70,"angle":80,"background":30,"expression":80,"composition":80},"issues":["背景色不符合白色要求"],"suggestions":["使用白色背景重拍"]}`
+
+	result, err := parseEvaluationContent(content)
+	if err != nil {
+		t.Fatalf("parseEvaluationContent() error = %v", err)
+	}
+	if !result.AdmissionPassed {
+		t.Fatal("AdmissionPassed = false, want true from hard fields")
+	}
+	if result.Passed || result.CanSubmit {
+		t.Fatal("background score below 60 must not pass")
+	}
+	if len(result.HardFailures) != 0 {
+		t.Fatalf("HardFailures = %#v, want empty", result.HardFailures)
+	}
+}
