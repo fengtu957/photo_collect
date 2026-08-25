@@ -17,27 +17,42 @@ type EvaluationUsecase struct {
 }
 
 type EvaluationResult struct {
-	Model             string         `json:"model"`
-	AnalysisStatus    string         `json:"analysis_status"`
-	Available         bool           `json:"available"`
-	CanSubmit         bool           `json:"can_submit"`
-	Passed            bool           `json:"passed"`
-	PersonCount       int            `json:"person_count"`
-	FaceDetected      bool           `json:"face_detected"`
-	Score             int            `json:"score"`
-	Breakdown         map[string]int `json:"breakdown"`
-	Issues            []string       `json:"issues"`
-	Suggestions       []string       `json:"suggestions"`
+	Model               string         `json:"model"`
+	AnalysisStatus      string         `json:"analysis_status"`
+	Available           bool           `json:"available"`
+	CanSubmit           bool           `json:"can_submit"`
+	Passed              bool           `json:"passed"`
+	AdmissionPassed     bool           `json:"admission_passed"`
+	PersonCount         int            `json:"person_count"`
+	RealPerson          bool           `json:"real_person"`
+	FaceDetected        bool           `json:"face_detected"`
+	FaceComplete        bool           `json:"face_complete"`
+	HeadComplete        bool           `json:"head_complete"`
+	ShouldersVisible    bool           `json:"shoulders_visible"`
+	FaceCentered        bool           `json:"face_centered"`
+	FaceSizeAppropriate bool           `json:"face_size_appropriate"`
+	Score               int            `json:"score"`
+	Breakdown           map[string]int `json:"breakdown"`
+	HardFailures        []string       `json:"hard_failures"`
+	Issues              []string       `json:"issues"`
+	Suggestions         []string       `json:"suggestions"`
 }
 
 type evaluationPayload struct {
-	Passed       *bool                         `json:"passed"`
-	PersonCount  json.RawMessage              `json:"person_count"`
-	FaceDetected *bool                         `json:"face_detected"`
-	Score        json.RawMessage              `json:"score"`
-	Breakdown    map[string]json.RawMessage   `json:"breakdown"`
-	Issues       *[]string                     `json:"issues"`
-	Suggestions  *[]string                    `json:"suggestions"`
+	Passed              *bool                      `json:"passed"`
+	AdmissionPassed     *bool                      `json:"admission_passed"`
+	PersonCount         json.RawMessage            `json:"person_count"`
+	RealPerson          *bool                      `json:"real_person"`
+	FaceDetected        *bool                      `json:"face_detected"`
+	FaceComplete        *bool                      `json:"face_complete"`
+	HeadComplete        *bool                      `json:"head_complete"`
+	ShouldersVisible    *bool                      `json:"shoulders_visible"`
+	FaceCentered        *bool                      `json:"face_centered"`
+	FaceSizeAppropriate *bool                      `json:"face_size_appropriate"`
+	Score               json.RawMessage            `json:"score"`
+	Breakdown           map[string]json.RawMessage `json:"breakdown"`
+	Issues              *[]string                  `json:"issues"`
+	Suggestions         *[]string                  `json:"suggestions"`
 }
 
 var evaluationDimensions = []string{
@@ -95,6 +110,154 @@ func parseJSONInt(raw json.RawMessage) (int, error) {
 	return int(math.Round(parsed)), nil
 }
 
+func zeroEvaluationBreakdown() map[string]int {
+	breakdown := make(map[string]int, len(evaluationDimensions))
+	for _, dimension := range evaluationDimensions {
+		breakdown[dimension] = 0
+	}
+	return breakdown
+}
+
+func appendUniqueLimited(items []string, value string, limit int) []string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || len(items) >= limit {
+		return items
+	}
+	for _, item := range items {
+		if item == trimmed {
+			return items
+		}
+	}
+	return append(items, trimmed)
+}
+
+func normalizeLimitedStrings(items []string, limit int) []string {
+	result := make([]string, 0, limit)
+	for _, item := range items {
+		result = appendUniqueLimited(result, item, limit)
+	}
+	return result
+}
+
+func buildHardFailures(personCount int, payload evaluationPayload) []string {
+	failures := make([]string, 0, 2)
+
+	if personCount == 0 {
+		failures = appendUniqueLimited(failures, "未检测到人物", 2)
+	} else if personCount > 1 {
+		failures = appendUniqueLimited(failures, "画面中存在多人", 2)
+	} else if !*payload.RealPerson {
+		failures = appendUniqueLimited(failures, "非真人证件照", 2)
+	} else if !*payload.FaceDetected {
+		failures = appendUniqueLimited(failures, "未检测到清晰人脸", 2)
+	} else {
+		if !*payload.FaceComplete {
+			failures = appendUniqueLimited(failures, "人脸未完整入镜", 2)
+		}
+		if !*payload.HeadComplete {
+			failures = appendUniqueLimited(failures, "头部未完整入镜", 2)
+		}
+		if !*payload.ShouldersVisible {
+			failures = appendUniqueLimited(failures, "肩部未完整入镜", 2)
+		}
+		if !*payload.FaceSizeAppropriate {
+			failures = appendUniqueLimited(failures, "人脸大小不合适", 2)
+		}
+	}
+
+	if !*payload.AdmissionPassed && len(failures) == 0 {
+		failures = append(failures, "不符合证件照准入要求")
+	}
+	return failures
+}
+
+func suggestionForIssue(issue string) string {
+	switch issue {
+	case "未检测到人物", "画面中存在多人":
+		return "请上传单人证件照"
+	case "非真人证件照":
+		return "请上传真人现场照片"
+	case "未检测到清晰人脸":
+		return "请正对镜头重新拍摄"
+	case "人脸未完整入镜":
+		return "拉远并拍摄完整面部"
+	case "头部未完整入镜":
+		return "保留完整头部和头顶空间"
+	case "肩部未完整入镜":
+		return "拉远并露出双肩"
+	case "人脸大小不合适":
+		return "调整拍摄距离后重拍"
+	case "人脸未居中":
+		return "调整人脸至画面中央"
+	case "人脸不够清晰":
+		return "保持稳定并对焦面部"
+	case "光线不符合要求":
+		return "使用均匀柔和光线重拍"
+	case "拍摄角度不规范":
+		return "正对镜头保持头部端正"
+	case "背景不符合要求":
+		return "使用指定纯色背景重拍"
+	case "表情不够规范":
+		return "保持自然中性表情"
+	case "证件照构图不规范":
+		return "调整距离和构图后重拍"
+	default:
+		return "请按证件照要求重拍"
+	}
+}
+
+func buildHardFailureSuggestions(hardFailures []string) []string {
+	suggestions := make([]string, 0, 2)
+	for _, failure := range hardFailures {
+		suggestions = appendUniqueLimited(suggestions, suggestionForIssue(failure), 2)
+	}
+	return suggestions
+}
+
+var evaluationIssueByDimension = map[string]string{
+	"clarity":     "人脸不够清晰",
+	"lighting":    "光线不符合要求",
+	"angle":       "拍摄角度不规范",
+	"background":  "背景不符合要求",
+	"expression":  "表情不够规范",
+	"composition": "证件照构图不规范",
+}
+
+func buildQualityFeedback(faceCentered bool, passed bool, breakdown map[string]int, modelIssues, modelSuggestions []string) ([]string, []string) {
+	issues := make([]string, 0, 2)
+	suggestions := make([]string, 0, 2)
+
+	if !faceCentered {
+		issues = appendUniqueLimited(issues, "人脸未居中", 2)
+		suggestions = appendUniqueLimited(suggestions, suggestionForIssue("人脸未居中"), 2)
+	}
+	for _, issue := range modelIssues {
+		issues = appendUniqueLimited(issues, issue, 2)
+	}
+	for _, suggestion := range modelSuggestions {
+		suggestions = appendUniqueLimited(suggestions, suggestion, 2)
+	}
+
+	if !passed && len(issues) == 0 {
+		for _, dimension := range evaluationDimensions {
+			if breakdown[dimension] < 60 {
+				issues = appendUniqueLimited(issues, evaluationIssueByDimension[dimension], 2)
+			}
+		}
+	}
+	if !passed && len(issues) == 0 {
+		issues = append(issues, "证件照质量未达标")
+	}
+	for _, issue := range issues {
+		if len(suggestions) >= 2 {
+			break
+		}
+		suggestions = appendUniqueLimited(suggestions, suggestionForIssue(issue), 2)
+	}
+
+	return normalizeLimitedStrings(issues, 2), normalizeLimitedStrings(suggestions, 2)
+}
+
 func parseEvaluationContent(content string) (*EvaluationResult, error) {
 	normalizedContent := normalizeJSONString(content)
 	objectStart := strings.Index(normalizedContent, "{")
@@ -107,10 +270,14 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 	if err := decoder.Decode(&payload); err != nil {
 		return nil, err
 	}
-	if payload.Passed == nil || len(payload.PersonCount) == 0 || payload.FaceDetected == nil ||
-		len(payload.Score) == 0 || payload.Breakdown == nil || payload.Issues == nil || payload.Suggestions == nil {
+	if payload.Passed == nil || payload.AdmissionPassed == nil || len(payload.PersonCount) == 0 ||
+		payload.RealPerson == nil || payload.FaceDetected == nil || payload.FaceComplete == nil ||
+		payload.HeadComplete == nil || payload.ShouldersVisible == nil || payload.FaceCentered == nil ||
+		payload.FaceSizeAppropriate == nil || len(payload.Score) == 0 || payload.Breakdown == nil ||
+		payload.Issues == nil || payload.Suggestions == nil {
 		return nil, fmt.Errorf("模型结果缺少必要字段")
 	}
+
 	personCount, err := parseJSONInt(payload.PersonCount)
 	if err != nil {
 		return nil, fmt.Errorf("person_count 无效: %w", err)
@@ -142,22 +309,52 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 		}
 	}
 
-	score := (totalScore + len(evaluationDimensions)/2) / len(evaluationDimensions)
-	passed := personCount == 1 && *payload.FaceDetected && score >= 70 && allDimensionsPassed
+	hardFailures := buildHardFailures(personCount, payload)
+	admissionPassed := *payload.AdmissionPassed &&
+		personCount == 1 &&
+		*payload.RealPerson &&
+		*payload.FaceDetected &&
+		*payload.FaceComplete &&
+		*payload.HeadComplete &&
+		*payload.ShouldersVisible &&
+		*payload.FaceSizeAppropriate &&
+		len(hardFailures) == 0
+
+	score := 0
+	passed := false
+	issues := []string{}
+	suggestions := []string{}
+	if !admissionPassed {
+		breakdown = zeroEvaluationBreakdown()
+		issues = hardFailures
+		suggestions = buildHardFailureSuggestions(hardFailures)
+	} else {
+		score = (totalScore + len(evaluationDimensions)/2) / len(evaluationDimensions)
+		passed = *payload.Passed && score >= 70 && allDimensionsPassed
+		issues, suggestions = buildQualityFeedback(*payload.FaceCentered, passed, breakdown, *payload.Issues, *payload.Suggestions)
+	}
+
 	return &EvaluationResult{
-		AnalysisStatus: "success",
-		Available:    true,
-		CanSubmit:    passed,
-		Passed:       passed,
-		PersonCount:  personCount,
-		FaceDetected: *payload.FaceDetected,
-		Score:        score,
-		Breakdown:    breakdown,
-		Issues:       *payload.Issues,
-		Suggestions:  *payload.Suggestions,
+		AnalysisStatus:      "success",
+		Available:           true,
+		CanSubmit:           passed,
+		Passed:              passed,
+		AdmissionPassed:     admissionPassed,
+		PersonCount:         personCount,
+		RealPerson:          *payload.RealPerson,
+		FaceDetected:        *payload.FaceDetected,
+		FaceComplete:        *payload.FaceComplete,
+		HeadComplete:        *payload.HeadComplete,
+		ShouldersVisible:    *payload.ShouldersVisible,
+		FaceCentered:        *payload.FaceCentered,
+		FaceSizeAppropriate: *payload.FaceSizeAppropriate,
+		Score:               score,
+		Breakdown:           breakdown,
+		HardFailures:        hardFailures,
+		Issues:              issues,
+		Suggestions:         suggestions,
 	}, nil
 }
-
 func (uc *EvaluationUsecase) UnavailableResult() *EvaluationResult {
 	return &EvaluationResult{
 		Model:          uc.qwen.Model(),

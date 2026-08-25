@@ -74,10 +74,18 @@ export interface SubmissionAnalysisResult {
   available?: boolean;
   can_submit?: boolean;
   passed: boolean;
+  admission_passed?: boolean;
   person_count: number;
+  real_person?: boolean;
   face_detected: boolean;
+  face_complete?: boolean;
+  head_complete?: boolean;
+  shoulders_visible?: boolean;
+  face_centered?: boolean;
+  face_size_appropriate?: boolean;
   score: number;
   breakdown: AIEvaluationBreakdown;
+  hard_failures?: string[];
   issues: string[];
   suggestions: string[];
 }

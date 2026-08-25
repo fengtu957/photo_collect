@@ -35,15 +35,19 @@ func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, vi
 
 func buildPhotoSpecText(task *data.Task) string {
 	if task == nil {
-		return ""
+		return "照片类型：标准证件照"
 	}
 
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 5)
+	parts = append(parts, "照片类型：标准证件照")
 	if task.PhotoSpec.Name != "" {
 		parts = append(parts, "规格名称："+task.PhotoSpec.Name)
 	}
 	if task.PhotoSpec.Width > 0 && task.PhotoSpec.Height > 0 {
-		parts = append(parts, "照片比例："+buildPhotoRatioText(task.PhotoSpec.Width, task.PhotoSpec.Height))
+		parts = append(parts,
+			"目标尺寸："+strconv.Itoa(task.PhotoSpec.Width)+"×"+strconv.Itoa(task.PhotoSpec.Height)+"毫米",
+			"目标比例："+buildPhotoRatioText(task.PhotoSpec.Width, task.PhotoSpec.Height),
+		)
 	}
 	if task.PhotoSpec.BackgroundColor != "" {
 		parts = append(parts, "背景色要求："+task.PhotoSpec.BackgroundColor)
