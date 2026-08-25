@@ -70,6 +70,9 @@ export interface AnalyzePhotoPreviewParams {
 
 export interface SubmissionAnalysisResult {
   model: string;
+  analysis_status?: 'success' | 'unavailable';
+  available?: boolean;
+  can_submit?: boolean;
   passed: boolean;
   person_count: number;
   face_detected: boolean;

@@ -32,7 +32,10 @@
     "condition": false,
     "swc": false,
     "disableSWC": true,
-    "disableUseStrict": false
+    "disableUseStrict": false,
+    "lessSetting": {
+      "commonUseFilePath": "app.less"
+    }
   },
   "simulatorType": "wechat",
   "simulatorPluginLibVersion": {},

@@ -1,4 +1,4 @@
-import { request } from '../utils/request';
+import { request, BASE_URL, getAuthHeader, ensureAuthorizedSession } from '../utils/request';
 import { Task, CreateTaskParams } from '../types/task';
 
 export interface ExportTaskParams {
@@ -62,4 +62,70 @@ export async function syncExportStatus(id: string) {
   return request<ExportTaskResult>(`/tasks/${id}/export/status`, {
     method: 'POST'
   });
+}
+
+function readDownloadedErrorMessage(filePath: string): Promise<string> {
+  if (!filePath) {
+    return Promise.resolve('');
+  }
+
+  return new Promise((resolve) => {
+    wx.getFileSystemManager().readFile({
+      filePath,
+      encoding: 'utf8',
+      success: (res) => {
+        try {
+          const parsed = JSON.parse(String(res.data || ''));
+          if (parsed && parsed.message) {
+            resolve(String(parsed.message));
+            return;
+          }
+        } catch (err) {}
+
+        resolve('');
+      },
+      fail: () => resolve('')
+    });
+  });
+}
+
+async function downloadTaskMiniProgramCodeOnce(id: string): Promise<string> {
+  await ensureAuthorizedSession();
+
+  return new Promise((resolve, reject) => {
+    wx.downloadFile({
+      url: `${BASE_URL}/tasks/${id}/mini-code`,
+      header: getAuthHeader(),
+      success: async (res) => {
+        if (res.statusCode === 200 && res.tempFilePath) {
+          resolve(res.tempFilePath);
+          return;
+        }
+
+        const message = await readDownloadedErrorMessage(res.tempFilePath || '');
+        if (res.statusCode === 401 || res.statusCode === 403 || message === 'unauthorized') {
+          reject(new Error('unauthorized'));
+          return;
+        }
+
+        reject(new Error(message || '涓嬭浇灏忕▼搴忕爜澶辫触'));
+      },
+      fail: (err) => {
+        reject(new Error((err && err.errMsg) || '涓嬭浇灏忕▼搴忕爜澶辫触'));
+      }
+    });
+  });
+}
+
+export async function downloadTaskMiniProgramCode(id: string): Promise<string> {
+  try {
+    return await downloadTaskMiniProgramCodeOnce(id);
+  } catch (err: any) {
+    if (!err || err.message !== 'unauthorized') {
+      throw err;
+    }
+
+    await ensureAuthorizedSession(true);
+    return downloadTaskMiniProgramCodeOnce(id);
+  }
 }

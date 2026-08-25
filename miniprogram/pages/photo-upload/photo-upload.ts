@@ -196,7 +196,7 @@ Page({
     photoPath: '',
     photoKey: '',
     photoMeta: { fileSize: 0, width: 0, height: 0 },
-    analysisState: '' as '' | 'existing' | 'analyzing' | 'success' | 'error',
+    analysisState: '' as '' | 'existing' | 'analyzing' | 'success' | 'fallback' | 'error',
     analysisResult: null as SubmissionAnalysisResult | null,
     analysisPassed: false,
     analysisError: '',
@@ -278,7 +278,7 @@ Page({
         analysisPassed: !!photoUrl,
         analysisError: '',
         analysisMessage: aiAnalysisEnabled
-          ? (photoUrl ? '当前为已保存照片，可直接提交；如果重新选择照片，会先进行 AI 检查。' : '')
+          ? (photoUrl ? '已保存照片，可直接提交；重新选图后会再次检查。' : '')
           : '',
         canSubmit: !!photoUrl
       });
@@ -387,38 +387,66 @@ Page({
   },
 
   async prepareAndAnalyzePhoto(filePath: string) {
+    let uploadedKey = '';
     try {
       showLoading('处理照片中...');
       const preparedPhoto = await this.preparePhotoForUpload(filePath);
       const key = createUploadKey();
 
-      showLoading('AI检查中...');
       await uploadPhotoToQiniu(preparedPhoto.filePath, key);
+      uploadedKey = key;
+      this.setData({
+        photoKey: key,
+        photoMeta: {
+          fileSize: preparedPhoto.fileSize,
+          width: preparedPhoto.width,
+          height: preparedPhoto.height
+        }
+      });
+
+      showLoading('AI检查中...');
       const result = await analyzePhotoPreview({
         task_id: this.data.taskId,
         photo: { url: key }
       });
+      const aiUnavailable = !result
+        || result.analysis_status === 'unavailable'
+        || result.available === false;
+      const canSubmit = aiUnavailable || !!(result && (result.can_submit || result.passed));
 
       this.setData({
         photoKey: key,
-        analysisState: 'success',
-        analysisResult: result,
-        analysisPassed: !!(result && result.passed),
+        analysisState: aiUnavailable ? 'fallback' : 'success',
+        analysisResult: result || null,
+        analysisPassed: aiUnavailable || !!(result && result.passed),
         analysisError: '',
-        analysisMessage: result && result.passed
-          ? '照片已通过 AI 检查，可以继续填写信息并提交。'
-          : '照片未通过 AI 检查，请根据下方问题和建议重新选择。',
-        canSubmit: !!(result && result.passed)
+        analysisMessage: aiUnavailable
+          ? 'AI 检查暂不可用，已允许提交。'
+          : (result && result.passed ? '照片检查通过，可以提交。' : '照片未通过检查，请重新选择。'),
+        canSubmit
       });
     } catch (err: any) {
-      this.setData({
-        analysisState: 'error',
-        analysisResult: null,
-        analysisPassed: false,
-        analysisError: (err && err.message) || 'AI 检查失败，请重新选择照片',
-        analysisMessage: '',
-        canSubmit: false
-      });
+      if (uploadedKey) {
+        this.setData({
+          photoKey: uploadedKey,
+          analysisState: 'fallback',
+          analysisResult: null,
+          analysisPassed: true,
+          analysisError: '',
+          analysisMessage: 'AI 检查暂不可用，已允许提交。',
+          canSubmit: true
+        });
+      } else {
+        this.setData({
+          photoKey: '',
+          analysisState: 'error',
+          analysisResult: null,
+          analysisPassed: false,
+          analysisError: (err && err.message) || '照片处理失败，请重试',
+          analysisMessage: '',
+          canSubmit: false
+        });
+      }
     } finally {
       hideLoading();
     }

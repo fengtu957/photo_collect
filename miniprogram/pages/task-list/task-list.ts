@@ -17,33 +17,6 @@ const STATUS_SORT_WEIGHT: Record<string, number> = {
   '已关闭': 3
 };
 
-function extractTaskIdFromScanResult(result: string): string {
-  const value = String(result || '').trim();
-  if (!value) return '';
-
-  const directMatch = value.match(/^[a-fA-F0-9]{24}$/);
-  if (directMatch) {
-    return directMatch[0];
-  }
-
-  const customSchemeMatch = value.match(/photo-task:([a-fA-F0-9]{24})/i);
-  if (customSchemeMatch && customSchemeMatch[1]) {
-    return customSchemeMatch[1];
-  }
-
-  const queryMatch = value.match(/[?&]id=([a-fA-F0-9]{24})/i);
-  if (queryMatch && queryMatch[1]) {
-    return queryMatch[1];
-  }
-
-  const pathMatch = value.match(/\/pages\/task-detail\/task-detail\?id=([a-fA-F0-9]{24})/i);
-  if (pathMatch && pathMatch[1]) {
-    return pathMatch[1];
-  }
-
-  return '';
-}
-
 function getTaskStatus(task: any) {
   const now = Date.now();
   const hasStartTime = isEffectiveTime(task && task.start_time);
@@ -224,14 +197,6 @@ Page({
     });
   },
 
-  toggleJoinActions() {
-    const nextValue = !this.data.showJoinActions;
-    this.setData({
-      showJoinActions: nextValue,
-      showTaskCodePanel: nextValue ? this.data.showTaskCodePanel : false
-    });
-  },
-
   openTaskCodePanel() {
     this.setData({
       showJoinActions: true,
@@ -280,33 +245,6 @@ Page({
   goToCreate() {
     this.closeJoinActions();
     wx.navigateTo({ url: '/pages/task-create/task-create' });
-  },
-
-  scanTask() {
-    wx.scanCode({
-      onlyFromCamera: false,
-      scanType: ['qrCode'],
-      success: (res) => {
-        const taskId = extractTaskIdFromScanResult(res.result || '');
-        if (!taskId) {
-          showError('未识别到有效任务二维码');
-          return;
-        }
-
-        wx.navigateTo({ url: `/pages/task-detail/task-detail?id=${taskId}&fromShare=1` });
-      },
-      fail: (err) => {
-        if (err && err.errMsg && err.errMsg.indexOf('cancel') >= 0) {
-          return;
-        }
-        showError('扫码失败，请重试');
-      }
-    });
-  },
-
-  scanTaskFromJoin() {
-    this.closeJoinActions();
-    this.scanTask();
   },
 
   goToDetail(e: any) {

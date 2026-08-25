@@ -123,6 +123,19 @@ func extractResponseContent(raw json.RawMessage) string {
 }
 
 func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
+	return c.evaluatePhoto(imageURL, photoSpec, "")
+}
+
+// EvaluatePhotoRetry is used after a malformed model payload. The extra
+// instruction makes the second attempt stricter without changing the public
+// request shape used by the first attempt.
+func (c *QwenClient) EvaluatePhotoRetry(imageURL, photoSpec string) (string, error) {
+	return c.evaluatePhoto(imageURL, photoSpec, `
+
+这是对上一次结果的重试。请只返回一份可被 JSON 解析器直接解析的完整 JSON，禁止 Markdown、代码块、前后解释文字或重复 JSON。`)
+}
+
+func (c *QwenClient) evaluatePhoto(imageURL, photoSpec, retryHint string) (string, error) {
 	if c.apiKey == "" {
 		return "", fmt.Errorf("QWEN_API_KEY 未配置")
 	}
@@ -206,7 +219,7 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 - 以上不通过场景的 breakdown 都必须返回 {"clarity":0,"lighting":0,"angle":0,"background":0,"expression":0,"composition":0}
 - 以上不通过场景的 issues 建议返回 ["不符合准入要求"]
 - 以上不通过场景的 suggestions 建议返回 ["请上传恰好包含1名人物且可清晰识别人脸的证件照"]
-- 无法判断时，从严处理，判定为不通过`, photoSpec)
+ - 无法判断时，从严处理，判定为不通过%s`, photoSpec, retryHint)
 
 	req := QwenRequest{
 		Model:          c.model,
@@ -243,7 +256,8 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 40 * time.Second}
+	// Keep two-attempt worst case within the mini-program request timeout.
+	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return "", err
@@ -255,7 +269,7 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 		return "", err
 	}
 
-	log.Printf("[qwen] evaluate photo model=%s status=%s raw_response=%s", c.model, resp.Status, strings.TrimSpace(string(respBody)))
+	log.Printf("[qwen] evaluate photo model=%s status=%s response_bytes=%d", c.model, resp.Status, len(respBody))
 
 	var qwenResp QwenResponse
 	if err := json.Unmarshal(respBody, &qwenResp); err != nil {
@@ -264,18 +278,18 @@ func (c *QwenClient) EvaluatePhoto(imageURL, photoSpec string) (string, error) {
 
 	if resp.StatusCode >= 400 {
 		if qwenResp.Error != nil && qwenResp.Error.Message != "" {
-			return "", fmt.Errorf(qwenResp.Error.Message)
+			return "", fmt.Errorf("%s", qwenResp.Error.Message)
 		}
 		return "", fmt.Errorf("百炼调用失败: %s", resp.Status)
 	}
 
 	if qwenResp.Error != nil && qwenResp.Error.Message != "" {
-		return "", fmt.Errorf(qwenResp.Error.Message)
+		return "", fmt.Errorf("%s", qwenResp.Error.Message)
 	}
 	if len(qwenResp.Choices) > 0 {
 		content := extractResponseContent(qwenResp.Choices[0].Message.Content)
 		if content != "" {
-			log.Printf("[qwen] extracted content model=%s content=%s", c.model, content)
+			log.Printf("[qwen] extracted content model=%s content_bytes=%d", c.model, len(content))
 			return content, nil
 		}
 	}

@@ -101,11 +101,7 @@
 
 <view class="floating-actions">
   <view class="join-floating">
-    <view class="join-actions-panel" wx:if="{{showJoinActions && !showTaskCodePanel}}" catchtap="noop">
-      <view class="join-action-item" bindtap="scanTaskFromJoin">扫一扫</view>
-      <view class="join-action-item" bindtap="openTaskCodePanel">任务码</view>
-    </view>
-    <view class="scan-fab" bindtap="toggleJoinActions">加入任务</view>
+    <view class="scan-fab" bindtap="openTaskCodePanel">加入任务</view>
   </view>
   <view class="fab" bindtap="goToCreate">+ 创建任务</view>
 </view>

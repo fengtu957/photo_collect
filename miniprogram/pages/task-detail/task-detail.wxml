@@ -69,6 +69,11 @@
       <text class="value">{{customFieldSummary}}</text>
     </view>
 
+    <view class="share-entry">
+      <text class="share-entry-text">可直接分享给参与者，也可保存小程序码备用，支持微信扫码参与</text>
+      <text class="share-entry-link" catchtap="saveTaskMiniCode">保存小程序码</text>
+    </view>
+
     <view class="export-panel export-panel-tip" wx:if="{{isCreator && !canExportTask}}">
       <text class="export-title">导出图片</text>
       <text class="export-locked-tip">任务结束后才能导出图片</text>
@@ -112,7 +117,7 @@
   </view>
 
   <view class="entry-card" wx:if="{{!isCreator && fromShare}}">
-    <text class="entry-title">你是通过二维码进入的参与者页面</text>
+    <text class="entry-title">你是通过分享或扫码进入的参与者页面</text>
     <text class="entry-desc">先确认照片规格和采集字段，再点击下方上传照片。</text>
   </view>
 
@@ -144,37 +149,7 @@
     </view>
 
     <view class="ai-evaluation" wx:if="{{aiAnalysisEnabled && item.ai_evaluation && item.ai_evaluation.status === 'success'}}">
-      <view class="score-row">
-        <text class="score-label">AI评分：</text>
-        <text class="score-value">{{item.ai_evaluation.score}}</text>
-      </view>
-
-      <view class="breakdown" wx:if="{{item.ai_evaluation.breakdown}}">
-        <view class="breakdown-item">
-          <text class="breakdown-label">清晰度</text>
-          <text class="breakdown-value">{{item.ai_evaluation.breakdown.clarity}}</text>
-        </view>
-        <view class="breakdown-item">
-          <text class="breakdown-label">光线</text>
-          <text class="breakdown-value">{{item.ai_evaluation.breakdown.lighting}}</text>
-        </view>
-        <view class="breakdown-item">
-          <text class="breakdown-label">角度</text>
-          <text class="breakdown-value">{{item.ai_evaluation.breakdown.angle}}</text>
-        </view>
-        <view class="breakdown-item">
-          <text class="breakdown-label">背景</text>
-          <text class="breakdown-value">{{item.ai_evaluation.breakdown.background}}</text>
-        </view>
-        <view class="breakdown-item">
-          <text class="breakdown-label">表情</text>
-          <text class="breakdown-value">{{item.ai_evaluation.breakdown.expression}}</text>
-        </view>
-        <view class="breakdown-item">
-          <text class="breakdown-label">构图</text>
-          <text class="breakdown-value">{{item.ai_evaluation.breakdown.composition}}</text>
-        </view>
-      </view>
+      <text class="ai-success">照片已通过 AI 检查</text>
 
       <view class="issues" wx:if="{{item.ai_evaluation.issues && item.ai_evaluation.issues.length > 0}}">
         <text class="issues-title">问题：</text>
@@ -211,20 +186,18 @@
     <text class="load-more-text">已加载全部</text>
   </view>
 
-  <!-- 创建者：双按钮底栏 -->
+  <!-- 创建者底栏 -->
   <view class="footer" wx:if="{{isCreator}}">
     <view class="btn-danger" bindtap="deleteActivity">删除任务</view>
-    <view class="btn-secondary" bindtap="saveTaskQr">保存二维码</view>
+    <button class="btn-secondary btn-share" open-type="share">分享任务</button>
     <view class="btn-primary" bindtap="goToUpload">上传照片</view>
   </view>
 
-  <!-- 非创建者：双按钮底栏 -->
+  <!-- 非创建者底栏 -->
   <view class="footer" wx:else>
-    <view class="btn-secondary" bindtap="saveTaskQr">保存二维码</view>
+    <button class="btn-secondary btn-share" open-type="share">分享任务</button>
     <view class="btn-primary" bindtap="goToUpload">
       <text>{{mySubmissionId ? '编辑提交' : '上传照片'}}</text>
     </view>
   </view>
-
-  <canvas canvas-id="taskQrCanvas" class="qr-canvas"></canvas>
 </view>

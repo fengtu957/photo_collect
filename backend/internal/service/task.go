@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
@@ -63,8 +62,6 @@ func (s *TaskService) GetTask(w http.ResponseWriter, r *http.Request) {
 		Error(w, 1004, "unauthorized")
 		return
 	}
-
-	log.Printf("[task] get task raw_id=%q path=%q user=%q", id, r.URL.Path, userID)
 
 	task, err := s.uc.GetTask(context.Background(), id)
 	if err != nil {
@@ -138,8 +135,6 @@ func (s *TaskService) GetTaskMiniCode(w http.ResponseWriter, r *http.Request) {
 		Error(w, 1011, "unauthorized")
 		return
 	}
-
-	log.Printf("[task] get mini code raw_id=%q path=%q", id, r.URL.Path)
 
 	task, err := s.uc.GetTask(context.Background(), id)
 	if err != nil {
