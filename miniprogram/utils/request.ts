@@ -1,4 +1,4 @@
-export const BASE_URL = 'https://photo-collect.starpix.cn/api/v1';
+export const BASE_URL = 'https://photo-collect-qa.starpix.cn/api/v1';
 
 interface ApiResponse<T> {
   code: number;

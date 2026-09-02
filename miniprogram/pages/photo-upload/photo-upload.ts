@@ -576,31 +576,70 @@ Page({
     return { photoKey, photoMeta };
   },
 
-  composeBackground(transparentPath: string, color: string, width: number, height: number): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const canvasWidth = Math.max(1, Number(width || 1));
-      const canvasHeight = Math.max(1, Number(height || 1));
-      this.setData({ canvasWidth, canvasHeight }, () => {
-        const context = wx.createCanvasContext('background-canvas', this);
-        context.setFillStyle(color);
-        context.fillRect(0, 0, canvasWidth, canvasHeight);
-        context.drawImage(transparentPath, 0, 0, canvasWidth, canvasHeight);
-        context.draw(false, () => {
-          wx.canvasToTempFilePath({
-            canvasId: 'background-canvas',
-            x: 0,
-            y: 0,
-            width: canvasWidth,
-            height: canvasHeight,
-            destWidth: canvasWidth,
-            destHeight: canvasHeight,
-            fileType: 'jpg',
-            quality: 0.92,
-            success: (res) => resolve(res.tempFilePath),
-            fail: reject
-          }, this);
-        });
-      });
+  async composeBackground(transparentPath: string, color: string, width: number, height: number): Promise<string> {
+    const transparentImage = await getLocalImageInfo(transparentPath);
+    const decodedPath = String(transparentImage.path || transparentPath);
+    const sourceWidth = Math.max(1, Number(transparentImage.width || width || 1));
+    const sourceHeight = Math.max(1, Number(transparentImage.height || height || 1));
+    const canvasWidth = Math.max(1, Number(width || sourceWidth));
+    const canvasHeight = Math.max(1, Number(height || sourceHeight));
+    await new Promise<void>((resolve) => {
+      this.setData({ canvasWidth, canvasHeight }, resolve);
+    });
+
+    const canvas = await new Promise<any>((resolve, reject) => {
+      wx.createSelectorQuery()
+        .in(this)
+        .select('#background-canvas')
+        .node((result: any) => {
+          if (!result || !result.node) {
+            reject(new Error('背景画布初始化失败'));
+            return;
+          }
+          resolve(result.node);
+        })
+        .exec();
+    });
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    const canvasImage = canvas.createImage();
+    await new Promise<void>((resolve, reject) => {
+      canvasImage.onload = () => resolve();
+      canvasImage.onerror = (err: any) => reject(new Error((err && err.errMsg) || '透明抠图加载失败'));
+      canvasImage.src = decodedPath;
+    });
+
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvasWidth, canvasHeight);
+    context.fillStyle = color;
+    context.fillRect(0, 0, canvasWidth, canvasHeight);
+    context.drawImage(
+      canvasImage,
+      0,
+      0,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      canvasWidth,
+      canvasHeight
+    );
+
+    return new Promise<string>((resolve, reject) => {
+      wx.canvasToTempFilePath({
+        canvas,
+        x: 0,
+        y: 0,
+        width: canvasWidth,
+        height: canvasHeight,
+        destWidth: canvasWidth,
+        destHeight: canvasHeight,
+        fileType: 'jpg',
+        quality: 0.92,
+        success: (res) => resolve(res.tempFilePath),
+        fail: reject
+      }, this);
     });
   },
 

@@ -108,7 +108,8 @@
   </view>
 
   <canvas
-    canvas-id="background-canvas"
+    id="background-canvas"
+    type="2d"
     class="background-canvas"
     style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
   ></canvas>
