@@ -8,6 +8,11 @@ import { getTimeRemaining, isTaskActive } from '../../utils/format';
 import { isTaskAIAnalysisEnabled } from '../../utils/task';
 
 const COMPRESS_QUALITY_STEPS = [90, 80, 70, 60, 50, 40, 30, 20];
+const BACKGROUND_OPTIONS = [
+  { value: '白底', label: '白底', color: '#FFFFFF', border: '#D9D9D9' },
+  { value: '蓝底', label: '蓝底', color: '#438EDB', border: '#438EDB' },
+  { value: '红底', label: '红底', color: '#D7373F', border: '#D7373F' }
+];
 
 function normalizeDigitText(value: any): string {
   return String(value || '').replace(/\D/g, '');
@@ -220,6 +225,7 @@ Page({
     requiresVerificationCode: false,
     verificationCodeInput: '',
     photoPath: '',
+    sourcePhotoPath: '',
     photoKey: '',
     photoMeta: { fileSize: 0, width: 0, height: 0 },
     analysisState: '' as '' | 'existing' | 'analyzing' | 'success' | 'fallback' | 'error',
@@ -228,6 +234,9 @@ Page({
     analysisError: '',
     analysisMessage: '',
     verificationToken: '',
+    backgroundOptions: BACKGROUND_OPTIONS,
+    selectedBackgroundColor: '',
+    backgroundProcessing: false,
     canSubmit: false,
     aiAnalysisEnabled: true,
     customData: {} as Record<string, any>,
@@ -278,6 +287,7 @@ Page({
         isTaskCreator,
         requiresVerificationCode: !!(task && task.verification_code_enabled && !isTaskCreator),
         aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
+        selectedBackgroundColor: this.normalizeBackgroundSelection(task && task.photo_spec && task.photo_spec.background_color),
         multiSelectState: buildMultiSelectState(task, this.data.customData)
       });
     } catch (err: any) {
@@ -381,6 +391,7 @@ Page({
   },
 
   handleSelectedPhoto(filePath: string) {
+    this.setData({ sourcePhotoPath: filePath });
     if (!this.data.aiAnalysisEnabled) {
       this.setData({
         photoPath: filePath,
@@ -411,6 +422,37 @@ Page({
     this.prepareAndAnalyzePhoto(filePath);
   },
 
+  normalizeBackgroundSelection(value: any): string {
+    const normalized = String(value || '').trim();
+    for (let i = 0; i < BACKGROUND_OPTIONS.length; i += 1) {
+      if (BACKGROUND_OPTIONS[i].value === normalized) return normalized;
+    }
+    if (normalized === '纯色') return '白底';
+    return '';
+  },
+
+  onBackgroundSelect(e: any) {
+    const value = String(e.currentTarget.dataset.value || '').trim();
+    if (!value || value === this.data.selectedBackgroundColor || !this.data.sourcePhotoPath) return;
+    this.setData({
+      selectedBackgroundColor: value,
+      photoKey: '',
+      analysisState: this.data.aiAnalysisEnabled ? 'analyzing' : '',
+      analysisResult: null,
+      analysisPassed: false,
+      analysisError: '',
+      analysisMessage: '正在重新生成背景，请稍候…',
+      verificationToken: '',
+      canSubmit: false,
+      backgroundProcessing: true
+    });
+    if (this.data.aiAnalysisEnabled) {
+      this.prepareAndAnalyzePhoto(this.data.sourcePhotoPath);
+    } else {
+      this.preparePhotoWithoutAI(this.data.sourcePhotoPath);
+    }
+  },
+
   async preparePhotoWithoutAI(filePath: string) {
     try {
       showLoading('处理照片中...');
@@ -424,7 +466,8 @@ Page({
       this.setData({
         photoKey: '',
         photoMeta: { fileSize: 0, width: 0, height: 0 },
-        canSubmit: false
+        canSubmit: false,
+        backgroundProcessing: false
       });
       showError((err && err.message) || '处理照片失败');
     } finally {
@@ -470,7 +513,8 @@ Page({
         analysisError: (err && err.message) || '照片处理失败，请重试',
         analysisMessage: uploadedKey ? '照片已上传，但尚未通过 AI 检查。' : '',
         verificationToken: '',
-        canSubmit: false
+        canSubmit: false,
+        backgroundProcessing: false
       });
     } finally {
       hideLoading();
@@ -488,7 +532,7 @@ Page({
       width: preparedPhoto.width,
       height: preparedPhoto.height
     };
-    const requestedBackgroundColor = String(this.data.task && this.data.task.photo_spec && this.data.task.photo_spec.background_color || '').trim();
+    const requestedBackgroundColor = String(this.data.selectedBackgroundColor || (this.data.task && this.data.task.photo_spec && this.data.task.photo_spec.background_color) || '').trim();
     const backgroundColor = getBackgroundColor(requestedBackgroundColor);
     if (requestedBackgroundColor && !backgroundColor) {
       throw new Error('暂不支持该背景色，请选择白底、蓝底或红底');
@@ -507,9 +551,9 @@ Page({
         width: preparedPhoto.width,
         height: preparedPhoto.height
       };
-      this.setData({ photoPath: compositedPath, photoKey, photoMeta });
+      this.setData({ photoPath: compositedPath, photoKey, photoMeta, backgroundProcessing: false });
     } else {
-      this.setData({ photoKey, photoMeta });
+      this.setData({ photoKey, photoMeta, backgroundProcessing: false });
     }
     return { photoKey, photoMeta };
   },
@@ -545,7 +589,7 @@ Page({
     if (!this.data.aiAnalysisEnabled) {
       return;
     }
-    if (!this.data.photoPath) {
+    if (!this.data.sourcePhotoPath) {
       showError('请先选择照片');
       return;
     }
@@ -559,7 +603,7 @@ Page({
       analysisMessage: '正在重新检查照片，请稍候…',
       canSubmit: false
     });
-    this.prepareAndAnalyzePhoto(this.data.photoPath);
+    this.prepareAndAnalyzePhoto(this.data.sourcePhotoPath);
   },
 
   onCustomFieldInput(e: any) {

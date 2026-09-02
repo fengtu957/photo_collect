@@ -6,3 +6,4 @@ images/
 .static
 backend/.env.example
 backend/tests
+.gocache

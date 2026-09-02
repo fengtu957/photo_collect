@@ -44,6 +44,28 @@
       <text class="photo-size-tip-text">当前任务限制 {{task.photo_spec.max_size_kb}}K，超出后会自动压缩，仍超出则无法提交。</text>
     </view>
 
+    <view class="background-editor" wx:if="{{photoPath && sourcePhotoPath}}">
+      <view class="background-editor-head">
+        <text class="background-editor-title">更换背景</text>
+        <text class="background-editor-status" wx:if="{{backgroundProcessing}}">生成中...</text>
+      </view>
+      <text class="background-editor-note">选择背景颜色后会重新生成照片，并再次进行 AI 检查。</text>
+      <view class="background-options">
+        <view
+          wx:for="{{backgroundOptions}}"
+          wx:key="value"
+          wx:for-item="option"
+          class="background-option {{selectedBackgroundColor === option.value ? 'background-option-active' : ''}}"
+          data-value="{{option.value}}"
+          bindtap="onBackgroundSelect"
+        >
+          <view class="background-swatch" style="background: {{option.color}}; border-color: {{option.border}};"></view>
+          <text class="background-option-label">{{option.label}}</text>
+          <text class="background-option-check" wx:if="{{selectedBackgroundColor === option.value}}">已选</text>
+        </view>
+      </view>
+    </view>
+
     <view class="analysis-panel analysis-panel-existing" wx:if="{{aiAnalysisEnabled && analysisState === 'existing' && analysisMessage}}">
       <text class="analysis-note">{{analysisMessage}}</text>
     </view>

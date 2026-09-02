@@ -316,6 +316,91 @@
   color: #999;
 }
 
+.background-editor {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 20rpx;
+  padding: 20rpx;
+  background: #fff;
+  border: 1rpx solid #eee;
+  border-radius: 12rpx;
+}
+
+.background-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.background-editor-title {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.background-editor-status {
+  font-size: 24rpx;
+  color: #1989fa;
+}
+
+.background-editor-note {
+  display: block;
+  margin-bottom: 16rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #888;
+}
+
+.background-options {
+  display: flex;
+  width: 100%;
+  gap: 12rpx;
+}
+
+.background-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 76rpx;
+  padding: 0 12rpx;
+  box-sizing: border-box;
+  border: 1rpx solid #eee;
+  border-radius: 8rpx;
+  background: #fafafa;
+}
+
+.background-option-active {
+  border-color: #1989fa;
+  background: #f2f8ff;
+}
+
+.background-swatch {
+  width: 32rpx;
+  height: 32rpx;
+  flex: 0 0 32rpx;
+  margin-right: 8rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.background-option-label {
+  min-width: 0;
+  font-size: 26rpx;
+  color: #333;
+  white-space: nowrap;
+}
+
+.background-option-check {
+  margin-left: auto;
+  font-size: 20rpx;
+  color: #1989fa;
+  white-space: nowrap;
+}
+
 .background-canvas {
   position: fixed;
   left: -10000rpx;
