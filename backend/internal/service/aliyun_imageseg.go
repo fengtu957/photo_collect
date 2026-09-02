@@ -103,7 +103,7 @@ func (s *AliyunImageSegService) GetOSSFileURL(key string, ttl time.Duration) (st
 	}
 	expires := time.Now().Add(ttl).Unix()
 	resource := "/" + s.ossBucket + "/" + key
-	stringToSign := fmt.Sprintf("GET\\n\\n\\n%d\\n%s", expires, resource)
+	stringToSign := fmt.Sprintf("GET\n\n\n%d\n%s", expires, resource)
 	h := hmac.New(sha1.New, []byte(s.accessKeySecret))
 	_, _ = h.Write([]byte(stringToSign))
 	u := url.URL{Scheme: "https", Host: s.ossHost(), Path: "/" + key}
@@ -113,6 +113,23 @@ func (s *AliyunImageSegService) GetOSSFileURL(key string, ttl time.Duration) (st
 	query.Set("Signature", base64.StdEncoding.EncodeToString(h.Sum(nil)))
 	u.RawQuery = query.Encode()
 	return u.String(), nil
+}
+
+func (s *AliyunImageSegService) ProbeOSSFileURL(fileURL string) error {
+	request, err := http.NewRequest(http.MethodHead, fileURL, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := s.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	log.Printf("[aliyun-imageseg] oss probe status=%s content_type=%s content_length=%s", resp.Status, resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("OSS 文件不可访问: %s", resp.Status)
+	}
+	return nil
 }
 
 func (s *AliyunImageSegService) ossHost() string {
