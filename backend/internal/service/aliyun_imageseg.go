@@ -94,6 +94,10 @@ func (s *AliyunImageSegService) CreateOSSUploadPolicy(userID string) (*OSSUpload
 }
 
 func (s *AliyunImageSegService) GetOSSFileURL(key string, ttl time.Duration) (string, error) {
+	return s.getOSSFileURL(http.MethodGet, key, ttl)
+}
+
+func (s *AliyunImageSegService) getOSSFileURL(method string, key string, ttl time.Duration) (string, error) {
 	if s == nil || s.accessKeyID == "" || s.accessKeySecret == "" || s.ossBucket == "" {
 		return "", errors.New("阿里云上海 OSS 未配置")
 	}
@@ -103,7 +107,7 @@ func (s *AliyunImageSegService) GetOSSFileURL(key string, ttl time.Duration) (st
 	}
 	expires := time.Now().Add(ttl).Unix()
 	resource := "/" + s.ossBucket + "/" + key
-	stringToSign := fmt.Sprintf("GET\n\n\n%d\n%s", expires, resource)
+	stringToSign := fmt.Sprintf("%s\n\n\n%d\n%s", method, expires, resource)
 	h := hmac.New(sha1.New, []byte(s.accessKeySecret))
 	_, _ = h.Write([]byte(stringToSign))
 	u := url.URL{Scheme: "https", Host: s.ossHost(), Path: "/" + key}
@@ -115,7 +119,11 @@ func (s *AliyunImageSegService) GetOSSFileURL(key string, ttl time.Duration) (st
 	return u.String(), nil
 }
 
-func (s *AliyunImageSegService) ProbeOSSFileURL(fileURL string) error {
+func (s *AliyunImageSegService) ProbeOSSFile(key string) error {
+	fileURL, err := s.getOSSFileURL(http.MethodHead, key, 10*time.Minute)
+	if err != nil {
+		return err
+	}
 	request, err := http.NewRequest(http.MethodHead, fileURL, nil)
 	if err != nil {
 		return err

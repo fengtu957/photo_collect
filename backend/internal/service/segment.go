@@ -54,7 +54,7 @@ func (s *SegmentService) Segment(w http.ResponseWriter, r *http.Request) {
 		Error(w, 2014, err.Error())
 		return
 	}
-	if err := s.aliyun.ProbeOSSFileURL(ossURL); err != nil {
+	if err := s.aliyun.ProbeOSSFile(key); err != nil {
 		Error(w, 2014, err.Error())
 		return
 	}
