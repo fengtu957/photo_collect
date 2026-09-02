@@ -38,6 +38,7 @@ func main() {
 	vipSvc := service.NewVIPService(vipUC, taskRepo)
 
 	qiniuSvc := service.NewQiniuService()
+	segmentSvc := service.NewSegmentService(qiniuSvc, service.NewAliyunImageSegService())
 	qwenClient := pkg.NewQwenClient()
 	evalUC := biz.NewEvaluationUsecase(qwenClient)
 	exportSvc := service.NewExportService(taskRepo, subRepo, qiniuSvc, vipUC)
@@ -85,6 +86,7 @@ func main() {
 	api.HandleFunc("/submissions/{id}", subSvc.DeleteSubmission).Methods("DELETE")
 	api.HandleFunc("/tasks/{taskId}/submissions", subSvc.ListSubmissions).Methods("GET")
 	api.HandleFunc("/upload/token", uploadSvc.GetUploadToken).Methods("GET")
+	api.HandleFunc("/photos/segment", segmentSvc.Segment).Methods("POST")
 
 	log.Println("Server starting on :8000")
 	log.Fatal(http.ListenAndServe(":8000", r))

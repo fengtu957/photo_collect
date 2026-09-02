@@ -59,6 +59,7 @@ export interface SubmitPhotoParams {
     height?: number;
   };
   custom_data?: Record<string, any>;
+  verification_token?: string;
 }
 
 export interface AnalyzePhotoPreviewParams {
@@ -88,4 +89,5 @@ export interface SubmissionAnalysisResult {
   hard_failures?: string[];
   issues: string[];
   suggestions: string[];
+  verification_token?: string;
 }

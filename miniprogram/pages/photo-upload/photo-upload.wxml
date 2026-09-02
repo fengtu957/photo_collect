@@ -93,6 +93,8 @@
     </view>
   </view>
 
+  <canvas canvas-id="background-canvas" class="background-canvas" width="{{canvasWidth}}" height="{{canvasHeight}}"></canvas>
+
   <view class="section" wx:if="{{requiresVerificationCode}}">
     <view class="section-title">输入校验码</view>
     <view class="card">

@@ -29,6 +29,23 @@ type AnalyzePreviewRequest struct {
 	} `json:"photo"`
 }
 
+func (s *SubmissionService) validatePhotoVerification(r *http.Request, sub *data.Submission) error {
+	if sub == nil || sub.TaskID.IsZero() || sub.Photo.URL == "" {
+		return errors.New("照片不存在")
+	}
+	task, err := s.taskUC.GetTask(context.Background(), sub.TaskID.Hex())
+	if err != nil {
+		return err
+	}
+	if task != nil && task.IsAIAnalysisEnabled() {
+		userID, _ := r.Context().Value(UserIDKey).(string)
+		if err := verifyPhotoVerificationToken(sub.VerificationToken, userID, sub.TaskID.Hex(), sub.Photo.URL); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase, evalUC *biz.EvaluationUsecase, qiniuSvc *QiniuService) *SubmissionService {
 	return &SubmissionService{uc: uc, taskUC: taskUC, vipUC: vipUC, evalUC: evalUC, qiniuSvc: qiniuSvc}
 }
@@ -126,6 +143,10 @@ func (s *SubmissionService) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	sub.UserID = userID
+	if err := s.validatePhotoVerification(r, &sub); err != nil {
+		Error(w, 2002, err.Error())
+		return
+	}
 
 	if err := s.uc.CreateSubmission(context.Background(), &sub); err != nil {
 		Error(w, 2002, err.Error())
@@ -148,6 +169,18 @@ func (s *SubmissionService) UpdateSubmission(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		Error(w, 2004, "unauthorized")
 		return
+	}
+	if sub.TaskID.IsZero() || sub.Photo.URL == "" {
+		Error(w, 2005, "照片不存在")
+		return
+	}
+	// Editing an unchanged existing photo does not need a new preview token.
+	existing, existingErr := s.uc.GetSubmission(context.Background(), id, userID)
+	if existingErr != nil || existing == nil || existing.Photo.URL != sub.Photo.URL {
+		if err := s.validatePhotoVerification(r, &sub); err != nil {
+			Error(w, 2005, err.Error())
+			return
+		}
 	}
 
 	if err := s.uc.UpdateSubmission(context.Background(), id, userID, &sub); err != nil {
@@ -176,7 +209,7 @@ func (s *SubmissionService) DeleteSubmission(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *SubmissionService) AnalyzePreview(w http.ResponseWriter, r *http.Request) {
-	_, ok := r.Context().Value(UserIDKey).(string)
+	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok {
 		Error(w, 2011, "unauthorized")
 		return
@@ -203,6 +236,14 @@ func (s *SubmissionService) AnalyzePreview(w http.ResponseWriter, r *http.Reques
 	}
 	if result == nil {
 		Error(w, 2012, "任务不存在")
+		return
+	}
+	if result.CanSubmit && result.AnalysisStatus == "success" {
+		resultMap := map[string]interface{}{}
+		encoded, _ := json.Marshal(result)
+		_ = json.Unmarshal(encoded, &resultMap)
+		resultMap["verification_token"] = issuePhotoVerificationToken(userID, req.TaskID, req.Photo.URL)
+		Success(w, resultMap)
 		return
 	}
 

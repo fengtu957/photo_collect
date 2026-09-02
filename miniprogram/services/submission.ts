@@ -49,3 +49,10 @@ export async function listSubmissions(taskId: string, page: number = 1, limit: n
 export async function getUploadToken() {
   return request<{ token: string }>('/upload/token', { method: 'GET' });
 }
+
+export async function segmentPhoto(photoKey: string) {
+  return request<{ result_url: string; expires_in: number }>('/photos/segment', {
+    method: 'POST',
+    data: { photo_key: photoKey }
+  });
+}

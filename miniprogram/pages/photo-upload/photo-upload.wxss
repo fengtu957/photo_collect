@@ -316,6 +316,14 @@
   color: #999;
 }
 
+.background-canvas {
+  position: fixed;
+  left: -10000rpx;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* 按钮 */
 .choose-btn {
   background: #1989fa;

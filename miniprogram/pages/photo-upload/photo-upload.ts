@@ -1,6 +1,6 @@
 import { getTask } from '../../services/task';
 import { getUploadToken } from '../../services/upload';
-import { analyzePhotoPreview, createSubmission, getSubmission, updateSubmission } from '../../services/submission';
+import { analyzePhotoPreview, createSubmission, getSubmission, segmentPhoto, updateSubmission } from '../../services/submission';
 import { SubmissionAnalysisResult } from '../../types/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { isEffectiveTime } from '../../utils/time';
@@ -183,6 +183,32 @@ function uploadPhotoToQiniu(filePath: string, key: string): Promise<void> {
   });
 }
 
+function downloadFile(fileUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    wx.downloadFile({
+      url: fileUrl,
+      success: (res) => {
+        if (res.statusCode !== 200 || !res.tempFilePath) {
+          reject(new Error('下载分割结果失败'));
+          return;
+        }
+        resolve(res.tempFilePath);
+      },
+      fail: reject
+    });
+  });
+}
+
+function getBackgroundColor(value: string): string {
+  const normalized = String(value || '').trim();
+  if (normalized === '白底') return '#FFFFFF';
+  if (normalized === '蓝底') return '#438EDB';
+  if (normalized === '红底') return '#D7373F';
+  if (normalized === '纯色') return '#FFFFFF';
+  if (/^#[0-9a-fA-F]{6}$/.test(normalized)) return normalized;
+  return '';
+}
+
 Page({
   data: {
     taskId: '',
@@ -201,11 +227,14 @@ Page({
     analysisPassed: false,
     analysisError: '',
     analysisMessage: '',
+    verificationToken: '',
     canSubmit: false,
     aiAnalysisEnabled: true,
     customData: {} as Record<string, any>,
     multiSelectState: {} as Record<string, Record<string, boolean>>,
-    isEditMode: false
+    isEditMode: false,
+    canvasWidth: 1,
+    canvasHeight: 1
   },
 
   async onLoad(options: any) {
@@ -280,6 +309,7 @@ Page({
         analysisMessage: aiAnalysisEnabled
           ? (photoUrl ? '已保存照片，可直接提交；重新选图后会再次检查。' : '')
           : '',
+        verificationToken: '',
         canSubmit: !!photoUrl
       });
     } catch (err: any) {
@@ -384,8 +414,10 @@ Page({
   async preparePhotoWithoutAI(filePath: string) {
     try {
       showLoading('处理照片中...');
-      await this.preparePhotoForUpload(filePath);
+      const preparedPhoto = await this.prepareAndUploadPhoto(filePath);
       this.setData({
+        photoKey: preparedPhoto.photoKey,
+        photoMeta: preparedPhoto.photoMeta,
         canSubmit: true
       });
     } catch (err: any) {
@@ -404,66 +436,109 @@ Page({
     let uploadedKey = '';
     try {
       showLoading('处理照片中...');
-      const preparedPhoto = await this.preparePhotoForUpload(filePath);
-      const key = createUploadKey();
-
-      await uploadPhotoToQiniu(preparedPhoto.filePath, key);
-      uploadedKey = key;
-      this.setData({
-        photoKey: key,
-        photoMeta: {
-          fileSize: preparedPhoto.fileSize,
-          width: preparedPhoto.width,
-          height: preparedPhoto.height
-        }
-      });
+      const preparedPhoto = await this.prepareAndUploadPhoto(filePath);
+      uploadedKey = preparedPhoto.photoKey;
 
       showLoading('AI检查中...');
       const result = await analyzePhotoPreview({
         task_id: this.data.taskId,
-        photo: { url: key }
+        photo: { url: uploadedKey }
       });
       const aiUnavailable = !result
         || result.analysis_status === 'unavailable'
         || result.available === false;
-      const canSubmit = aiUnavailable || !!(result && (result.can_submit || result.passed));
+      const canSubmit = !aiUnavailable && !!(result && (result.can_submit || result.passed));
 
       this.setData({
-        photoKey: key,
-        analysisState: aiUnavailable ? 'fallback' : 'success',
+        photoKey: uploadedKey,
+        analysisState: aiUnavailable ? 'error' : 'success',
         analysisResult: result || null,
-        analysisPassed: aiUnavailable || !!(result && result.passed),
+        analysisPassed: !aiUnavailable && !!(result && result.passed),
         analysisError: '',
         analysisMessage: aiUnavailable
-          ? 'AI 检查暂不可用，已允许提交。'
+          ? 'AI 检查暂不可用，暂不能提交。'
           : (result && result.passed ? '照片检查通过，可以提交。' : '照片未通过检查，请重新选择。'),
+        verificationToken: (result && result.verification_token) || '',
         canSubmit
       });
     } catch (err: any) {
-      if (uploadedKey) {
-        this.setData({
-          photoKey: uploadedKey,
-          analysisState: 'fallback',
-          analysisResult: null,
-          analysisPassed: true,
-          analysisError: '',
-          analysisMessage: 'AI 检查暂不可用，已允许提交。',
-          canSubmit: true
-        });
-      } else {
-        this.setData({
-          photoKey: '',
-          analysisState: 'error',
-          analysisResult: null,
-          analysisPassed: false,
-          analysisError: (err && err.message) || '照片处理失败，请重试',
-          analysisMessage: '',
-          canSubmit: false
-        });
-      }
+      this.setData({
+        photoKey: uploadedKey,
+        analysisState: 'error',
+        analysisResult: null,
+        analysisPassed: false,
+        analysisError: (err && err.message) || '照片处理失败，请重试',
+        analysisMessage: uploadedKey ? '照片已上传，但尚未通过 AI 检查。' : '',
+        verificationToken: '',
+        canSubmit: false
+      });
     } finally {
       hideLoading();
     }
+  },
+
+  async prepareAndUploadPhoto(filePath: string) {
+    const preparedPhoto = await this.preparePhotoForUpload(filePath);
+    const originalKey = createUploadKey();
+    await uploadPhotoToQiniu(preparedPhoto.filePath, originalKey);
+
+    let photoKey = originalKey;
+    let photoMeta = {
+      fileSize: preparedPhoto.fileSize,
+      width: preparedPhoto.width,
+      height: preparedPhoto.height
+    };
+    const requestedBackgroundColor = String(this.data.task && this.data.task.photo_spec && this.data.task.photo_spec.background_color || '').trim();
+    const backgroundColor = getBackgroundColor(requestedBackgroundColor);
+    if (requestedBackgroundColor && !backgroundColor) {
+      throw new Error('暂不支持该背景色，请选择白底、蓝底或红底');
+    }
+    if (backgroundColor) {
+      showLoading('生成背景中...');
+      const segmentResult = await segmentPhoto(originalKey);
+      const transparentPath = await downloadFile(segmentResult.result_url);
+      const compositedPath = await this.composeBackground(transparentPath, getBackgroundColor(backgroundColor), preparedPhoto.width, preparedPhoto.height);
+      const processedKey = createUploadKey().replace(/^photo_/, 'processed_');
+      await uploadPhotoToQiniu(compositedPath, processedKey);
+      photoKey = processedKey;
+      const localInfo = await getLocalFileInfo(compositedPath);
+      photoMeta = {
+        fileSize: Number(localInfo.size || preparedPhoto.fileSize),
+        width: preparedPhoto.width,
+        height: preparedPhoto.height
+      };
+      this.setData({ photoPath: compositedPath, photoKey, photoMeta });
+    } else {
+      this.setData({ photoKey, photoMeta });
+    }
+    return { photoKey, photoMeta };
+  },
+
+  composeBackground(transparentPath: string, color: string, width: number, height: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const canvasWidth = Math.max(1, Number(width || 1));
+      const canvasHeight = Math.max(1, Number(height || 1));
+      this.setData({ canvasWidth, canvasHeight });
+      const context = wx.createCanvasContext('background-canvas', this);
+      context.setFillStyle(color);
+      context.fillRect(0, 0, canvasWidth, canvasHeight);
+      context.drawImage(transparentPath, 0, 0, canvasWidth, canvasHeight);
+      context.draw(false, () => {
+        wx.canvasToTempFilePath({
+          canvasId: 'background-canvas',
+          x: 0,
+          y: 0,
+          width: canvasWidth,
+          height: canvasHeight,
+          destWidth: canvasWidth,
+          destHeight: canvasHeight,
+          fileType: 'jpg',
+          quality: 0.92,
+          success: (res) => resolve(res.tempFilePath),
+          fail: reject
+        }, this);
+      });
+    });
   },
 
   retryAnalyzePhoto() {
@@ -631,6 +706,7 @@ Page({
     const params = {
       task_id: this.data.taskId,
       verification_code: normalizeDigitText(this.data.verificationCodeInput),
+      verification_token: this.data.verificationToken || undefined,
       photo: {
         url: photoKey,
         file_size: Number(photoMeta.fileSize || 0),

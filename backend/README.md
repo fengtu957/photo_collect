@@ -31,6 +31,8 @@ cp .env.example .env
 - `QINIU_SECRET_KEY`
 - `QINIU_BUCKET`
 - `QINIU_DOMAIN`
+- `ALIYUN_ACCESS_KEY_ID` / `ALIYUN_ACCESS_KEY_SECRET`（人体分割，可选）
+- `ALIYUN_IMAGESEG_ENDPOINT`（可选，默认 `https://imageseg.cn-shanghai.aliyuncs.com/`）
 - `QWEN_API_KEY`
 
 ## 本地开发
@@ -100,6 +102,10 @@ http://localhost:8000/paper/hinge-58241/entry
 1. 小程序调用 `GET /api/v1/upload/token`
 2. 小程序直接上传图片到七牛
 3. 小程序再调用提交接口，把七牛 key 写入后端
+
+### 人体分割
+
+`POST /api/v1/photos/segment` 接收七牛对象 key。后端仅生成七牛临时签名 URL 并调用阿里云 `SegmentBody`，不转发图片二进制；阿里云返回的透明 PNG 临时 URL 由小程序直接下载并在本地 Canvas 合成背景。
 
 ## 当前缺口
 
