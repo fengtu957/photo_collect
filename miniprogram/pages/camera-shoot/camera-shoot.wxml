@@ -17,14 +17,15 @@
 
     <view class="top-bar" style="padding-top: {{statusBarHeight + 20}}px;">
       <view class="top-btn" bindtap="goBack">返回</view>
-      <text class="top-title">拍照</text>
+      <text class="top-title">{{entrySource === 'album' ? '选择照片' : '拍照'}}</text>
       <view class="top-btn top-btn-ghost"></view>
     </view>
 
     <view class="guide-tip">请将人物对准轮廓后拍摄</view>
 
     <view class="bottom-bar">
-      <view class="bottom-action" bindtap="chooseFromAlbum">相册</view>
+      <view class="bottom-action" wx:if="{{!disallowAlbumPhotos}}" bindtap="chooseFromAlbum">相册</view>
+      <view class="bottom-action" wx:else></view>
       <view class="shutter-wrap" bindtap="takePhoto">
         <view class="shutter-inner"></view>
       </view>
@@ -33,7 +34,12 @@
   </view>
 
   <view class="preview-stage" wx:else>
-    <image class="preview-image" src="{{tempImagePath}}" mode="aspectFit"></image>
+    <view
+      class="preview-image-layer"
+      style="left: {{previewImageOffsetX}}px; top: {{previewImageOffsetY}}px; width: {{previewImageWidth}}px; height: {{previewImageHeight}}px; transform: scale({{previewImageScale}});"
+    >
+      <image class="preview-image" src="{{tempImagePath}}" mode="scaleToFill"></image>
+    </view>
     <view
       class="overlay overlay-top"
       style="height: {{cropBoxTop}}px;"
@@ -45,15 +51,22 @@
       <image class="window-guide" src="../../imgs/mask.svg" mode="aspectFit"></image>
     </view>
     <view class="overlay overlay-bottom" style="top: {{cropBoxTop + cropBoxHeight}}px;"></view>
+    <view
+      class="crop-touch-layer"
+      catchtouchstart="onCropTouchStart"
+      catchtouchmove="onCropTouchMove"
+      catchtouchend="onCropTouchEnd"
+      catchtouchcancel="onCropTouchEnd"
+    ></view>
 
     <view class="top-bar preview-top" style="padding-top: {{statusBarHeight + 20}}px;">
       <view class="top-btn" bindtap="goBack">返回</view>
-      <text class="top-title">照片预览</text>
+      <text class="top-title">拖动缩放裁剪</text>
       <view class="top-btn top-btn-ghost"></view>
     </view>
 
     <view class="preview-actions">
-      <view class="preview-btn preview-btn-secondary" bindtap="retakePhoto">重拍</view>
+      <view class="preview-btn preview-btn-secondary" bindtap="retakePhoto">{{entrySource === 'album' ? '重新选择' : '重拍'}}</view>
       <view class="preview-btn preview-btn-primary" bindtap="usePhoto">使用照片</view>
     </view>
   </view>

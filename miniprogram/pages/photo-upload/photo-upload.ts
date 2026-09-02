@@ -293,6 +293,16 @@ Page({
       return;
     }
 
+    if (!this.data.task) {
+      showError('任务加载中，请稍候');
+      return;
+    }
+
+    if (this.data.task.disallow_album_photos) {
+      this.openCameraPage();
+      return;
+    }
+
     wx.showActionSheet({
       itemList: ['拍照', '从相册选择'],
       success: (res) => {
@@ -313,8 +323,16 @@ Page({
   },
 
   openCameraPage() {
+    this.openPhotoCropPage('camera');
+  },
+
+  openPhotoCropPage(sourceType: 'camera' | 'album') {
+    if (sourceType === 'album' && this.data.task && this.data.task.disallow_album_photos) {
+      showError('当前任务不允许使用相册照片，请直接拍照');
+      return;
+    }
     wx.navigateTo({
-      url: '/pages/camera-shoot/camera-shoot',
+      url: `/pages/camera-shoot/camera-shoot?source=${sourceType}&disallowAlbumPhotos=${this.data.task && this.data.task.disallow_album_photos ? '1' : '0'}`,
       events: {
         photoSelected: (data: any) => {
           if (!data || !data.tempFilePath) return;
@@ -325,15 +343,11 @@ Page({
   },
 
   chooseFromAlbum() {
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sizeType: ['compressed'],
-      sourceType: ['album'],
-      success: (res) => {
-        this.handleSelectedPhoto(res.tempFiles[0].tempFilePath);
-      }
-    });
+    if (this.data.task && this.data.task.disallow_album_photos) {
+      showError('当前任务不允许使用相册照片，请直接拍照');
+      return;
+    }
+    this.openPhotoCropPage('album');
   },
 
   handleSelectedPhoto(filePath: string) {

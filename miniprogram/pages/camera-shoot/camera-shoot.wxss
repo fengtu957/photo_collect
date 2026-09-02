@@ -18,6 +18,21 @@
   height: 100%;
 }
 
+.preview-image-layer {
+  position: absolute;
+  z-index: 1;
+  transform-origin: 0 0;
+}
+
+.crop-touch-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+}
+
 .overlay {
   position: absolute;
   left: 0;

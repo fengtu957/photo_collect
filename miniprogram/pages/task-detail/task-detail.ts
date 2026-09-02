@@ -370,6 +370,7 @@ Page({
     hasMore: true,
     loadingMore: false,
     total: 0,
+    pageLoading: true,
     bootstrapping: false
   },
 
@@ -391,7 +392,7 @@ Page({
     });
 
     if (!taskId) {
-      this.setData({ bootstrapping: false });
+      this.setData({ pageLoading: false, bootstrapping: false });
       showError('任务参数无效');
       return;
     }
@@ -410,7 +411,7 @@ Page({
   onShow() {
     if (this.data.taskId && !this.data.bootstrapping) {
       // 刷新时重置到第一页
-      this.setData({ page: 1, submissions: [], hasMore: true });
+      this.setData({ page: 1, submissions: [], hasMore: true, pageLoading: true });
       this.loadData();
     }
   },
@@ -431,6 +432,8 @@ Page({
   },
 
   async loadData() {
+    this.setData({ pageLoading: true });
+
     try {
       let entitlements = null;
       try {
@@ -477,7 +480,8 @@ Page({
         mySubmissionId: (mySubmission && mySubmission.id) || '',
         page: 1,
         total,
-        hasMore: (result && result.has_more) || false
+        hasMore: (result && result.has_more) || false,
+        pageLoading: false
       });
 
       if (exportState.exportStatus === 'processing' || exportState.exportStatus === 'pending') {
@@ -490,6 +494,7 @@ Page({
         this.fetchAuthorizedExportLink(true);
       }
     } catch (err: any) {
+      this.setData({ pageLoading: false });
       showError(err.message || '加载失败');
     }
   },

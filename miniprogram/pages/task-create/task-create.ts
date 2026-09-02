@@ -113,6 +113,7 @@ Page({
       description: '',
       photo_spec: { name: '', width: 0, height: 0, max_size_kb: 0, background_color: '' },
       ai_analysis_enabled: true,
+      disallow_album_photos: false,
       verification_code_enabled: false,
       verification_code: '',
       start_time: '',
@@ -216,6 +217,7 @@ Page({
           description: task.description || '',
           photo_spec: photoSpec,
           ai_analysis_enabled: aiAnalysisEnabled,
+          disallow_album_photos: !!task.disallow_album_photos,
           verification_code_enabled: !!task.verification_code_enabled,
           verification_code: task.verification_code || '',
           start_time: isEffectiveTime(copiedStartTime) ? copiedStartTime : '',
@@ -281,6 +283,12 @@ Page({
         'form.verification_code': ''
       });
     }
+  },
+
+  onDisallowAlbumPhotosChange(e: any) {
+    this.setData({
+      'form.disallow_album_photos': !!(e.detail && e.detail.value)
+    });
   },
 
   goToPhotoSpecSelect() {

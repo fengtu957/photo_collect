@@ -5,3 +5,4 @@ images/
 .codex
 .static
 backend/.env.example
+backend/tests
