@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type TaskUsecase struct {
@@ -22,6 +22,23 @@ type TaskUsecase struct {
 const taskCodeLength = 5
 const maxVerificationCodeLength = 32
 const taskCodeGenerateRetries = 32
+
+func normalizeReplacementBackgroundColor(value string) (string, bool) {
+	normalized := strings.TrimSpace(value)
+	if normalized == "白底" || normalized == "蓝底" || normalized == "红底" {
+		return normalized, true
+	}
+	if len(normalized) == 7 && normalized[0] == '#' {
+		for i := 1; i < len(normalized); i++ {
+			char := normalized[i]
+			if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+				return normalized, false
+			}
+		}
+		return strings.ToUpper(normalized), true
+	}
+	return normalized, false
+}
 
 func NewTaskUsecase(repo *data.TaskRepo, subRepo *data.SubmissionRepo, vipUC *VIPUsecase) *TaskUsecase {
 	return &TaskUsecase{repo: repo, subRepo: subRepo, vipUC: vipUC}
@@ -47,6 +64,17 @@ func validateTask(task *data.Task) error {
 	if task.AIAnalysisEnabled == nil {
 		enabled := true
 		task.AIAnalysisEnabled = &enabled
+	}
+	if task.BackgroundReplacementEnabled == nil {
+		enabled := false
+		task.BackgroundReplacementEnabled = &enabled
+	}
+	if task.IsBackgroundReplacementEnabled() {
+		backgroundColor, valid := normalizeReplacementBackgroundColor(task.PhotoSpec.BackgroundColor)
+		if !valid {
+			return errors.New("开启自动换背景后，请选择白底、蓝底、红底或填写有效的 RGB 颜色")
+		}
+		task.PhotoSpec.BackgroundColor = backgroundColor
 	}
 	if task.VerificationCodeEnabled && task.VerificationCode == "" {
 		return errors.New("开启校验码后必须填写数字校验码")
@@ -153,6 +181,9 @@ func (uc *TaskUsecase) CreateTask(ctx context.Context, task *data.Task) error {
 			if task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled {
 				return errors.New("AI分析仅限VIP开启")
 			}
+			if task.IsBackgroundReplacementEnabled() {
+				return errors.New("自动换背景仅限VIP开启")
+			}
 			task.MaxSubmissions = entitlements.Limits.MaxSubmissionsPerTask
 		} else {
 			if err := validateTaskOpenDurationLimit(task, entitlements.Limits.MaxOpenDurationDays); err != nil {
@@ -203,6 +234,9 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	if task.AIAnalysisEnabled == nil {
 		task.AIAnalysisEnabled = existing.AIAnalysisEnabled
 	}
+	if task.BackgroundReplacementEnabled == nil {
+		task.BackgroundReplacementEnabled = existing.BackgroundReplacementEnabled
+	}
 	if err := validateTask(task); err != nil {
 		return err
 	}
@@ -226,6 +260,11 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 		nextAIEnabled := task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled
 		if !entitlements.IsVIP && nextAIEnabled && !existingAIEnabled {
 			return errors.New("AI分析仅限VIP开启")
+		}
+		existingBackgroundEnabled := existing.IsBackgroundReplacementEnabled()
+		nextBackgroundEnabled := task.IsBackgroundReplacementEnabled()
+		if !entitlements.IsVIP && nextBackgroundEnabled && !existingBackgroundEnabled {
+			return errors.New("自动换背景仅限VIP开启")
 		}
 	}
 

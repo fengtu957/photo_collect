@@ -47,6 +47,16 @@
     <view class="section">
       <view class="switch-row">
         <view class="switch-copy">
+          <text class="label switch-label">自动换背景</text>
+          <text class="switch-tip">{{backgroundLimitTip}}</text>
+        </view>
+        <switch checked="{{form.background_replacement_enabled}}" bindchange="onBackgroundReplacementChange" color="#1989fa" disabled="{{backgroundSwitchDisabled}}" />
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="switch-row">
+        <view class="switch-copy">
           <text class="label switch-label">禁止使用相册照片</text>
           <text class="switch-tip">开启后，参与者只能使用相机拍摄照片；默认关闭，即允许使用相册照片。</text>
         </view>

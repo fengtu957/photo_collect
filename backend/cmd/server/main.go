@@ -38,7 +38,7 @@ func main() {
 	vipSvc := service.NewVIPService(vipUC, taskRepo)
 
 	qiniuSvc := service.NewQiniuService()
-	segmentSvc := service.NewSegmentService(qiniuSvc, service.NewAliyunImageSegService())
+	segmentSvc := service.NewSegmentService(qiniuSvc, service.NewAliyunImageSegService(), taskUC, vipUC)
 	qwenClient := pkg.NewQwenClient()
 	evalUC := biz.NewEvaluationUsecase(qwenClient)
 	exportSvc := service.NewExportService(taskRepo, subRepo, qiniuSvc, vipUC)

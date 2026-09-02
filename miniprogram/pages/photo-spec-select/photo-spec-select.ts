@@ -5,9 +5,27 @@ const BACKGROUND_COLOR_OPTIONS = [
   { value: '白底', label: '白底', dot_class: 'dot-white' },
   { value: '蓝底', label: '蓝底', dot_class: 'dot-blue' },
   { value: '红底', label: '红底', dot_class: 'dot-red' },
-  { value: '纯色', label: '纯色', dot_class: 'dot-solid' },
-  { value: '__custom__', label: '其他', dot_class: 'dot-custom' }
+  { value: '__custom__', label: '自定义 RGB', dot_class: 'dot-custom' }
 ];
+
+function normalizeRGBColor(value: any): string {
+  const normalized = String(value || '').trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  const compact = normalized.replace(/\s/g, '');
+  const match = compact.match(/^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$/i)
+    || compact.match(/^(\d{1,3}),(\d{1,3}),(\d{1,3})$/);
+  if (!match) return '';
+
+  const components = [Number(match[1]), Number(match[2]), Number(match[3])];
+  for (let i = 0; i < components.length; i += 1) {
+    if (components[i] < 0 || components[i] > 255) return '';
+  }
+
+  return '#' + components.map((component) => component.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
 
 function filterPhotoSpecs(options: any[], keyword: string) {
   const text = String(keyword || '').trim().toLowerCase();
@@ -47,7 +65,9 @@ Page({
     let selectedBackgroundColor = backgroundColor;
     let customBackgroundColor = '';
 
-    if (backgroundColor && backgroundColor !== '白底' && backgroundColor !== '蓝底' && backgroundColor !== '红底' && backgroundColor !== '纯色') {
+    if (backgroundColor === '纯色') {
+      selectedBackgroundColor = '白底';
+    } else if (backgroundColor && backgroundColor !== '白底' && backgroundColor !== '蓝底' && backgroundColor !== '红底') {
       selectedBackgroundColor = '__custom__';
       customBackgroundColor = backgroundColor;
     }
@@ -105,13 +125,13 @@ Page({
     const pages = getCurrentPages();
     const prevPage = pages[pages.length - 2] as any;
     const prevSpec = normalizePhotoSpec(prevPage && prevPage.data && prevPage.data.form && prevPage.data.form.photo_spec);
-    const customBackgroundColor = String(this.data.customBackgroundColor || '').trim();
+    const customBackgroundColor = normalizeRGBColor(this.data.customBackgroundColor);
     const backgroundColor = this.data.selectedBackgroundColor === '__custom__'
       ? customBackgroundColor
       : String(this.data.selectedBackgroundColor || '');
 
     if (this.data.selectedBackgroundColor === '__custom__' && !customBackgroundColor) {
-      wx.showToast({ title: '请输入其他背景色要求', icon: 'none' });
+      wx.showToast({ title: '请输入有效的 RGB 颜色', icon: 'none' });
       return;
     }
 

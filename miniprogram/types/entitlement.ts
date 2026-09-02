@@ -3,6 +3,7 @@ export interface UserEntitlementLimits {
   max_submissions_per_task: number;
   max_open_duration_days: number;
   can_use_ai_analysis: boolean;
+  can_use_background_replacement: boolean;
 }
 
 export interface UserEntitlementUsage {

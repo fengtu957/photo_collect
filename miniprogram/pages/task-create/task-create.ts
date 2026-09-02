@@ -4,7 +4,12 @@ import { showError, showSuccess } from '../../utils/request';
 import { isEffectiveTime, toRFC3339 } from '../../utils/time';
 import { formatDate } from '../../utils/format';
 import { normalizePhotoSpec } from '../../constants/photo-spec';
-import { canUseAIAnalysisFeature, isTaskAIAnalysisEnabled } from '../../utils/task';
+import {
+  canUseAIAnalysisFeature,
+  canUseBackgroundReplacementFeature,
+  isTaskAIAnalysisEnabled,
+  isTaskBackgroundReplacementEnabled
+} from '../../utils/task';
 import {
   buildActiveTaskTip,
   buildOpenDurationDetailTip,
@@ -53,6 +58,13 @@ function validateTaskForm(form: any): string {
   if (maxSizeKB < 0) {
     return '文件大小限制不能小于 0';
   }
+  if (form.background_replacement_enabled
+    && photoSpec.background_color !== '白底'
+    && photoSpec.background_color !== '蓝底'
+    && photoSpec.background_color !== '红底'
+    && !/^#[0-9A-Fa-f]{6}$/.test(photoSpec.background_color)) {
+    return '开启自动换背景后，请选择背景颜色或填写有效的 RGB';
+  }
   if (verificationCodeEnabled && !verificationCode) {
     return '开启校验码后请填写数字校验码';
   }
@@ -97,10 +109,13 @@ Page({
     isCopyMode: false,
     taskLoaded: false,
     initialAIAnalysisEnabled: false,
+    initialBackgroundReplacementEnabled: false,
     maxSizeKBInput: '',
     entitlements: null as any,
     aiSwitchDisabled: false,
     aiLimitTip: '开启后上传照片会进行 AI 分析。',
+    backgroundSwitchDisabled: true,
+    backgroundLimitTip: 'VIP 可开启，参与者选图后将按背景色要求自动生成。',
     createLimitTip: buildActiveTaskTip(null),
     submissionLimitTip: buildSubmissionLimitTip(null),
     durationLimitTip: buildOpenDurationTip(null),
@@ -113,6 +128,7 @@ Page({
       description: '',
       photo_spec: { name: '', width: 0, height: 0, max_size_kb: 0, background_color: '' },
       ai_analysis_enabled: true,
+      background_replacement_enabled: false,
       disallow_album_photos: false,
       verification_code_enabled: false,
       verification_code: '',
@@ -171,11 +187,17 @@ Page({
 
   syncEntitlementState(entitlements: any) {
     const canUseAI = canUseAIAnalysisFeature(entitlements);
+    const canUseBackgroundReplacement = canUseBackgroundReplacementFeature(entitlements);
     const allowLegacyAI = !!this.data.isEditMode && !!this.data.initialAIAnalysisEnabled;
+    const allowLegacyBackground = !!this.data.isEditMode && !!this.data.initialBackgroundReplacementEnabled;
     let currentAIEnabled = !!(this.data.form && this.data.form.ai_analysis_enabled);
+    let currentBackgroundEnabled = !!(this.data.form && this.data.form.background_replacement_enabled);
     const nextData: any = {
       entitlements,
       aiLimitTip: canUseAI ? '开启后上传照片会进行 AI 分析。' : '当前版本暂不支持开启 AI 分析。',
+      backgroundLimitTip: canUseBackgroundReplacement
+        ? '参与者选图后将按背景色要求自动生成，无需手动操作。'
+        : '自动换背景仅限 VIP 开启。',
       createLimitTip: buildActiveTaskTip(entitlements),
       submissionLimitTip: buildSubmissionLimitTip(entitlements),
       durationLimitTip: buildOpenDurationTip(entitlements),
@@ -188,7 +210,13 @@ Page({
       nextData['form.ai_analysis_enabled'] = false;
     }
 
+    if (!canUseBackgroundReplacement && !allowLegacyBackground && currentBackgroundEnabled) {
+      currentBackgroundEnabled = false;
+      nextData['form.background_replacement_enabled'] = false;
+    }
+
     nextData.aiSwitchDisabled = !canUseAI && !currentAIEnabled;
+    nextData.backgroundSwitchDisabled = !canUseBackgroundReplacement && !currentBackgroundEnabled;
     this.setData(nextData);
   },
 
@@ -200,6 +228,7 @@ Page({
       const photoSpec = normalizePhotoSpec((task && task.photo_spec) || {});
       appInstance.globalData.customFields = cloneCustomFields(customFields);
       const aiAnalysisEnabled = isTaskAIAnalysisEnabled(task);
+      const backgroundReplacementEnabled = isTaskBackgroundReplacementEnabled(task);
       const copiedStartTime = isCopyMode ? getCopyTaskTimeValue(task.start_time) : task.start_time;
       const copiedEndTime = isCopyMode ? getCopyTaskTimeValue(task.end_time) : task.end_time;
 
@@ -207,6 +236,7 @@ Page({
         taskLoaded: true,
         taskCode: isCopyMode ? '' : String(task.task_code || ''),
         initialAIAnalysisEnabled: isCopyMode ? false : aiAnalysisEnabled,
+        initialBackgroundReplacementEnabled: isCopyMode ? false : backgroundReplacementEnabled,
         maxSizeKBInput: String(photoSpec.max_size_kb),
         startDate: isEffectiveTime(copiedStartTime) ? formatDate(copiedStartTime) : '',
         startTime: isEffectiveTime(copiedStartTime) ? formatPickerTime(copiedStartTime) : '',
@@ -217,6 +247,7 @@ Page({
           description: task.description || '',
           photo_spec: photoSpec,
           ai_analysis_enabled: aiAnalysisEnabled,
+          background_replacement_enabled: backgroundReplacementEnabled,
           disallow_album_photos: !!task.disallow_album_photos,
           verification_code_enabled: !!task.verification_code_enabled,
           verification_code: task.verification_code || '',
@@ -285,6 +316,20 @@ Page({
     }
   },
 
+  onBackgroundReplacementChange(e: any) {
+    const nextValue = !!(e.detail && e.detail.value);
+    const canUseBackgroundReplacement = canUseBackgroundReplacementFeature(this.data.entitlements);
+    if (nextValue && !canUseBackgroundReplacement) {
+      showError('自动换背景仅限VIP开启');
+      this.setData({ 'form.background_replacement_enabled': false });
+      return;
+    }
+    this.setData({
+      'form.background_replacement_enabled': nextValue,
+      backgroundSwitchDisabled: !canUseBackgroundReplacement && !nextValue
+    });
+  },
+
   onDisallowAlbumPhotosChange(e: any) {
     this.setData({
       'form.disallow_album_photos': !!(e.detail && e.detail.value)
@@ -323,8 +368,11 @@ Page({
     const appInstance = getApp<any>();
     const { form } = this.data;
     const canUseAI = canUseAIAnalysisFeature(this.data.entitlements);
+    const canUseBackgroundReplacement = canUseBackgroundReplacementFeature(this.data.entitlements);
     const nextAIEnabled = !!(form && form.ai_analysis_enabled);
     const initialAIEnabled = !!this.data.initialAIAnalysisEnabled;
+    const nextBackgroundEnabled = !!(form && form.background_replacement_enabled);
+    const initialBackgroundEnabled = !!this.data.initialBackgroundReplacementEnabled;
     const validationMessage = validateTaskForm(form);
     if (validationMessage) {
       showError(validationMessage);
@@ -336,6 +384,14 @@ Page({
         aiSwitchDisabled: true
       });
       showError('当前版本暂不支持开启AI分析');
+      return;
+    }
+    if (nextBackgroundEnabled && !canUseBackgroundReplacement && !initialBackgroundEnabled) {
+      this.setData({
+        'form.background_replacement_enabled': false,
+        backgroundSwitchDisabled: true
+      });
+      showError('自动换背景仅限VIP开启');
       return;
     }
     try {

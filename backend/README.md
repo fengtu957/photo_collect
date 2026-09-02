@@ -108,7 +108,7 @@ http://localhost:8000/paper/hinge-58241/entry
 
 ### 人体分割
 
-`GET /api/v1/photos/segment/upload-policy` 为小程序签发上海 OSS 临时上传策略；小程序直传原图后，`POST /api/v1/photos/segment` 接收 OSS object key，后端仅生成标准上海 OSS 临时 URL 并调用阿里云 `SegmentBody`，不转发图片二进制。阿里云返回的透明 PNG 临时 URL 由小程序直接下载并在本地 Canvas 合成背景。上海 OSS 临时桶应配置 1 天生命周期自动清理。
+`GET /api/v1/photos/segment/upload-policy?task_id=...` 为开启自动换背景的 VIP 任务签发上海 OSS 临时上传策略；小程序直传原图后，`POST /api/v1/photos/segment` 接收 `task_id` 和 OSS object key，后端再次校验任务开关和任务创建者 VIP 状态，仅生成标准上海 OSS 临时 URL 并调用阿里云 `SegmentBody`，不转发图片二进制。阿里云返回的透明 PNG 临时 URL 由小程序直接下载并在本地 Canvas 合成背景。上海 OSS 临时桶应配置 1 天生命周期自动清理。
 
 ## 当前缺口
 

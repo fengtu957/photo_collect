@@ -11,7 +11,7 @@
 
   <view class="color-card">
     <text class="color-title">背景色要求</text>
-    <text class="color-tip">非必填，不限制可选“无要求”</text>
+    <text class="color-tip">可选择通用底色，或输入 RGB；不限制可选“无要求”</text>
     <view class="color-options">
       <view
         class="color-option {{selectedBackgroundColor === item.value ? 'color-option-active' : ''}}"
@@ -27,7 +27,8 @@
     <view class="custom-color-input-wrap" wx:if="{{selectedBackgroundColor === '__custom__'}}">
       <input
         class="input custom-color-input"
-        placeholder="请输入其他背景要求，如：只要是纯色就行"
+        placeholder="如 67,142,219 或 #438EDB"
+        maxlength="20"
         value="{{customBackgroundColor}}"
         bindinput="onCustomBackgroundInput"
         adjust-position="{{false}}"

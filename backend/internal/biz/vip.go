@@ -18,10 +18,11 @@ const (
 )
 
 type UserEntitlementLimits struct {
-	MaxActiveTasks        int  `json:"max_active_tasks"`
-	MaxSubmissionsPerTask int  `json:"max_submissions_per_task"`
-	MaxOpenDurationDays   int  `json:"max_open_duration_days"`
-	CanUseAIAnalysis      bool `json:"can_use_ai_analysis"`
+	MaxActiveTasks              int  `json:"max_active_tasks"`
+	MaxSubmissionsPerTask       int  `json:"max_submissions_per_task"`
+	MaxOpenDurationDays         int  `json:"max_open_duration_days"`
+	CanUseAIAnalysis            bool `json:"can_use_ai_analysis"`
+	CanUseBackgroundReplacement bool `json:"can_use_background_replacement"`
 }
 
 type UserEntitlementUsage struct {
@@ -56,10 +57,11 @@ func buildFreeEntitlements() *UserEntitlements {
 	return &UserEntitlements{
 		IsVIP: false,
 		Limits: UserEntitlementLimits{
-			MaxActiveTasks:        FreeMaxActiveTasks,
-			MaxSubmissionsPerTask: FreeMaxSubmissionsPerTask,
-			MaxOpenDurationDays:   FreeMaxOpenDurationDays,
-			CanUseAIAnalysis:      false,
+			MaxActiveTasks:              FreeMaxActiveTasks,
+			MaxSubmissionsPerTask:       FreeMaxSubmissionsPerTask,
+			MaxOpenDurationDays:         FreeMaxOpenDurationDays,
+			CanUseAIAnalysis:            false,
+			CanUseBackgroundReplacement: false,
 		},
 	}
 }
@@ -89,6 +91,7 @@ func (uc *VIPUsecase) GetUserEntitlements(ctx context.Context, userID string) (*
 		entitlements.Limits.MaxSubmissionsPerTask = 0
 		entitlements.Limits.MaxOpenDurationDays = VIPMaxOpenDurationDays
 		entitlements.Limits.CanUseAIAnalysis = true
+		entitlements.Limits.CanUseBackgroundReplacement = true
 	}
 
 	return entitlements, nil

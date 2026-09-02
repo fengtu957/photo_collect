@@ -103,10 +103,6 @@
   background: #ff4444;
 }
 
-.dot-solid {
-  background: linear-gradient(135deg, #ff4444, #1989fa);
-}
-
 .dot-custom {
   background: #fff;
   border: 1rpx dashed #999;

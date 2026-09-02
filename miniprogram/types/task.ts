@@ -42,6 +42,7 @@ export interface Task {
   description: string;
   photo_spec: PhotoSpec;
   ai_analysis_enabled?: boolean;
+  background_replacement_enabled?: boolean;
   disallow_album_photos?: boolean;
   verification_code_enabled?: boolean;
   verification_code?: string;
@@ -61,6 +62,7 @@ export interface CreateTaskParams {
   description: string;
   photo_spec: PhotoSpec;
   ai_analysis_enabled?: boolean;
+  background_replacement_enabled?: boolean;
   disallow_album_photos?: boolean;
   verification_code_enabled?: boolean;
   verification_code?: string;
