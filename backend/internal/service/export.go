@@ -72,7 +72,7 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		Error(w, 1011, "无权限导出此任务")
 		return
 	}
@@ -128,7 +128,7 @@ func (s *ExportService) SyncExportStatus(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		Error(w, 1018, "无权限操作此任务")
 		return
 	}
@@ -151,7 +151,7 @@ func (s *ExportService) AuthorizeExportLink(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		Error(w, 1015, "无权限操作此任务")
 		return
 	}

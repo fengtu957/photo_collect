@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type TaskUsecase struct {
@@ -188,12 +188,13 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 	if existing == nil {
 		return errors.New("任务不存在")
 	}
-	if existing.UserID != userID {
+	if !existing.CanManage(userID) {
 		return errors.New("无权限编辑此任务")
 	}
 
 	task.ID = existing.ID
 	task.UserID = existing.UserID
+	task.AdminUserIDs = existing.AdminUserIDs
 	task.Enabled = existing.Enabled
 	task.Stats = existing.Stats
 	task.CreatedAt = existing.CreatedAt
@@ -210,7 +211,7 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 		return err
 	}
 	if uc.vipUC != nil {
-		entitlements, err := uc.vipUC.GetUserEntitlements(ctx, userID)
+		entitlements, err := uc.vipUC.GetUserEntitlements(ctx, existing.UserID)
 		if err != nil {
 			return err
 		}
@@ -260,37 +261,54 @@ func (uc *TaskUsecase) ListTasks(ctx context.Context, userID string) ([]*data.Ta
 		return nil, err
 	}
 
-	// 2. 我参与的任务（有提交记录的任务ID）
+	// 2. 我管理的任务
+	managed, err := uc.repo.FindByAdminUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. 我参与的任务（有提交记录的任务ID）
 	participatedIDs, err := uc.subRepo.FindDistinctTaskIDsByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. 过滤掉已在创建列表中的任务ID，避免重复查询
-	createdSet := make(map[string]bool)
+	// 4. 过滤掉已在创建或管理列表中的任务ID，避免重复查询
+	accessibleSet := make(map[string]bool)
 	for _, t := range created {
-		createdSet[t.ID.Hex()] = true
+		accessibleSet[t.ID.Hex()] = true
+	}
+	uniqueManaged := make([]*data.Task, 0, len(managed))
+	for _, t := range managed {
+		if accessibleSet[t.ID.Hex()] {
+			continue
+		}
+		accessibleSet[t.ID.Hex()] = true
+		uniqueManaged = append(uniqueManaged, t)
 	}
 	var newIDs []primitive.ObjectID
 	for _, oid := range participatedIDs {
-		if !createdSet[oid.Hex()] {
+		if !accessibleSet[oid.Hex()] {
 			newIDs = append(newIDs, oid)
 		}
 	}
 
-	// 4. 批量查询参与的任务
+	// 5. 批量查询参与的任务
 	participated, err := uc.repo.FindByIDs(ctx, newIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	// 5. 合并并按创建时间倒序排序
-	all := append(created, participated...)
+	// 6. 合并并按创建时间倒序排序
+	all := make([]*data.Task, 0, len(created)+len(uniqueManaged)+len(participated))
+	all = append(all, created...)
+	all = append(all, uniqueManaged...)
+	all = append(all, participated...)
 	sort.Slice(all, func(i, j int) bool {
 		return all[i].CreatedAt.After(all[j].CreatedAt)
 	})
 
-	// 6. 动态计算每个任务的提交数量
+	// 7. 动态计算每个任务的提交数量
 	for _, task := range all {
 		count, err := uc.subRepo.CountByTaskID(ctx, task.ID.Hex())
 		if err == nil {
@@ -309,7 +327,7 @@ func (uc *TaskUsecase) DeleteTask(ctx context.Context, id string, userID string)
 	if task == nil {
 		return errors.New("任务不存在")
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		return errors.New("无权限删除此任务")
 	}
 	if err := uc.subRepo.DeleteByTaskID(ctx, id); err != nil {

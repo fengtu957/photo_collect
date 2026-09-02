@@ -81,7 +81,10 @@ http://localhost:8000/paper/hinge-58241/entry
 需要管理员 JWT 的接口：
 
 - `GET /api/v1/admin/tasks`
+- `PUT /api/v1/admin/tasks/{id}/admins`
 - `POST /api/v1/admin/vip/grant`
+
+任务管理员通过后台页面按任务配置。管理员使用现有小程序即可获得该任务的管理视图、查看全部提交并多次上传；数据库中的真实任务创建者不会改变。
 
 ## 联调说明
 

@@ -61,6 +61,7 @@ func main() {
 	adminAPI := r.PathPrefix("/api/v1/admin").Subrouter()
 	adminAPI.Use(service.AdminAuthMiddleware)
 	adminAPI.HandleFunc("/tasks", adminSvc.ListTasks).Methods("GET")
+	adminAPI.HandleFunc("/tasks/{id}/admins", adminSvc.UpdateTaskAdmins).Methods("PUT")
 	adminAPI.HandleFunc("/vip/grant", adminSvc.GrantVIP).Methods("POST")
 
 	// 需要认证的接口

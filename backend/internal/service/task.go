@@ -21,8 +21,12 @@ func sanitizeTaskForViewer(task *data.Task, viewerID string) *data.Task {
 	}
 
 	safeTask := *task
-	if safeTask.UserID != viewerID {
+	if task.CanManage(viewerID) {
+		// 兼容已发布的小程序：客户端只通过 user_id 判断是否显示管理和多次上传入口。
+		safeTask.UserID = viewerID
+	} else {
 		safeTask.VerificationCode = ""
+		safeTask.AdminUserIDs = nil
 	}
 
 	return &safeTask

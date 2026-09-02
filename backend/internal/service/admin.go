@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"photo-backend/internal/biz"
@@ -13,7 +14,10 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
 )
+
+const maxTaskAdminCount = 50
 
 type adminTaskItem struct {
 	*data.Task
@@ -171,6 +175,62 @@ func (s *AdminService) GrantVIP(w http.ResponseWriter, r *http.Request) {
 		"membership":   membership,
 		"entitlements": entitlements,
 	})
+}
+
+func (s *AdminService) UpdateTaskAdmins(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimSpace(mux.Vars(r)["id"])
+	var req struct {
+		AdminUserIDs []string `json:"admin_user_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		Error(w, 9113, err.Error())
+		return
+	}
+
+	task, err := s.taskRepo.FindByID(r.Context(), taskID)
+	if err != nil {
+		Error(w, 9114, err.Error())
+		return
+	}
+	if task == nil {
+		Error(w, 9114, "任务不存在")
+		return
+	}
+
+	adminUserIDs, err := normalizeTaskAdminUserIDs(task.UserID, req.AdminUserIDs)
+	if err != nil {
+		Error(w, 9113, err.Error())
+		return
+	}
+	if err := s.taskRepo.UpdateAdminUserIDs(r.Context(), taskID, adminUserIDs); err != nil {
+		Error(w, 9114, err.Error())
+		return
+	}
+
+	Success(w, map[string]interface{}{
+		"id":             taskID,
+		"admin_user_ids": adminUserIDs,
+	})
+}
+
+func normalizeTaskAdminUserIDs(ownerUserID string, values []string) ([]string, error) {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
+	for _, value := range values {
+		userID := strings.TrimSpace(value)
+		if userID == "" || userID == ownerUserID || seen[userID] {
+			continue
+		}
+		if len(userID) > 128 {
+			return nil, errors.New("管理员 OpenID 长度不能超过128个字符")
+		}
+		if len(result) >= maxTaskAdminCount {
+			return nil, errors.New("每个任务最多设置50个管理员")
+		}
+		seen[userID] = true
+		result = append(result, userID)
+	}
+	return result, nil
 }
 
 func (s *AdminService) generateAdminToken(username string) (string, error) {

@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -41,10 +42,28 @@ func (r *TaskRepo) EnsureIndexes(ctx context.Context) error {
 				SetUnique(true).
 				SetSparse(true),
 		},
+		{
+			Keys: bson.D{{Key: "admin_user_ids", Value: 1}},
+		},
 	}
 
 	_, err := r.data.DB().Collection("tasks").Indexes().CreateMany(ctx, indexes)
 	return err
+}
+
+func (r *TaskRepo) FindByAdminUserID(ctx context.Context, userID string) ([]*Task, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.data.DB().Collection("tasks").Find(ctx, bson.M{"admin_user_ids": userID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var tasks []*Task
+	if err := cursor.All(ctx, &tasks); err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }
 
 func (r *TaskRepo) Create(ctx context.Context, task *Task) error {
@@ -140,6 +159,7 @@ func (r *TaskRepo) AdminListTasks(ctx context.Context, query AdminTaskListQuery)
 				{"title": bson.M{"$regex": pattern}},
 				{"description": bson.M{"$regex": pattern}},
 				{"user_id": bson.M{"$regex": pattern}},
+				{"admin_user_ids": bson.M{"$regex": pattern}},
 				{"task_code": bson.M{"$regex": pattern}},
 			}
 
@@ -178,6 +198,27 @@ func (r *TaskRepo) AdminListTasks(ctx context.Context, query AdminTaskListQuery)
 		Page:     page,
 		PageSize: pageSize,
 	}, nil
+}
+
+func (r *TaskRepo) UpdateAdminUserIDs(ctx context.Context, id string, adminUserIDs []string) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	result, err := r.data.DB().Collection("tasks").UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$set": bson.M{
+			"admin_user_ids": adminUserIDs,
+			"updated_at":     time.Now(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return errors.New("任务不存在")
+	}
+	return nil
 }
 
 // FindByIDs 按多个ID批量查询任务，按创建时间倒序
