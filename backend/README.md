@@ -33,6 +33,9 @@ cp .env.example .env
 - `QINIU_DOMAIN`
 - `ALIYUN_ACCESS_KEY_ID` / `ALIYUN_ACCESS_KEY_SECRET`（人体分割，可选）
 - `ALIYUN_IMAGESEG_ENDPOINT`（可选，默认 `https://imageseg.cn-shanghai.aliyuncs.com/`）
+- `ALIYUN_OSS_BUCKET`（上海地域 OSS 临时桶，人体分割必填）
+- `ALIYUN_OSS_ENDPOINT`（可选，默认 `oss-cn-shanghai.aliyuncs.com`）
+- `ALIYUN_OSS_PREFIX`（可选，默认 `photo-temp`）
 - `QWEN_API_KEY`
 
 ## 本地开发
@@ -105,7 +108,7 @@ http://localhost:8000/paper/hinge-58241/entry
 
 ### 人体分割
 
-`POST /api/v1/photos/segment` 接收七牛对象 key。后端仅生成七牛临时签名 URL 并调用阿里云 `SegmentBody`，不转发图片二进制；阿里云返回的透明 PNG 临时 URL 由小程序直接下载并在本地 Canvas 合成背景。
+`GET /api/v1/photos/segment/upload-policy` 为小程序签发上海 OSS 临时上传策略；小程序直传原图后，`POST /api/v1/photos/segment` 接收 OSS object key，后端仅生成标准上海 OSS 临时 URL 并调用阿里云 `SegmentBody`，不转发图片二进制。阿里云返回的透明 PNG 临时 URL 由小程序直接下载并在本地 Canvas 合成背景。上海 OSS 临时桶应配置 1 天生命周期自动清理。
 
 ## 当前缺口
 

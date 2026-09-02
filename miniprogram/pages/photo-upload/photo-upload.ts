@@ -1,6 +1,6 @@
 import { getTask } from '../../services/task';
 import { getUploadToken } from '../../services/upload';
-import { analyzePhotoPreview, createSubmission, getSubmission, segmentPhoto, updateSubmission } from '../../services/submission';
+import { analyzePhotoPreview, createSubmission, getSegmentUploadPolicy, getSubmission, segmentPhoto, updateSubmission } from '../../services/submission';
 import { SubmissionAnalysisResult } from '../../types/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { isEffectiveTime } from '../../utils/time';
@@ -200,6 +200,27 @@ function downloadFile(fileUrl: string): Promise<string> {
         resolve(res.tempFilePath);
       },
       fail: reject
+    });
+  });
+}
+
+function uploadPhotoToAliyunOSS(filePath: string): Promise<string> {
+  return getSegmentUploadPolicy().then((policy) => {
+    return new Promise((resolve, reject) => {
+      wx.uploadFile({
+        url: policy.upload_url,
+        filePath,
+        name: 'file',
+        formData: policy.fields,
+        success: (uploadRes) => {
+          if (uploadRes.statusCode !== 200 && uploadRes.statusCode !== 204) {
+            reject(new Error('上传分割临时文件失败'));
+            return;
+          }
+          resolve(policy.key);
+        },
+        fail: () => reject(new Error('上传分割临时文件失败'))
+      });
     });
   });
 }
@@ -539,7 +560,8 @@ Page({
     }
     if (backgroundColor) {
       showLoading('生成背景中...');
-      const segmentResult = await segmentPhoto(originalKey);
+      const segmentOSSKey = await uploadPhotoToAliyunOSS(preparedPhoto.filePath);
+      const segmentResult = await segmentPhoto(segmentOSSKey);
       const transparentPath = await downloadFile(segmentResult.result_url);
       const compositedPath = await this.composeBackground(transparentPath, getBackgroundColor(backgroundColor), preparedPhoto.width, preparedPhoto.height);
       const processedKey = createUploadKey().replace(/^photo_/, 'processed_');

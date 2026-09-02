@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -23,6 +24,9 @@ type AliyunImageSegService struct {
 	accessKeyID     string
 	accessKeySecret string
 	endpoint        string
+	ossBucket       string
+	ossEndpoint     string
+	ossPrefix       string
 	client          *http.Client
 }
 
@@ -42,8 +46,87 @@ func NewAliyunImageSegService() *AliyunImageSegService {
 		accessKeyID:     strings.TrimSpace(os.Getenv("ALIYUN_ACCESS_KEY_ID")),
 		accessKeySecret: strings.TrimSpace(os.Getenv("ALIYUN_ACCESS_KEY_SECRET")),
 		endpoint:        endpoint,
+		ossBucket:       strings.TrimSpace(os.Getenv("ALIYUN_OSS_BUCKET")),
+		ossEndpoint:     strings.TrimSpace(os.Getenv("ALIYUN_OSS_ENDPOINT")),
+		ossPrefix:       strings.Trim(strings.TrimSpace(os.Getenv("ALIYUN_OSS_PREFIX")), "/"),
 		client:          &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+type OSSUploadPolicy struct {
+	UploadURL string            `json:"upload_url"`
+	Key       string            `json:"key"`
+	Fields    map[string]string `json:"fields"`
+	ExpiresIn int               `json:"expires_in"`
+}
+
+func (s *AliyunImageSegService) CreateOSSUploadPolicy(userID string) (*OSSUploadPolicy, error) {
+	if s == nil || s.accessKeyID == "" || s.accessKeySecret == "" || s.ossBucket == "" {
+		return nil, errors.New("阿里云上海 OSS 未配置")
+	}
+	prefix := s.ossPrefix
+	if prefix == "" {
+		prefix = "photo-temp"
+	}
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	userHash := fmt.Sprintf("%x", sha256.Sum256([]byte(userID)))[:16]
+	key := fmt.Sprintf("%s%s/%d.jpg", prefix, userHash, time.Now().UnixNano())
+	expires := time.Now().Add(10 * time.Minute).UTC()
+	policyJSON := fmt.Sprintf(`{"expiration":"%s","conditions":[["starts-with","$key","%s"],["content-length-range",0,10485760]]}`, expires.Format("2006-01-02T15:04:05.000Z"), prefix)
+	policy := base64.StdEncoding.EncodeToString([]byte(policyJSON))
+	h := hmac.New(sha1.New, []byte(s.accessKeySecret))
+	_, _ = h.Write([]byte(policy))
+	host := s.ossHost()
+	return &OSSUploadPolicy{
+		UploadURL: "https://" + host,
+		Key:       key,
+		Fields: map[string]string{
+			"key":                   key,
+			"policy":                policy,
+			"OSSAccessKeyId":        s.accessKeyID,
+			"Signature":             base64.StdEncoding.EncodeToString(h.Sum(nil)),
+			"success_action_status": "200",
+		},
+		ExpiresIn: 600,
+	}, nil
+}
+
+func (s *AliyunImageSegService) GetOSSFileURL(key string, ttl time.Duration) (string, error) {
+	if s == nil || s.accessKeyID == "" || s.accessKeySecret == "" || s.ossBucket == "" {
+		return "", errors.New("阿里云上海 OSS 未配置")
+	}
+	key = strings.Trim(strings.TrimSpace(key), "/")
+	if key == "" || strings.Contains(key, "..") || strings.Contains(key, "://") {
+		return "", errors.New("OSS 文件 key 无效")
+	}
+	expires := time.Now().Add(ttl).Unix()
+	resource := "/" + s.ossBucket + "/" + key
+	stringToSign := fmt.Sprintf("GET\\n\\n\\n%d\\n%s", expires, resource)
+	h := hmac.New(sha1.New, []byte(s.accessKeySecret))
+	_, _ = h.Write([]byte(stringToSign))
+	u := url.URL{Scheme: "https", Host: s.ossHost(), Path: "/" + key}
+	query := u.Query()
+	query.Set("Expires", fmt.Sprintf("%d", expires))
+	query.Set("OSSAccessKeyId", s.accessKeyID)
+	query.Set("Signature", base64.StdEncoding.EncodeToString(h.Sum(nil)))
+	u.RawQuery = query.Encode()
+	return u.String(), nil
+}
+
+func (s *AliyunImageSegService) ossHost() string {
+	endpoint := strings.TrimSpace(s.ossEndpoint)
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.Trim(endpoint, "/")
+	if endpoint == "" {
+		endpoint = "oss-cn-shanghai.aliyuncs.com"
+	}
+	if strings.HasPrefix(endpoint, s.ossBucket+".") {
+		return endpoint
+	}
+	return s.ossBucket + "." + endpoint
 }
 
 func (s *AliyunImageSegService) SegmentBody(imageURL string) (string, error) {

@@ -53,6 +53,15 @@ export async function getUploadToken() {
 export async function segmentPhoto(photoKey: string) {
   return request<{ result_url: string; expires_in: number }>('/photos/segment', {
     method: 'POST',
-    data: { photo_key: photoKey }
+    data: { oss_key: photoKey }
   });
+}
+
+export async function getSegmentUploadPolicy() {
+  return request<{
+    upload_url: string;
+    key: string;
+    fields: Record<string, string>;
+    expires_in: number;
+  }>('/photos/segment/upload-policy', { method: 'GET' });
 }

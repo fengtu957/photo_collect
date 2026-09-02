@@ -87,6 +87,7 @@ func main() {
 	api.HandleFunc("/tasks/{taskId}/submissions", subSvc.ListSubmissions).Methods("GET")
 	api.HandleFunc("/upload/token", uploadSvc.GetUploadToken).Methods("GET")
 	api.HandleFunc("/photos/segment", segmentSvc.Segment).Methods("POST")
+	api.HandleFunc("/photos/segment/upload-policy", segmentSvc.UploadPolicy).Methods("GET")
 
 	log.Println("Server starting on :8000")
 	log.Fatal(http.ListenAndServe(":8000", r))
