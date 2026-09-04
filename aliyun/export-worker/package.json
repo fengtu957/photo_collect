@@ -1,0 +1,13 @@
+{
+  "name": "photo-export-worker",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ali-oss": "^6.23.0",
+    "archiver": "^7.0.1"
+  }
+}

@@ -35,6 +35,8 @@ type TaskExportInfo struct {
 	PersistentID     string    `bson:"persistent_id,omitempty" json:"persistent_id,omitempty"`
 	FilenameTemplate string    `bson:"filename_template,omitempty" json:"filename_template,omitempty"`
 	ExportKey        string    `bson:"export_key,omitempty" json:"export_key,omitempty"`
+	ManifestKey      string    `bson:"manifest_key,omitempty" json:"manifest_key,omitempty"`
+	StatusKey        string    `bson:"status_key,omitempty" json:"status_key,omitempty"`
 	FileName         string    `bson:"file_name,omitempty" json:"file_name,omitempty"`
 	Count            int       `bson:"count,omitempty" json:"count,omitempty"`
 	ExportedAt       time.Time `bson:"exported_at,omitempty" json:"exported_at,omitempty"`

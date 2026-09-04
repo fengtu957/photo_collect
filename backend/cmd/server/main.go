@@ -37,16 +37,16 @@ func main() {
 	taskSvc := service.NewTaskService(taskUC, authSvc)
 	vipSvc := service.NewVIPService(vipUC, taskRepo)
 
-	qiniuSvc := service.NewQiniuService()
-	segmentSvc := service.NewSegmentService(qiniuSvc, service.NewAliyunImageSegService(), taskUC, vipUC)
+	ossSvc := service.NewAliyunOSSService()
+	segmentSvc := service.NewSegmentService(ossSvc, service.NewAliyunImageSegService(), taskUC, vipUC)
 	qwenClient := pkg.NewQwenClient()
 	evalUC := biz.NewEvaluationUsecase(qwenClient)
-	exportSvc := service.NewExportService(taskRepo, subRepo, qiniuSvc, vipUC)
+	exportSvc := service.NewExportService(taskRepo, subRepo, ossSvc, vipUC)
 
 	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo, vipUC)
-	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, qiniuSvc)
+	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, ossSvc)
 
-	uploadSvc := service.NewUploadService(qiniuSvc)
+	uploadSvc := service.NewUploadService(ossSvc, taskUC, vipUC)
 
 	adminSvc := service.NewAdminService(vipUC, taskRepo)
 
@@ -85,9 +85,9 @@ func main() {
 	api.HandleFunc("/submissions/{id}", subSvc.UpdateSubmission).Methods("PUT")
 	api.HandleFunc("/submissions/{id}", subSvc.DeleteSubmission).Methods("DELETE")
 	api.HandleFunc("/tasks/{taskId}/submissions", subSvc.ListSubmissions).Methods("GET")
-	api.HandleFunc("/upload/token", uploadSvc.GetUploadToken).Methods("GET")
+	api.HandleFunc("/upload/policy", uploadSvc.CreateUploadPolicy).Methods("POST")
+	api.HandleFunc("/photos/finalize", uploadSvc.FinalizePhoto).Methods("POST")
 	api.HandleFunc("/photos/segment", segmentSvc.Segment).Methods("POST")
-	api.HandleFunc("/photos/segment/upload-policy", segmentSvc.UploadPolicy).Methods("GET")
 
 	log.Println("Server starting on :8000")
 	log.Fatal(http.ListenAndServe(":8000", r))

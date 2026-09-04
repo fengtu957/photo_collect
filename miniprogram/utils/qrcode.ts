@@ -81,7 +81,7 @@ function polyMod(left: any, right: any): any {
 
 function createBitBuffer() {
   return {
-    buffer: [],
+    buffer: [] as number[],
     length: 0
   };
 }

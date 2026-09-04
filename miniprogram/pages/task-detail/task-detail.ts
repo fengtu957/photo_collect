@@ -8,7 +8,6 @@ import { isTaskAIAnalysisEnabled } from '../../utils/task';
 import { buildDownloadLimitTip, buildTaskSubmissionLimitText } from '../../utils/display-limit';
 const PAGE_SIZE = 20;
 const TASK_SHARE_IMAGE_URL = '/imgs/invited_2.png';
-let exportStatusTimer = 0;
 
 function getTaskStatus(task: any): string {
   if (!task) return '';
@@ -417,11 +416,9 @@ Page({
   },
 
   onHide() {
-    this.stopExportStatusPolling();
   },
 
   onUnload() {
-    this.stopExportStatusPolling();
   },
 
   // 滚动到底部自动加载更多
@@ -484,13 +481,10 @@ Page({
         pageLoading: false
       });
 
-      if (exportState.exportStatus === 'processing' || exportState.exportStatus === 'pending') {
-        this.startExportStatusPolling();
-      } else {
-        this.stopExportStatusPolling();
-      }
       this.clearAuthorizedExportLink();
-      if (exportState.exportStatus === 'success' && exportState.canAuthorizeExportLink) {
+      if (exportState.exportStatus === 'processing' || exportState.exportStatus === 'pending') {
+        this.syncExportStatus(true);
+      } else if (exportState.exportStatus === 'success' && exportState.canAuthorizeExportLink) {
         this.fetchAuthorizedExportLink(true);
       }
     } catch (err: any) {
@@ -528,21 +522,6 @@ Page({
     });
   },
 
-  stopExportStatusPolling() {
-    if (exportStatusTimer) {
-      clearTimeout(exportStatusTimer);
-      exportStatusTimer = 0;
-    }
-  },
-
-  startExportStatusPolling() {
-    this.stopExportStatusPolling();
-    exportStatusTimer = setTimeout(() => {
-      exportStatusTimer = 0;
-      this.syncExportStatus(true);
-    }, 3000) as unknown as number;
-  },
-
   clearAuthorizedExportLink() {
     this.setData({
       exportDownloadUrl: '',
@@ -569,12 +548,8 @@ Page({
     const status = String(result.status || '');
     if (status === 'processing' || status === 'pending') {
       this.clearAuthorizedExportLink();
-      this.startExportStatusPolling();
-    } else {
-      this.stopExportStatusPolling();
-      if (status !== 'success') {
-        this.clearAuthorizedExportLink();
-      }
+    } else if (status !== 'success') {
+      this.clearAuthorizedExportLink();
     }
   },
 
@@ -637,7 +612,6 @@ Page({
         showError(result.error_message);
       }
     } catch (err: any) {
-      this.stopExportStatusPolling();
       if (!silent) {
         showError(err.message || '刷新导出状态失败');
       }
@@ -758,13 +732,16 @@ Page({
       showError('请先完成导出');
       return;
     }
-    if (this.data.exportStatus !== 'success') {
-      showError('导出未完成，请先刷新状态');
-      return;
-    }
-
     try {
       showLoading('生成链接中...');
+      await this.syncExportStatus(true);
+      if (this.data.exportStatus !== 'success') {
+        hideLoading();
+        showError(this.data.exportStatus === 'failed' && this.data.exportErrorMessage
+          ? this.data.exportErrorMessage
+          : '导出未完成，请稍后再试');
+        return;
+      }
       const result = await authorizeExportLink(this.data.taskId);
       hideLoading();
 

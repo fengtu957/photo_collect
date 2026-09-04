@@ -2,13 +2,10 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"path"
-	"path/filepath"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
 	"regexp"
@@ -19,7 +16,6 @@ import (
 )
 
 const exportLinkTTL = 2 * time.Hour
-const exportSourceURLTTL = 24 * time.Hour
 const freeExportAvailabilityTTL = 7 * 24 * time.Hour
 const vipExportAvailabilityTTL = 30 * 24 * time.Hour
 
@@ -31,7 +27,7 @@ var windowsReservedNamePattern = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1
 type ExportService struct {
 	taskRepo *data.TaskRepo
 	subRepo  *data.SubmissionRepo
-	qiniuSvc *QiniuService
+	ossSvc   *AliyunOSSService
 	vipUC    *biz.VIPUsecase
 }
 
@@ -49,22 +45,43 @@ type ExportTaskResponse struct {
 	ErrorMessage   string `json:"error_message,omitempty"`
 }
 
-type preparedExport struct {
-	filenameTemplate string
-	exportKey        string
-	exportFileName   string
-	indexKey         string
-	indexFilePath    string
-	count            int
+type exportEntry struct {
+	objectKey string
+	fileName  string
 }
 
-func NewExportService(taskRepo *data.TaskRepo, subRepo *data.SubmissionRepo, qiniuSvc *QiniuService, vipUC *biz.VIPUsecase) *ExportService {
-	return &ExportService{
-		taskRepo: taskRepo,
-		subRepo:  subRepo,
-		qiniuSvc: qiniuSvc,
-		vipUC:    vipUC,
-	}
+type preparedExport struct {
+	filenameTemplate string
+	exportID         string
+	exportKey        string
+	manifestKey      string
+	statusKey        string
+	exportFileName   string
+	entries          []exportEntry
+}
+
+type exportManifest struct {
+	Version   int                   `json:"version"`
+	TaskID    string                `json:"task_id"`
+	ExportID  string                `json:"export_id"`
+	ExportKey string                `json:"export_key"`
+	StatusKey string                `json:"status_key"`
+	Entries   []exportManifestEntry `json:"entries"`
+}
+
+type exportManifestEntry struct {
+	ObjectKey string `json:"object_key"`
+	FileName  string `json:"file_name"`
+}
+
+type exportStatusDocument struct {
+	Status       string `json:"status"`
+	ErrorMessage string `json:"error_message"`
+	Message      string `json:"message"`
+}
+
+func NewExportService(taskRepo *data.TaskRepo, subRepo *data.SubmissionRepo, ossSvc *AliyunOSSService, vipUC *biz.VIPUsecase) *ExportService {
+	return &ExportService{taskRepo: taskRepo, subRepo: subRepo, ossSvc: ossSvc, vipUC: vipUC}
 }
 
 func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
@@ -81,41 +98,55 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 	}
-
 	submissions, err := s.subRepo.FindAllByTaskID(context.Background(), task.ID.Hex())
 	if err != nil {
 		Error(w, 1012, err.Error())
 		return
 	}
-
-	prepared, err := s.prepareMkzipExport(task, submissions, req.FilenameTemplate)
+	prepared, err := s.prepareExport(task, submissions, req.FilenameTemplate)
 	if err != nil {
 		Error(w, 1012, err.Error())
-		return
-	}
-	defer os.RemoveAll(filepath.Dir(prepared.indexFilePath))
-
-	if err := s.qiniuSvc.UploadFile(prepared.indexFilePath, prepared.indexKey); err != nil {
-		Error(w, 1013, err.Error())
-		return
-	}
-
-	persistentID, err := s.qiniuSvc.StartMkzipJob(prepared.indexKey, prepared.exportKey)
-	if err != nil {
-		Error(w, 1013, err.Error())
 		return
 	}
 
 	exportInfo := data.TaskExportInfo{
 		Status:           "processing",
-		PersistentID:     persistentID,
+		PersistentID:     prepared.exportID,
 		FilenameTemplate: prepared.filenameTemplate,
 		ExportKey:        prepared.exportKey,
+		ManifestKey:      prepared.manifestKey,
+		StatusKey:        prepared.statusKey,
 		FileName:         prepared.exportFileName,
-		Count:            prepared.count,
-		ErrorMessage:     "",
+		Count:            len(prepared.entries),
 	}
 	if err := s.taskRepo.UpdateExportInfo(context.Background(), task.ID.Hex(), exportInfo); err != nil {
+		Error(w, 1013, err.Error())
+		return
+	}
+
+	manifest := exportManifest{
+		Version:   1,
+		TaskID:    task.ID.Hex(),
+		ExportID:  prepared.exportID,
+		ExportKey: prepared.exportKey,
+		StatusKey: prepared.statusKey,
+		Entries:   make([]exportManifestEntry, 0, len(prepared.entries)),
+	}
+	for _, entry := range prepared.entries {
+		manifest.Entries = append(manifest.Entries, exportManifestEntry{
+			ObjectKey: entry.objectKey,
+			FileName:  entry.fileName,
+		})
+	}
+	manifestBody, err := json.Marshal(manifest)
+	if err != nil {
+		Error(w, 1013, err.Error())
+		return
+	}
+	if err := s.ossSvc.PutObject(prepared.manifestKey, manifestBody); err != nil {
+		exportInfo.Status = "failed"
+		exportInfo.ErrorMessage = err.Error()
+		_ = s.taskRepo.UpdateExportInfo(context.Background(), task.ID.Hex(), exportInfo)
 		Error(w, 1013, err.Error())
 		return
 	}
@@ -136,13 +167,11 @@ func (s *ExportService) SyncExportStatus(w http.ResponseWriter, r *http.Request)
 		Error(w, 1018, "当前任务还没有导出记录")
 		return
 	}
-
 	exportInfo, err := s.syncExportInfo(context.Background(), task)
 	if err != nil {
 		Error(w, 1019, err.Error())
 		return
 	}
-
 	Success(w, buildExportTaskResponse(exportInfo))
 }
 
@@ -155,17 +184,16 @@ func (s *ExportService) AuthorizeExportLink(w http.ResponseWriter, r *http.Reque
 		Error(w, 1015, "无权限操作此任务")
 		return
 	}
-	if task.ExportInfo.FileName == "" {
+	exportInfo := task.ExportInfo
+	if exportInfo.FileName == "" {
 		Error(w, 1015, "当前任务还没有导出记录")
 		return
 	}
-
 	exportInfo, err := s.syncExportInfo(context.Background(), task)
 	if err != nil {
 		Error(w, 1016, err.Error())
 		return
 	}
-
 	if exportInfo.Status == "processing" || exportInfo.Status == "pending" {
 		Error(w, 1016, "导出仍在处理中，请稍后刷新状态")
 		return
@@ -187,26 +215,99 @@ func (s *ExportService) AuthorizeExportLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	downloadURL, err := s.ossSvc.GetFileURLWithTTL(exportInfo.ExportKey, exportLinkTTL)
+	if err != nil {
+		Error(w, 1016, err.Error())
+		return
+	}
 	expiresAt := time.Now().Add(exportLinkTTL)
 	Success(w, &ExportTaskResponse{
 		Status:         exportInfo.Status,
 		FileName:       exportInfo.FileName,
-		DownloadURL:    s.qiniuSvc.GetFileURLWithTTL(exportInfo.ExportKey, exportLinkTTL),
+		DownloadURL:    downloadURL,
 		ExpiresAt:      expiresAt.Format(time.RFC3339),
 		AvailableUntil: formatTimeRFC3339(exportInfo.AvailableUntil),
 		Count:          exportInfo.Count,
 	})
 }
 
+func (s *ExportService) syncExportInfo(ctx context.Context, task *data.Task) (data.TaskExportInfo, error) {
+	info := task.ExportInfo
+	if info.FileName == "" || info.ExportKey == "" || s == nil || s.ossSvc == nil {
+		return info, nil
+	}
+
+	objectInfo, err := s.ossSvc.ProbeObject(info.ExportKey)
+	if err == nil && objectInfo != nil && objectInfo.Size > 0 {
+		changed := info.Status != "success" || info.ErrorMessage != ""
+		if info.ExportedAt.IsZero() {
+			info.ExportedAt = time.Now()
+			changed = true
+		}
+		if info.AvailableUntil.IsZero() {
+			info.AvailableUntil = s.buildExportAvailableUntil(ctx, task.UserID, info.ExportedAt)
+			changed = true
+		}
+		info.Status = "success"
+		info.ErrorMessage = ""
+		if changed {
+			if err := s.taskRepo.UpdateExportInfo(ctx, task.ID.Hex(), info); err != nil {
+				return info, err
+			}
+		}
+		return info, nil
+	}
+	if err != nil && !isOSSObjectNotFound(err) {
+		return info, err
+	}
+
+	statusKey := info.StatusKey
+	if statusKey == "" && info.PersistentID != "" {
+		statusKey = s.ossSvc.NewExportStatusKey(task.ID.Hex(), info.PersistentID)
+	}
+	if statusKey == "" {
+		return info, nil
+	}
+	statusBody, statusErr := s.ossSvc.ReadSmallObject(statusKey, 64*1024)
+	if statusErr != nil {
+		if isOSSObjectNotFound(statusErr) {
+			return info, nil
+		}
+		return info, statusErr
+	}
+	var statusDoc exportStatusDocument
+	if err := json.Unmarshal(statusBody, &statusDoc); err != nil {
+		return info, fmt.Errorf("解析导出状态失败: %w", err)
+	}
+	status := strings.ToLower(strings.TrimSpace(statusDoc.Status))
+	if status != "failed" {
+		return info, nil
+	}
+	message := strings.TrimSpace(statusDoc.ErrorMessage)
+	if message == "" {
+		message = strings.TrimSpace(statusDoc.Message)
+	}
+	if message == "" {
+		message = "导出失败，请重新导出"
+	}
+	if info.Status == "failed" && info.ErrorMessage == message {
+		return info, nil
+	}
+	info.Status = "failed"
+	info.ErrorMessage = message
+	if err := s.taskRepo.UpdateExportInfo(ctx, task.ID.Hex(), info); err != nil {
+		return info, err
+	}
+	return info, nil
+}
+
 func (s *ExportService) requireCreatorTask(w http.ResponseWriter, r *http.Request, unauthorizedCode int, taskCode int) (*data.Task, string, bool) {
 	taskID := mux.Vars(r)["id"]
-
 	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok {
 		Error(w, unauthorizedCode, "unauthorized")
 		return nil, "", false
 	}
-
 	task, err := s.taskRepo.FindByID(context.Background(), taskID)
 	if err != nil {
 		Error(w, taskCode, err.Error())
@@ -216,135 +317,59 @@ func (s *ExportService) requireCreatorTask(w http.ResponseWriter, r *http.Reques
 		Error(w, taskCode, "任务不存在")
 		return nil, "", false
 	}
-
 	return task, userID, true
 }
 
-func (s *ExportService) prepareMkzipExport(task *data.Task, submissions []*data.Submission, template string) (*preparedExport, error) {
+func (s *ExportService) prepareExport(task *data.Task, submissions []*data.Submission, template string) (*preparedExport, error) {
+	if s == nil || s.ossSvc == nil {
+		return nil, fmt.Errorf("阿里云 OSS 未配置")
+	}
 	filenameTemplate := strings.TrimSpace(template)
 	if filenameTemplate == "" {
 		filenameTemplate = defaultExportTemplate(task)
 	}
-
 	exportBaseName := sanitizeBaseName(task.Title)
 	if exportBaseName == "" {
 		exportBaseName = "photo_export"
 	}
 	exportFileName := fmt.Sprintf("%s_%s.zip", exportBaseName, time.Now().Format("20060102_150405"))
-	exportKey := fmt.Sprintf("exports/%s/%s", task.ID.Hex(), exportFileName)
-	indexKey := fmt.Sprintf("exports/%s/index/%s.txt", task.ID.Hex(), time.Now().Format("20060102150405"))
-
 	usedNames := make(map[string]int)
-	indexLines := make([]string, 0, len(submissions))
-	count := 0
-
+	entries := make([]exportEntry, 0, len(submissions))
 	for index, submission := range submissions {
 		if submission == nil || submission.Photo.Deleted || submission.Photo.URL == "" {
 			continue
 		}
-
-		exportName := buildExportFileName(task, submission, filenameTemplate, index+1, usedNames)
-		sourceURL := s.qiniuSvc.GetFileURLWithTTL(submission.Photo.URL, exportSourceURLTTL)
-		indexLines = append(indexLines, buildMkzipIndexLine(sourceURL, exportName))
-		count++
+		if strings.TrimSpace(submission.UserID) == "" || !s.ossSvc.IsOwnedFinalKey(submission.UserID, task.ID.Hex(), submission.Photo.URL) {
+			return nil, fmt.Errorf("提交记录 %s 的照片存储路径无效", submission.ID.Hex())
+		}
+		entries = append(entries, exportEntry{
+			objectKey: submission.Photo.URL,
+			fileName:  buildExportFileName(task, submission, filenameTemplate, index+1, usedNames),
+		})
 	}
-
-	if count == 0 {
+	if len(entries) == 0 {
 		return nil, fmt.Errorf("当前任务暂无可导出的图片")
 	}
-
-	tmpDir, err := os.MkdirTemp("", "photo-export-index-*")
-	if err != nil {
-		return nil, err
-	}
-
-	indexFilePath := filepath.Join(tmpDir, "mkzip-index.txt")
-	content := strings.Join(indexLines, "\n")
-	if content != "" {
-		content += "\n"
-	}
-	if err := os.WriteFile(indexFilePath, []byte(content), 0644); err != nil {
-		os.RemoveAll(tmpDir)
-		return nil, err
-	}
-
+	exportID := fmt.Sprintf("%d", time.Now().UTC().UnixNano())
 	return &preparedExport{
 		filenameTemplate: filenameTemplate,
-		exportKey:        exportKey,
+		exportID:         exportID,
+		exportKey:        s.ossSvc.NewExportKey(task.ID.Hex(), exportID),
+		manifestKey:      s.ossSvc.NewExportManifestKey(task.ID.Hex(), exportID),
+		statusKey:        s.ossSvc.NewExportStatusKey(task.ID.Hex(), exportID),
 		exportFileName:   exportFileName,
-		indexKey:         indexKey,
-		indexFilePath:    indexFilePath,
-		count:            count,
+		entries:          entries,
 	}, nil
 }
 
-func buildMkzipIndexLine(sourceURL string, alias string) string {
-	return fmt.Sprintf("/url/%s/alias/%s", encodeURLSafeBase64(sourceURL), encodeURLSafeBase64(alias))
-}
-
-func encodeURLSafeBase64(value string) string {
-	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString([]byte(value))
-}
-
-func (s *ExportService) syncExportInfo(ctx context.Context, task *data.Task) (data.TaskExportInfo, error) {
-	exportInfo := task.ExportInfo
-	if exportInfo.FileName == "" {
-		return exportInfo, nil
-	}
-	if exportInfo.PersistentID == "" {
-		return exportInfo, nil
-	}
-
-	result, err := s.qiniuSvc.QueryPfop(exportInfo.PersistentID)
-	if err != nil {
-		return exportInfo, err
-	}
-
-	next := exportInfo
-	next.ErrorMessage = ""
-
-	if result.Code == 0 {
-		next.Status = "success"
-		outputKey := findCompletedExportKey(result)
-		if outputKey != "" {
-			next.ExportKey = outputKey
-		}
-		if next.ExportKey == "" {
-			next.Status = "failed"
-			next.ErrorMessage = "导出完成但未找到压缩包文件"
-		} else {
-			if next.ExportedAt.IsZero() {
-				next.ExportedAt = time.Now()
-			}
-			if next.AvailableUntil.IsZero() {
-				next.AvailableUntil = s.buildExportAvailableUntil(ctx, task.UserID, next.ExportedAt)
-			}
-		}
-	} else if result.Code == 1 || result.Code == 2 {
-		next.Status = "processing"
-	} else {
-		next.Status = "failed"
-		next.ErrorMessage = pickPfopErrorMessage(result)
-		if next.ErrorMessage == "" {
-			next.ErrorMessage = "导出失败，请重新导出"
-		}
-	}
-
-	if err := s.taskRepo.UpdateExportInfo(ctx, task.ID.Hex(), next); err != nil {
-		return next, err
-	}
-	return next, nil
-}
-
 func buildExportTaskResponse(exportInfo data.TaskExportInfo) *ExportTaskResponse {
-	response := &ExportTaskResponse{
+	return &ExportTaskResponse{
 		Status:         exportInfo.Status,
 		FileName:       exportInfo.FileName,
 		AvailableUntil: formatTimeRFC3339(exportInfo.AvailableUntil),
 		Count:          exportInfo.Count,
 		ErrorMessage:   exportInfo.ErrorMessage,
 	}
-	return response
 }
 
 func (s *ExportService) buildExportAvailableUntil(ctx context.Context, userID string, exportedAt time.Time) time.Time {
@@ -365,65 +390,20 @@ func formatTimeRFC3339(value time.Time) string {
 	return value.Format(time.RFC3339)
 }
 
-func findCompletedExportKey(result *PfopStatusResult) string {
-	if result == nil || len(result.Items) == 0 {
-		return ""
-	}
-
-	for _, item := range result.Items {
-		for _, subItem := range item.Items {
-			if subItem.Key != "" {
-				return subItem.Key
-			}
-		}
-		if item.Key != "" {
-			return item.Key
-		}
-	}
-
-	return ""
-}
-
-func pickPfopErrorMessage(result *PfopStatusResult) string {
-	if result == nil {
-		return ""
-	}
-	if result.Desc != "" {
-		return result.Desc
-	}
-
-	for _, item := range result.Items {
-		if item.Desc != "" {
-			return item.Desc
-		}
-		for _, subItem := range item.Items {
-			if subItem.Desc != "" {
-				return subItem.Desc
-			}
-		}
-	}
-
-	return ""
-}
-
 func buildExportFileName(task *data.Task, submission *data.Submission, template string, index int, usedNames map[string]int) string {
 	fileExt := path.Ext(submission.Photo.URL)
 	if fileExt == "" {
 		fileExt = ".jpg"
 	}
-
-	baseName := renderExportTemplate(task, submission, template, index)
-	baseName = sanitizeBaseName(baseName)
+	baseName := sanitizeBaseName(renderExportTemplate(task, submission, template, index))
 	if baseName == "" {
 		baseName = fmt.Sprintf("submission_%03d", index)
 	}
-
 	fileName := baseName
 	if path.Ext(baseName) == "" {
 		fileName = baseName + fileExt
 	}
-	fileName = ensureUniqueFileName(fileName, usedNames)
-	return fileName
+	return ensureUniqueFileName(fileName, usedNames)
 }
 
 func renderExportTemplate(task *data.Task, submission *data.Submission, template string, index int) string {
@@ -431,20 +411,16 @@ func renderExportTemplate(task *data.Task, submission *data.Submission, template
 	if trimmedTemplate == "" {
 		trimmedTemplate = defaultExportTemplate(task)
 	}
-
 	labelMap := make(map[string]string)
 	for _, field := range task.CustomFields {
 		if field.Label != "" {
 			labelMap[field.Label] = field.ID
 		}
 	}
-
-	rendered := exportTemplatePattern.ReplaceAllStringFunc(trimmedTemplate, func(match string) string {
+	return strings.TrimSpace(exportTemplatePattern.ReplaceAllStringFunc(trimmedTemplate, func(match string) string {
 		token := strings.TrimSpace(match[1 : len(match)-1])
 		return resolveExportToken(task, submission, token, index, labelMap)
-	})
-
-	return strings.TrimSpace(rendered)
+	}))
 }
 
 func defaultExportTemplate(task *data.Task) string {
@@ -465,7 +441,6 @@ func resolveExportToken(task *data.Task, submission *data.Submission, token stri
 	case "task_title":
 		return task.Title
 	}
-
 	if strings.HasPrefix(token, "field:") {
 		fieldName := strings.TrimSpace(strings.TrimPrefix(token, "field:"))
 		fieldID := fieldName
@@ -474,7 +449,6 @@ func resolveExportToken(task *data.Task, submission *data.Submission, token stri
 		}
 		return stringifyExportValue(submission.CustomData[fieldID])
 	}
-
 	return ""
 }
 
@@ -482,7 +456,6 @@ func stringifyExportValue(value interface{}) string {
 	if value == nil {
 		return ""
 	}
-
 	switch v := value.(type) {
 	case string:
 		return v
@@ -519,8 +492,7 @@ func stringifyExportValue(value interface{}) string {
 
 func trimFloatString(value string) string {
 	value = strings.TrimRight(value, "0")
-	value = strings.TrimRight(value, ".")
-	return value
+	return strings.TrimRight(value, ".")
 }
 
 func sanitizeBaseName(name string) string {
@@ -543,7 +515,6 @@ func ensureUniqueFileName(fileName string, usedNames map[string]int) string {
 		usedNames[fileName] = 1
 		return fileName
 	}
-
 	ext := path.Ext(fileName)
 	base := strings.TrimSuffix(fileName, ext)
 	usedNames[fileName]++

@@ -7,3 +7,6 @@ images/
 backend/.env.example
 backend/tests
 .gocache
+.pnpm-store/
+aliyun/export-worker/node_modules/
+aliyun/*.zip

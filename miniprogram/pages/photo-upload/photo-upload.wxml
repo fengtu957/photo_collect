@@ -37,8 +37,8 @@
     <view class="empty-preview" wx:else>
       <text class="empty-text">请选择照片</text>
     </view>
-    <button class="choose-btn" bindtap="choosePhoto" disabled="{{!!taskUnavailableMessage || backgroundProcessing}}">
-      {{backgroundProcessing ? '背景生成中...' : (photoPath ? '重新选择' : '选择照片')}}
+    <button class="choose-btn" bindtap="choosePhoto" disabled="{{!!taskUnavailableMessage || photoProcessing}}">
+      {{backgroundProcessing ? '背景生成中...' : (photoProcessing ? '照片处理中...' : (photoPath ? '重新选择' : '选择照片'))}}
     </button>
     <view class="photo-size-tip" wx:if="{{task && task.photo_spec && task.photo_spec.max_size_kb > 0}}">
       <text class="photo-size-tip-text">当前任务限制 {{task.photo_spec.max_size_kb}}K，超出后会自动压缩，仍超出则无法提交。</text>
@@ -48,6 +48,7 @@
       <view class="background-editor-head">
         <text class="background-editor-title">自动换背景</text>
         <text class="background-editor-status" wx:if="{{backgroundProcessing}}">生成中...</text>
+        <text class="background-editor-status" wx:elif="{{backgroundState === 'pending'}}">等待 AI 检查</text>
         <text class="background-editor-status background-editor-status-success" wx:elif="{{backgroundState === 'success'}}">已生成</text>
         <text class="background-editor-status background-editor-status-error" wx:elif="{{backgroundState === 'error'}}">生成失败</text>
       </view>
@@ -62,7 +63,7 @@
       <text class="analysis-note">{{analysisMessage}}</text>
     </view>
 
-    <view class="analysis-panel analysis-panel-loading" wx:if="{{aiAnalysisEnabled && analysisState === 'analyzing' && !backgroundProcessing}}">
+    <view class="analysis-panel analysis-panel-loading" wx:if="{{aiAnalysisEnabled && analysisState === 'analyzing'}}">
       <view class="analysis-panel-head">
         <text class="analysis-badge analysis-badge-loading">检查中</text>
         <text class="analysis-headline">AI 正在检查这张照片</text>
@@ -83,7 +84,7 @@
 
     <view class="analysis-panel {{analysisPassed ? 'analysis-panel-pass' : 'analysis-panel-fail'}}" wx:if="{{aiAnalysisEnabled && analysisState === 'success' && analysisResult}}">
       <view class="analysis-panel-head">
-        <text class="analysis-badge {{analysisPassed ? 'analysis-badge-pass' : 'analysis-badge-fail'}}">{{analysisPassed ? '可提交' : '需重拍'}}</text>
+        <text class="analysis-badge {{analysisPassed ? 'analysis-badge-pass' : 'analysis-badge-fail'}}">{{analysisPassed ? (photoProcessing ? '检查通过' : '可提交') : '需重拍'}}</text>
         <text class="analysis-headline">{{analysisMessage}}</text>
       </view>
 
@@ -197,8 +198,8 @@
   <!-- 提交按钮 -->
   <view class="footer-placeholder"></view>
   <view class="footer">
-    <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath || !!taskUnavailableMessage || !canSubmit || backgroundProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">
-      {{taskUnavailableMessage ? '当前不可提交' : (backgroundProcessing ? '背景生成中...' : ((aiAnalysisEnabled && analysisState === 'analyzing') ? 'AI检查中...' : (isEditMode ? '更新' : '提交')))}}
+    <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath || !!taskUnavailableMessage || !canSubmit || photoProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">
+      {{taskUnavailableMessage ? '当前不可提交' : (backgroundProcessing ? '背景生成中...' : ((aiAnalysisEnabled && analysisState === 'analyzing') ? 'AI检查中...' : (photoProcessing ? '照片处理中...' : (isEditMode ? '更新' : '提交'))))}}
     </button>
   </view>
 </view>

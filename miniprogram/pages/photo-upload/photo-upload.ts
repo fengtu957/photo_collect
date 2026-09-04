@@ -1,6 +1,6 @@
 import { getTask } from '../../services/task';
-import { getUploadToken } from '../../services/upload';
-import { analyzePhotoPreview, createSubmission, getSegmentUploadPolicy, getSubmission, segmentPhoto, updateSubmission } from '../../services/submission';
+import { finalizePhoto, getUploadPolicy, OSSUploadPolicy } from '../../services/upload';
+import { analyzePhotoPreview, createSubmission, getSubmission, segmentPhoto, updateSubmission } from '../../services/submission';
 import { SubmissionAnalysisResult } from '../../types/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { isEffectiveTime } from '../../utils/time';
@@ -120,7 +120,7 @@ function getLocalFileInfo(filePath: string): Promise<WechatMiniprogram.WxGetFile
   });
 }
 
-function getLocalImageInfo(filePath: string): Promise<WechatMiniprogram.WxGetImageInfoSuccessCallbackResult> {
+function getLocalImageInfo(filePath: string): Promise<WechatMiniprogram.GetImageInfoSuccessCallbackResult> {
   return new Promise((resolve, reject) => {
     wx.getImageInfo({
       src: filePath,
@@ -155,34 +155,6 @@ async function getPhotoMeta(filePath: string) {
   };
 }
 
-function createUploadKey() {
-  const openid = wx.getStorageSync('openid') || 'unknown';
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 10000);
-  return `photo_${openid}_${timestamp}_${random}.jpg`;
-}
-
-function uploadPhotoToQiniu(filePath: string, key: string): Promise<void> {
-  return getUploadToken().then(({ token }) => {
-    return new Promise((resolve, reject) => {
-      wx.uploadFile({
-        url: 'https://up-z2.qiniup.com',
-        filePath,
-        name: 'file',
-        formData: { token, key },
-        success: (uploadRes) => {
-          if (uploadRes.statusCode !== 200) {
-            reject(new Error('上传失败'));
-            return;
-          }
-          resolve();
-        },
-        fail: () => reject(new Error('上传失败'))
-      });
-    });
-  });
-}
-
 function downloadFile(fileUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     wx.downloadFile({
@@ -199,23 +171,25 @@ function downloadFile(fileUrl: string): Promise<string> {
   });
 }
 
-function uploadPhotoToAliyunOSS(taskId: string, filePath: string): Promise<string> {
-  return getSegmentUploadPolicy(taskId).then((policy) => {
-    return new Promise((resolve, reject) => {
-      wx.uploadFile({
-        url: policy.upload_url,
-        filePath,
-        name: 'file',
-        formData: policy.fields,
-        success: (uploadRes) => {
-          if (uploadRes.statusCode !== 200 && uploadRes.statusCode !== 204) {
-            reject(new Error('上传分割临时文件失败'));
-            return;
-          }
-          resolve(policy.key);
-        },
-        fail: () => reject(new Error('上传分割临时文件失败'))
-      });
+function uploadPhotoToOSS(filePath: string, policy: OSSUploadPolicy): Promise<void> {
+  return new Promise((resolve, reject) => {
+    wx.uploadFile({
+      url: policy.upload_url,
+      filePath,
+      name: 'file',
+      formData: policy.fields,
+      success: (uploadRes) => {
+        if (uploadRes.statusCode !== 200 && uploadRes.statusCode !== 204) {
+          const responseText = String(uploadRes.data || '');
+          const codeMatch = responseText.match(/<Code>([^<]+)<\/Code>/);
+          const errorCode = codeMatch && codeMatch[1] ? `：${codeMatch[1]}` : '';
+          console.error('OSS upload failed:', uploadRes.statusCode, responseText);
+          reject(new Error(`上传阿里云 OSS 失败 (${uploadRes.statusCode})${errorCode}`));
+          return;
+        }
+        resolve();
+      },
+      fail: () => reject(new Error('上传阿里云 OSS 失败'))
     });
   });
 }
@@ -242,6 +216,9 @@ Page({
     verificationCodeInput: '',
     photoPath: '',
     sourcePhotoPath: '',
+    temporaryPhotoPath: '',
+    temporaryPhotoKey: '',
+    temporaryPhotoMeta: { fileSize: 0, width: 0, height: 0 },
     photoKey: '',
     photoMeta: { fileSize: 0, width: 0, height: 0 },
     analysisState: '' as '' | 'existing' | 'analyzing' | 'success' | 'fallback' | 'error',
@@ -250,11 +227,13 @@ Page({
     analysisError: '',
     analysisMessage: '',
     verificationToken: '',
+    sourceVerificationToken: '',
     backgroundReplacementEnabled: false,
     backgroundColorText: '',
-    backgroundState: '' as '' | 'processing' | 'success' | 'error',
+    backgroundState: '' as '' | 'pending' | 'processing' | 'success' | 'error',
     backgroundError: '',
     backgroundProcessing: false,
+    photoProcessing: false,
     canSubmit: false,
     aiAnalysisEnabled: true,
     customData: {} as Record<string, any>,
@@ -413,167 +392,177 @@ Page({
   },
 
   handleSelectedPhoto(filePath: string) {
+    if (this.data.photoProcessing) return;
     const shouldReplaceBackground = !!this.data.backgroundReplacementEnabled;
     this.setData({
       sourcePhotoPath: filePath,
-      backgroundState: shouldReplaceBackground ? 'processing' : '',
-      backgroundError: '',
-      backgroundProcessing: shouldReplaceBackground
-    });
-    if (!this.data.aiAnalysisEnabled) {
-      this.setData({
-        photoPath: filePath,
-        photoKey: '',
-        photoMeta: { fileSize: 0, width: 0, height: 0 },
-        analysisState: '',
-        analysisResult: null,
-        analysisPassed: false,
-        analysisError: '',
-        analysisMessage: '',
-        canSubmit: false
-      });
-      this.preparePhotoWithoutAI(filePath);
-      return;
-    }
-
-    this.setData({
+      temporaryPhotoPath: '',
+      temporaryPhotoKey: '',
+      temporaryPhotoMeta: { fileSize: 0, width: 0, height: 0 },
       photoPath: filePath,
       photoKey: '',
       photoMeta: { fileSize: 0, width: 0, height: 0 },
-      analysisState: 'analyzing',
+      analysisState: this.data.aiAnalysisEnabled ? 'analyzing' : '',
       analysisResult: null,
       analysisPassed: false,
       analysisError: '',
-      analysisMessage: '正在检查照片，请稍候…',
+      analysisMessage: this.data.aiAnalysisEnabled ? '正在上传照片，随后进行 AI 检查…' : '',
+      verificationToken: '',
+      sourceVerificationToken: '',
+      backgroundState: shouldReplaceBackground ? 'pending' : '',
+      backgroundError: '',
+      backgroundProcessing: false,
+      photoProcessing: true,
       canSubmit: false
     });
-    this.prepareAndAnalyzePhoto(filePath);
+    this.processSelectedPhoto(filePath);
   },
 
-  async preparePhotoWithoutAI(filePath: string) {
+  async processSelectedPhoto(filePath: string) {
     try {
       showLoading('处理照片中...');
-      const preparedPhoto = await this.prepareAndUploadPhoto(filePath);
+      const preparedPhoto = await this.preparePhotoForUpload(filePath);
+      const policy = await getUploadPolicy(this.data.taskId, 'temporary');
+      await uploadPhotoToOSS(preparedPhoto.filePath, policy);
       this.setData({
-        photoKey: preparedPhoto.photoKey,
-        photoMeta: preparedPhoto.photoMeta,
-        canSubmit: true
+        temporaryPhotoPath: preparedPhoto.filePath,
+        temporaryPhotoKey: policy.key,
+        temporaryPhotoMeta: {
+          fileSize: preparedPhoto.fileSize,
+          width: preparedPhoto.width,
+          height: preparedPhoto.height
+        },
+        photoPath: preparedPhoto.filePath,
+        photoMeta: {
+          fileSize: preparedPhoto.fileSize,
+          width: preparedPhoto.width,
+          height: preparedPhoto.height
+        }
       });
+      await this.processTemporaryPhoto(preparedPhoto, policy.key);
     } catch (err: any) {
       const errorMessage = (err && err.message) || '处理照片失败';
-      const backgroundFailed = this.data.backgroundReplacementEnabled && this.data.backgroundState === 'processing';
-      this.setData({
-        photoKey: '',
-        photoMeta: { fileSize: 0, width: 0, height: 0 },
-        canSubmit: false,
-        backgroundState: backgroundFailed ? 'error' : this.data.backgroundState,
-        backgroundError: backgroundFailed ? errorMessage : this.data.backgroundError,
-        backgroundProcessing: false
-      });
+      this.handlePhotoProcessingError(errorMessage);
       showError(errorMessage);
     } finally {
+      this.setData({ photoProcessing: false, backgroundProcessing: false });
       hideLoading();
     }
   },
 
-  async prepareAndAnalyzePhoto(filePath: string) {
-    let uploadedKey = '';
-    try {
-      showLoading('处理照片中...');
-      const preparedPhoto = await this.prepareAndUploadPhoto(filePath);
-      uploadedKey = preparedPhoto.photoKey;
-
+  async processTemporaryPhoto(preparedPhoto: any, temporaryKey: string) {
+    let sourceVerificationToken = '';
+    if (this.data.aiAnalysisEnabled) {
       showLoading('AI检查中...');
       const result = await analyzePhotoPreview({
         task_id: this.data.taskId,
-        photo: { url: uploadedKey }
+        photo: { url: temporaryKey }
       });
       const aiUnavailable = !result
         || result.analysis_status === 'unavailable'
         || result.available === false;
-      const canSubmit = !aiUnavailable && !!(result && (result.can_submit || result.passed));
+      sourceVerificationToken = (result && result.verification_token) || '';
+      const analysisApproved = !aiUnavailable
+        && !!(result && (result.can_submit || result.passed))
+        && !!sourceVerificationToken;
 
       this.setData({
-        photoKey: uploadedKey,
         analysisState: aiUnavailable ? 'error' : 'success',
         analysisResult: result || null,
-        analysisPassed: !aiUnavailable && !!(result && result.passed),
-        analysisError: '',
+        analysisPassed: analysisApproved,
+        analysisError: aiUnavailable ? 'AI 检查暂不可用，请稍后重试。' : '',
         analysisMessage: aiUnavailable
           ? 'AI 检查暂不可用，暂不能提交。'
-          : (result && result.passed ? '照片检查通过，可以提交。' : '照片未通过检查，请重新选择。'),
-        verificationToken: (result && result.verification_token) || '',
-        canSubmit
+          : (analysisApproved ? '照片检查通过，正在处理最终照片。' : '照片未通过检查，请重新选择。'),
+        sourceVerificationToken,
+        canSubmit: false
       });
-    } catch (err: any) {
-      const errorMessage = (err && err.message) || '照片处理失败，请重试';
-      const backgroundFailed = this.data.backgroundReplacementEnabled && this.data.backgroundState === 'processing';
-      this.setData({
-        photoKey: uploadedKey,
-        analysisState: 'error',
-        analysisResult: null,
-        analysisPassed: false,
-        analysisError: backgroundFailed ? '' : errorMessage,
-        analysisMessage: uploadedKey ? '照片已上传，但尚未通过 AI 检查。' : '',
-        verificationToken: '',
-        canSubmit: false,
-        backgroundState: backgroundFailed ? 'error' : this.data.backgroundState,
-        backgroundError: backgroundFailed ? errorMessage : this.data.backgroundError,
-        backgroundProcessing: false
-      });
-    } finally {
-      hideLoading();
+      if (!analysisApproved) {
+        return;
+      }
     }
+    await this.finalizeTemporaryPhoto(preparedPhoto, temporaryKey, sourceVerificationToken);
   },
 
-  async prepareAndUploadPhoto(filePath: string) {
-    const preparedPhoto = await this.preparePhotoForUpload(filePath);
-    let photoKey = '';
-    let photoMeta = {
-      fileSize: preparedPhoto.fileSize,
-      width: preparedPhoto.width,
-      height: preparedPhoto.height
-    };
+  async finalizeTemporaryPhoto(preparedPhoto: any, temporaryKey: string, sourceVerificationToken: string) {
     const requestedBackgroundColor = String((this.data.task && this.data.task.photo_spec && this.data.task.photo_spec.background_color) || '').trim();
     const backgroundColor = getBackgroundColor(requestedBackgroundColor);
     if (this.data.backgroundReplacementEnabled && !backgroundColor) {
       throw new Error('任务配置的背景颜色无效，请联系任务创建者');
     }
+
+    let finalKey = '';
+    let finalPhoto = preparedPhoto;
     if (this.data.backgroundReplacementEnabled) {
+      this.setData({
+        backgroundState: 'processing',
+        backgroundError: '',
+        backgroundProcessing: true
+      });
       showLoading('生成背景中...');
-      const segmentOSSKey = await uploadPhotoToAliyunOSS(this.data.taskId, preparedPhoto.filePath);
-      const segmentResult = await segmentPhoto(this.data.taskId, segmentOSSKey);
+      const segmentResult = await segmentPhoto(this.data.taskId, temporaryKey);
       const transparentPath = await downloadFile(segmentResult.result_url);
       const compositedPath = await this.composeBackground(transparentPath, backgroundColor, preparedPhoto.width, preparedPhoto.height);
-      const processedKey = createUploadKey().replace(/^photo_/, 'processed_');
-      await uploadPhotoToQiniu(compositedPath, processedKey);
-      photoKey = processedKey;
-      const localInfo = await getLocalFileInfo(compositedPath);
-      photoMeta = {
-        fileSize: Number(localInfo.size || preparedPhoto.fileSize),
-        width: preparedPhoto.width,
-        height: preparedPhoto.height
-      };
-      this.setData({
-        photoPath: compositedPath,
-        photoKey,
-        photoMeta,
-        backgroundState: 'success',
-        backgroundError: '',
-        backgroundProcessing: false
-      });
-    } else {
-      photoKey = createUploadKey();
-      await uploadPhotoToQiniu(preparedPhoto.filePath, photoKey);
-      this.setData({
-        photoKey,
-        photoMeta,
-        backgroundState: '',
-        backgroundError: '',
-        backgroundProcessing: false
-      });
+      finalPhoto = await this.preparePhotoForUpload(compositedPath);
+      const finalPolicy = await getUploadPolicy(
+        this.data.taskId,
+        'final',
+        temporaryKey,
+        sourceVerificationToken
+      );
+      await uploadPhotoToOSS(finalPhoto.filePath, finalPolicy);
+      finalKey = finalPolicy.key;
     }
-    return { photoKey, photoMeta };
+
+    const finalized = await finalizePhoto(
+      this.data.taskId,
+      temporaryKey,
+      finalKey,
+      sourceVerificationToken
+    );
+    this.setData({
+      photoPath: finalPhoto.filePath,
+      photoKey: finalized.photo_key,
+      photoMeta: {
+        fileSize: Number(finalized.file_size || finalPhoto.fileSize),
+        width: Number(finalPhoto.width || 0),
+        height: Number(finalPhoto.height || 0)
+      },
+      verificationToken: finalized.verification_token || '',
+      analysisMessage: this.data.aiAnalysisEnabled ? '照片检查通过，可以提交。' : '',
+      backgroundState: this.data.backgroundReplacementEnabled ? 'success' : '',
+      backgroundError: '',
+      backgroundProcessing: false,
+      canSubmit: true
+    });
+  },
+
+  handlePhotoProcessingError(errorMessage: string) {
+    const backgroundFailed = this.data.backgroundReplacementEnabled
+      && this.data.backgroundState === 'processing';
+    if (backgroundFailed) {
+      this.setData({
+        photoKey: '',
+        verificationToken: '',
+        canSubmit: false,
+        backgroundState: 'error',
+        backgroundError: errorMessage,
+        backgroundProcessing: false
+      });
+      return;
+    }
+    this.setData({
+      photoKey: '',
+      verificationToken: '',
+      analysisState: this.data.aiAnalysisEnabled ? 'error' : '',
+      analysisResult: null,
+      analysisPassed: false,
+      analysisError: errorMessage,
+      analysisMessage: this.data.temporaryPhotoKey
+        ? '照片已上传，但处理尚未完成。'
+        : '照片上传失败，请重试。',
+      canSubmit: false
+    });
   },
 
   async composeBackground(transparentPath: string, color: string, width: number, height: number): Promise<string> {
@@ -643,10 +632,8 @@ Page({
     });
   },
 
-  retryAnalyzePhoto() {
-    if (this.data.backgroundProcessing) {
-      return;
-    }
+  async retryAnalyzePhoto() {
+    if (this.data.photoProcessing || this.data.backgroundProcessing) return;
     if (!this.data.aiAnalysisEnabled) {
       return;
     }
@@ -654,50 +641,75 @@ Page({
       showError('请先选择照片');
       return;
     }
-    if (this.data.backgroundReplacementEnabled && this.data.backgroundState === 'error') {
-      this.retryBackgroundReplacement();
+    if (!this.data.temporaryPhotoKey || !this.data.temporaryPhotoPath) {
+      this.handleSelectedPhoto(this.data.sourcePhotoPath);
       return;
     }
 
     this.setData({
       photoKey: '',
+      verificationToken: '',
+      sourceVerificationToken: '',
       analysisState: 'analyzing',
       analysisResult: null,
       analysisPassed: false,
       analysisError: '',
       analysisMessage: '正在重新检查照片，请稍候…',
+      backgroundState: this.data.backgroundReplacementEnabled ? 'pending' : '',
+      backgroundError: '',
+      photoProcessing: true,
       canSubmit: false
     });
-    this.prepareAndAnalyzePhoto(this.data.sourcePhotoPath);
+    try {
+      showLoading('AI检查中...');
+      await this.processTemporaryPhoto({
+        filePath: this.data.temporaryPhotoPath,
+        fileSize: this.data.temporaryPhotoMeta.fileSize,
+        width: this.data.temporaryPhotoMeta.width,
+        height: this.data.temporaryPhotoMeta.height
+      }, this.data.temporaryPhotoKey);
+    } catch (err: any) {
+      const errorMessage = (err && err.message) || '照片处理失败，请重试';
+      this.handlePhotoProcessingError(errorMessage);
+      showError(errorMessage);
+    } finally {
+      this.setData({ photoProcessing: false, backgroundProcessing: false });
+      hideLoading();
+    }
   },
 
-  retryBackgroundReplacement() {
-    if (this.data.backgroundProcessing) return;
-    if (!this.data.sourcePhotoPath) {
-      showError('请重新选择照片');
+  async retryBackgroundReplacement() {
+    if (this.data.photoProcessing || this.data.backgroundProcessing) return;
+    if (!this.data.temporaryPhotoKey || !this.data.temporaryPhotoPath) {
+      showError('临时照片已失效，请重新选择照片');
       return;
     }
 
     this.setData({
-      photoPath: this.data.sourcePhotoPath,
+      photoPath: this.data.temporaryPhotoPath,
       photoKey: '',
-      photoMeta: { fileSize: 0, width: 0, height: 0 },
-      analysisState: this.data.aiAnalysisEnabled ? 'analyzing' : '',
-      analysisResult: null,
-      analysisPassed: false,
-      analysisError: '',
-      analysisMessage: this.data.aiAnalysisEnabled ? '背景生成后将自动进行 AI 检查…' : '',
       verificationToken: '',
       backgroundState: 'processing',
       backgroundError: '',
       backgroundProcessing: true,
+      photoProcessing: true,
       canSubmit: false
     });
 
-    if (this.data.aiAnalysisEnabled) {
-      this.prepareAndAnalyzePhoto(this.data.sourcePhotoPath);
-    } else {
-      this.preparePhotoWithoutAI(this.data.sourcePhotoPath);
+    try {
+      await this.finalizeTemporaryPhoto({
+        filePath: this.data.temporaryPhotoPath,
+        fileSize: this.data.temporaryPhotoMeta.fileSize,
+        width: this.data.temporaryPhotoMeta.width,
+        height: this.data.temporaryPhotoMeta.height
+      }, this.data.temporaryPhotoKey, this.data.sourceVerificationToken);
+    } catch (err: any) {
+      const errorMessage = (err && err.message) || '背景生成失败，请重试';
+      this.handlePhotoProcessingError(errorMessage);
+      showError(errorMessage);
+    } finally {
+      this.setData({ photoProcessing: false, backgroundProcessing: false });
+      hideLoading();
     }
   },
 

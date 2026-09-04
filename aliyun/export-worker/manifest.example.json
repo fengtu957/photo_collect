@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "task-object-id",
+  "export_id": "1770000000000000000",
+  "export_key": "exports/task-object-id/1770000000000000000.zip",
+  "status_key": "exports/task-object-id/1770000000000000000.status.json",
+  "entries": [
+    {
+      "object_key": "photos/task-object-id/user-hash/1.jpg",
+      "file_name": "001_name.jpg"
+    }
+  ]
+}

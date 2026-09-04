@@ -4,11 +4,11 @@
 
 - 后端: Go + `gorilla/mux`
 - 数据库: MongoDB
-- 文件存储: 七牛云
+- 文件存储: 阿里云 OSS
 - AI: 通义千问-VL
 - 认证: 微信登录 + JWT
 
-当前仓库不是微信云开发方案，也不是 Kratos/MinIO 方案。接口由 [main.go](/mnt/d/code/latest/photo/backend/cmd/server/main.go) 启动，文件上传走七牛上传凭证接口。
+当前仓库不是微信云开发方案，也不是 Kratos/MinIO 方案。接口由 `cmd/server/main.go` 启动，照片由小程序使用后端签发的精确 key 策略直传阿里云 OSS。
 
 ## 环境变量
 
@@ -27,15 +27,15 @@ cp .env.example .env
 - `ADMIN_PASSWORD`
 - `WECHAT_APPID`
 - `WECHAT_SECRET`
-- `QINIU_ACCESS_KEY`
-- `QINIU_SECRET_KEY`
-- `QINIU_BUCKET`
-- `QINIU_DOMAIN`
-- `ALIYUN_ACCESS_KEY_ID` / `ALIYUN_ACCESS_KEY_SECRET`（人体分割，可选）
-- `ALIYUN_IMAGESEG_ENDPOINT`（可选，默认 `https://imageseg.cn-shanghai.aliyuncs.com/`）
-- `ALIYUN_OSS_BUCKET`（上海地域 OSS 临时桶，人体分割必填）
+- `ALIYUN_ACCESS_KEY_ID`
+- `ALIYUN_ACCESS_KEY_SECRET`
+- `ALIYUN_OSS_BUCKET`
 - `ALIYUN_OSS_ENDPOINT`（可选，默认 `oss-cn-shanghai.aliyuncs.com`）
-- `ALIYUN_OSS_PREFIX`（可选，默认 `photo-temp`）
+- `ALIYUN_OSS_TEMP_PREFIX`（可选，默认 `photo-temp`）
+- `ALIYUN_OSS_PHOTO_PREFIX`（可选，默认 `photos`）
+- `ALIYUN_OSS_EXPORT_PREFIX`（可选，默认 `exports`）
+- `ALIYUN_OSS_EXPORT_JOB_PREFIX`（可选，默认 `export-jobs`）
+- `ALIYUN_IMAGESEG_ENDPOINT`（可选，默认 `https://imageseg.cn-shanghai.aliyuncs.com/`）
 - `QWEN_API_KEY`
 
 ## 本地开发
@@ -81,7 +81,12 @@ http://localhost:8000/paper/hinge-58241/entry
 - `GET /api/v1/submissions/{id}`
 - `PUT /api/v1/submissions/{id}`
 - `GET /api/v1/tasks/{taskId}/submissions`
-- `GET /api/v1/upload/token`
+- `POST /api/v1/upload/policy`
+- `POST /api/v1/photos/finalize`
+- `POST /api/v1/photos/segment`
+- `POST /api/v1/tasks/{id}/export`
+- `POST /api/v1/tasks/{id}/export/status`
+- `POST /api/v1/tasks/{id}/export/authorize`
 
 需要管理员 JWT 的接口：
 
@@ -98,20 +103,23 @@ http://localhost:8000/paper/hinge-58241/entry
 
 前端请求地址在 [request.ts](/mnt/d/code/latest/photo/miniprogram/utils/request.ts)。当前仓库使用固定测试地址；如果后续切换环境，应直接按真实联调环境修改。
 
-### 七牛上传
+### OSS 照片流程
 
-上传流程是：
+1. 小程序调用 `POST /api/v1/upload/policy` 获取临时对象的精确 key 上传策略，并将压缩后的原图直传 OSS。
+2. AI 使用同一临时对象检查照片。开启自动换背景时，AI 提示词不会校验尚未生成的背景色。
+3. AI 通过后，人体分割继续使用同一临时对象；小程序下载透明图并在本地 Canvas 合成、压缩。
+4. 换底结果使用最终对象策略直传 OSS；未换底时由 OSS 服务端复制临时对象。
+5. `POST /api/v1/photos/finalize` 校验最终对象实际大小，并签发绑定最终 key 的提交凭证。
 
-1. 小程序调用 `GET /api/v1/upload/token`
-2. 小程序直接上传图片到七牛
-3. 小程序再调用提交接口，把七牛 key 写入后端
+OSS 需要允许小程序域名执行表单上传和下载，并为临时前缀配置短生命周期清理。普通照片上传和下载的图片二进制不经过 Go 服务。
 
-### 人体分割
+批量导出由阿里云函数计算处理。Go 只写入一个很小的 `export-jobs/` manifest 到 OSS，OSS 的 ObjectCreated 事件触发函数计算；函数计算从 OSS 流式读取照片并将 ZIP 写入 `exports/`。Go 和小程序不会下载或压缩照片。
 
-`GET /api/v1/photos/segment/upload-policy?task_id=...` 为开启自动换背景的 VIP 任务签发上海 OSS 临时上传策略；小程序直传原图后，`POST /api/v1/photos/segment` 接收 `task_id` 和 OSS object key，后端再次校验任务开关和任务创建者 VIP 状态，仅生成标准上海 OSS 临时 URL 并调用阿里云 `SegmentBody`，不转发图片二进制。阿里云返回的透明 PNG 临时 URL 由小程序直接下载并在本地 Canvas 合成背景。上海 OSS 临时桶应配置 1 天生命周期自动清理。
+任务详情页打开或用户主动刷新下载链接时，后端只对当前 `export_key` 做一次 HEAD 检查，并读取很小的状态文件。不会启动后台协程，也不会定时轮询函数计算。
+
+函数计算代码位于 [aliyun/export-worker](/mnt/d/code/latest/photo/aliyun/export-worker)。上传代码包时，ZIP 根目录必须直接包含 `index.js`、`package.json` 和 `node_modules/`；函数入口为 `index.handler`。OSS 触发器只监听 `export-jobs/` 前缀下的 `.json` 文件。
 
 ## 当前缺口
 
 - AI 评估结果尚未完整写回数据库
-- 导出能力尚未实现
 - 部分文档与配置仍在继续收敛

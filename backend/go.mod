@@ -6,7 +6,6 @@ toolchain go1.24.10
 
 require (
 	github.com/gorilla/mux v1.8.1
-	github.com/qiniu/go-sdk/v7 v7.26.8
 	go.mongodb.org/mongo-driver v1.13.1
 )
 

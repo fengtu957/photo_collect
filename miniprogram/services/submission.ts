@@ -46,22 +46,9 @@ export async function listSubmissions(taskId: string, page: number = 1, limit: n
   );
 }
 
-export async function getUploadToken() {
-  return request<{ token: string }>('/upload/token', { method: 'GET' });
-}
-
 export async function segmentPhoto(taskId: string, photoKey: string) {
   return request<{ result_url: string; expires_in: number }>('/photos/segment', {
     method: 'POST',
     data: { task_id: taskId, oss_key: photoKey }
   });
-}
-
-export async function getSegmentUploadPolicy(taskId: string) {
-  return request<{
-    upload_url: string;
-    key: string;
-    fields: Record<string, string>;
-    expires_in: number;
-  }>(`/photos/segment/upload-policy?task_id=${encodeURIComponent(taskId)}`, { method: 'GET' });
 }

@@ -27,6 +27,8 @@ export interface TaskExportInfo {
   persistent_id?: string;
   filename_template?: string;
   export_key?: string;
+  manifest_key?: string;
+  status_key?: string;
   file_name?: string;
   count?: number;
   exported_at?: string;

@@ -15,11 +15,11 @@ import (
 )
 
 type SubmissionService struct {
-	uc       *biz.SubmissionUsecase
-	taskUC   *biz.TaskUsecase
-	vipUC    *biz.VIPUsecase
-	evalUC   *biz.EvaluationUsecase
-	qiniuSvc *QiniuService
+	uc     *biz.SubmissionUsecase
+	taskUC *biz.TaskUsecase
+	vipUC  *biz.VIPUsecase
+	evalUC *biz.EvaluationUsecase
+	ossSvc *AliyunOSSService
 }
 
 type AnalyzePreviewRequest struct {
@@ -37,8 +37,22 @@ func (s *SubmissionService) validatePhotoVerification(r *http.Request, sub *data
 	if err != nil {
 		return err
 	}
+	if task == nil {
+		return errors.New("任务不存在")
+	}
+	userID, _ := r.Context().Value(UserIDKey).(string)
+	if s.ossSvc == nil || !s.ossSvc.IsOwnedFinalKey(userID, sub.TaskID.Hex(), sub.Photo.URL) {
+		return errors.New("照片存储路径无效")
+	}
+	objectInfo, err := s.ossSvc.ProbeObject(sub.Photo.URL)
+	if err != nil {
+		return err
+	}
+	if err := validateOSSPhotoSize(task, objectInfo.Size); err != nil {
+		return err
+	}
+	sub.Photo.FileSize = objectInfo.Size
 	if task != nil && task.IsAIAnalysisEnabled() {
-		userID, _ := r.Context().Value(UserIDKey).(string)
 		if err := verifyPhotoVerificationToken(sub.VerificationToken, userID, sub.TaskID.Hex(), sub.Photo.URL); err != nil {
 			return err
 		}
@@ -46,8 +60,8 @@ func (s *SubmissionService) validatePhotoVerification(r *http.Request, sub *data
 	return nil
 }
 
-func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase, evalUC *biz.EvaluationUsecase, qiniuSvc *QiniuService) *SubmissionService {
-	return &SubmissionService{uc: uc, taskUC: taskUC, vipUC: vipUC, evalUC: evalUC, qiniuSvc: qiniuSvc}
+func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase, evalUC *biz.EvaluationUsecase, ossSvc *AliyunOSSService) *SubmissionService {
+	return &SubmissionService{uc: uc, taskUC: taskUC, vipUC: vipUC, evalUC: evalUC, ossSvc: ossSvc}
 }
 
 func buildPhotoSpecText(task *data.Task) string {
@@ -66,7 +80,7 @@ func buildPhotoSpecText(task *data.Task) string {
 			"目标比例："+buildPhotoRatioText(task.PhotoSpec.Width, task.PhotoSpec.Height),
 		)
 	}
-	if task.PhotoSpec.BackgroundColor != "" {
+	if task.PhotoSpec.BackgroundColor != "" && !task.IsBackgroundReplacementEnabled() {
 		parts = append(parts, "背景色要求："+task.PhotoSpec.BackgroundColor)
 	}
 
@@ -105,7 +119,7 @@ func greatestCommonDivisor(a int, b int) int {
 	return a
 }
 
-func (s *SubmissionService) evaluateTaskPhoto(taskID string, photoKey string) (*biz.EvaluationResult, error) {
+func (s *SubmissionService) evaluateTaskPhoto(userID string, taskID string, photoKey string) (*biz.EvaluationResult, error) {
 	task, err := s.taskUC.GetTask(context.Background(), taskID)
 	if err != nil {
 		return nil, err
@@ -116,17 +130,30 @@ func (s *SubmissionService) evaluateTaskPhoto(taskID string, photoKey string) (*
 	if !task.IsAIAnalysisEnabled() {
 		return nil, errors.New("当前任务未开启AI分析")
 	}
+	if s.ossSvc == nil || !s.ossSvc.IsOwnedTemporaryKey(userID, task.ID.Hex(), photoKey) {
+		return nil, errors.New("照片临时存储路径无效")
+	}
+	objectInfo, err := s.ossSvc.ProbeObject(photoKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateOSSPhotoSize(task, objectInfo.Size); err != nil {
+		return nil, err
+	}
 	if s.vipUC != nil {
 		entitlements, err := s.vipUC.GetUserEntitlements(context.Background(), task.UserID)
 		if err != nil {
 			return nil, err
 		}
-		if !entitlements.IsVIP {
+		if entitlements == nil || !entitlements.IsVIP || !entitlements.Limits.CanUseAIAnalysis {
 			return nil, errors.New("当前任务创建者未激活VIP，无法使用AI分析")
 		}
 	}
 
-	photoURL := s.qiniuSvc.GetFileURLWithTTL(photoKey, 10*time.Minute)
+	photoURL, err := s.ossSvc.GetFileURLWithTTL(photoKey, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
 	return s.evalUC.EvaluatePhoto(context.Background(), photoURL, buildPhotoSpecText(task))
 }
 
@@ -229,7 +256,7 @@ func (s *SubmissionService) AnalyzePreview(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	result, err := s.evaluateTaskPhoto(req.TaskID, req.Photo.URL)
+	result, err := s.evaluateTaskPhoto(userID, req.TaskID, req.Photo.URL)
 	if err != nil {
 		Error(w, 2012, err.Error())
 		return
@@ -266,7 +293,12 @@ func (s *SubmissionService) GetSubmission(w http.ResponseWriter, r *http.Request
 	}
 
 	if submission.Photo.URL != "" {
-		submission.Photo.URL = s.qiniuSvc.GetFileURL(submission.Photo.URL)
+		fileURL, err := s.ossSvc.GetFileURLWithTTL(submission.Photo.URL, time.Hour)
+		if err != nil {
+			Error(w, 2007, err.Error())
+			return
+		}
+		submission.Photo.URL = fileURL
 	}
 
 	Success(w, submission)
@@ -299,7 +331,12 @@ func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Reque
 	// 转换 photo.url 从 key 到完整的签名 URL
 	for i := range result.List {
 		if result.List[i].Photo.URL != "" {
-			result.List[i].Photo.URL = s.qiniuSvc.GetFileURL(result.List[i].Photo.URL)
+			fileURL, err := s.ossSvc.GetFileURLWithTTL(result.List[i].Photo.URL, time.Hour)
+			if err != nil {
+				Error(w, 2003, err.Error())
+				return
+			}
+			result.List[i].Photo.URL = fileURL
 		}
 	}
 

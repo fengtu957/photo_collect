@@ -31,3 +31,21 @@ func TestBuildPhotoSpecTextIncludesIDPhotoDimensions(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildPhotoSpecTextOmitsBackgroundBeforeAutomaticReplacement(t *testing.T) {
+	enabled := true
+	task := &data.Task{
+		PhotoSpec: data.PhotoSpec{
+			Name:            "一寸",
+			Width:           25,
+			Height:          35,
+			BackgroundColor: "白底",
+		},
+		BackgroundReplacementEnabled: &enabled,
+	}
+
+	got := buildPhotoSpecText(task)
+	if strings.Contains(got, "背景色要求") {
+		t.Fatalf("buildPhotoSpecText() = %q, background requirement must be omitted before replacement", got)
+	}
+}
