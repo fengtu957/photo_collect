@@ -32,15 +32,48 @@ function getTaskStatus(task: any): string {
 }
 
 function formatSubmissions(list: any[], customFields: any[]) {
-  const firstField = (customFields || [])[0] || null;
+  const visibleFields = (customFields || [])
+    .filter((field: any) => String(field.label || '').trim())
+    .slice(0, 5);
   return list.map((s: any) => {
-    const rawValue = firstField && s.custom_data ? s.custom_data[firstField.id] : '';
-    const firstFieldValue = Array.isArray(rawValue) ? rawValue.join('、') : String(rawValue || '').trim();
+    const customFieldItems = visibleFields.map((field: any, index: number) => {
+      const rawValue = s.custom_data ? s.custom_data[field.id] : '';
+      const value = Array.isArray(rawValue) ? rawValue.join('、') : String(rawValue || '').trim();
+      return {
+        id: String(field.id || index),
+        label: String(field.label || '').trim(),
+        value: value || '未填写'
+      };
+    });
     return {
       ...s,
       createdAtFormatted: s.created_at ? formatTime(String(s.created_at)) : '',
-      firstFieldLabel: firstField ? String(firstField.label || '') : '',
-      firstFieldValue: firstFieldValue || '未填写'
+      customFieldItems
+    };
+  });
+}
+
+function preserveSubmissionPhotoURLs(nextList: any[], previousList: any[]) {
+  const previousById: Record<string, any> = {};
+  (previousList || []).forEach((item: any) => {
+    previousById[String(item.id || '')] = item;
+  });
+
+  return (nextList || []).map((item: any) => {
+    const previous = previousById[String(item.id || '')];
+    if (!previous || String(previous.updated_at || '') !== String(item.updated_at || '')) {
+      return item;
+    }
+
+    const previousPhoto = previous.photo || {};
+    const nextPhoto = item.photo || {};
+    return {
+      ...item,
+      photo: {
+        ...nextPhoto,
+        url: previousPhoto.url || nextPhoto.url || '',
+        thumbnail_url: previousPhoto.thumbnail_url || nextPhoto.thumbnail_url || ''
+      }
     };
   });
 }
@@ -267,7 +300,8 @@ Page({
     loadingMore: false,
     total: 0,
     pageLoading: true,
-    bootstrapping: false
+    bootstrapping: false,
+    needsRefresh: false
   },
 
   async onLoad(options: any) {
@@ -305,11 +339,10 @@ Page({
   },
 
   onShow() {
-    if (this.data.taskId && !this.data.bootstrapping) {
-      // 刷新时重置到第一页
-      this.setData({ page: 1, submissions: [], hasMore: true, pageLoading: true });
-      this.loadData();
-    }
+    if (!this.data.taskId || this.data.bootstrapping || !this.data.needsRefresh) return;
+
+    this.setData({ page: 1, hasMore: true, needsRefresh: false });
+    this.loadData(false);
   },
 
   onHide() {
@@ -325,8 +358,10 @@ Page({
     }
   },
 
-  async loadData() {
-    this.setData({ pageLoading: true });
+  async loadData(showPageLoading: boolean = true) {
+    if (showPageLoading) {
+      this.setData({ pageLoading: true });
+    }
 
     try {
       const [task, result] = await Promise.all([
@@ -342,7 +377,10 @@ Page({
 
       const list = (result && result.list) || [];
       const customFields: any[] = (task && task.custom_fields) || [];
-      const formattedSubmissions = formatSubmissions(list, customFields);
+      const formattedSubmissions = preserveSubmissionPhotoURLs(
+        formatSubmissions(list, customFields),
+        this.data.submissions
+      );
       const customFieldSummary = getCustomFieldSummary(customFields);
       const total = (result && result.total) || 0;
       const mySubmission = list.find((s: any) => s.user_id === currentOpenid);
@@ -434,10 +472,12 @@ Page({
     if (!this.data.isCreator) {
       return;
     }
+    this.setData({ needsRefresh: true });
     wx.navigateTo({ url: `/pages/task-submissions/task-submissions?taskId=${this.data.taskId}` });
   },
 
   goToUpload() {
+    this.setData({ needsRefresh: true });
     if (!this.data.isCreator && this.data.mySubmissionId) {
       wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${this.data.mySubmissionId}` });
     } else {
@@ -447,16 +487,13 @@ Page({
 
   editSubmission(e: any) {
     const submissionId = e.currentTarget.dataset.id;
+    if (!submissionId) return;
+    this.setData({ needsRefresh: true });
     wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${submissionId}` });
   },
 
-  previewSubmissionPhoto(e: any) {
-    const photoUrl = String(e.currentTarget.dataset.url || '');
-    if (!photoUrl) return;
-    wx.previewImage({ current: photoUrl, urls: [photoUrl] });
-  },
-
   editTask() {
+    this.setData({ needsRefresh: true });
     wx.navigateTo({ url: `/pages/task-create/task-create?id=${this.data.taskId}` });
   },
 

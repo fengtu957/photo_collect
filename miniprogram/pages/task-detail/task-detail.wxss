@@ -172,6 +172,12 @@
   margin-left: 8rpx;
 }
 
+.section-hint {
+  margin-left: 16rpx;
+  font-size: 24rpx;
+  color: #999;
+}
+
 .section-action {
   margin-left: auto;
   font-size: 28rpx;
@@ -195,6 +201,7 @@
 
 /* 提交卡片 */
 .submission-card {
+  position: relative;
   width: 100%;
   box-sizing: border-box;
   display: flex;
@@ -207,9 +214,13 @@
   box-shadow: 0 8rpx 24rpx rgba(32, 55, 80, 0.06);
 }
 
+.submission-card-active {
+  background: #f8fafc;
+}
+
 .submission-thumbnail {
-  width: 168rpx;
-  height: 208rpx;
+  width: 200rpx;
+  height: 248rpx;
   flex-shrink: 0;
   border-radius: 14rpx;
   background: #f2f4f7;
@@ -220,13 +231,17 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+  padding: 0;
 }
 
-.submission-header {
+.submission-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
+  justify-content: flex-start;
+  margin-top: 4rpx;
+  padding-right: 180rpx;
+  box-sizing: border-box;
 }
 
 .submitter {
@@ -255,43 +270,70 @@
 }
 
 .time {
-  display: block;
-  margin-top: auto;
+  position: absolute;
+  right: 20rpx;
+  bottom: 20rpx;
   font-size: 24rpx;
+  line-height: 1;
   color: #a0a7b0;
 }
 
-.edit-link {
+.submission-fields {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.submission-field-labels,
+.submission-field-colons,
+.submission-field-values {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.submission-field-labels {
   flex-shrink: 0;
-  font-size: 26rpx;
-  color: #1989fa;
-  padding: 6rpx 0 6rpx 16rpx;
+  max-width: 156rpx;
 }
 
-.first-field {
-  margin-top: 20rpx;
-  padding: 14rpx 16rpx;
-  border-radius: 12rpx;
-  background: #f7f9fc;
+.submission-field-colons {
+  flex-shrink: 0;
 }
 
-.first-field-label {
+.submission-field-values {
+  flex: 1;
+}
+
+.submission-field-label {
   display: block;
-  margin-bottom: 6rpx;
-  font-size: 23rpx;
-  color: #8a94a3;
+  font-size: 26rpx;
+  line-height: 1.45;
+  color: #6f7885;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.first-field-value {
-  display: -webkit-box;
-  font-size: 28rpx;
-  color: #2f3540;
+.submission-field-colon {
+  display: block;
+  font-size: 26rpx;
   line-height: 1.45;
-  word-break: break-all;
-  overflow-wrap: break-word;
+  color: #6f7885;
+}
+
+.submission-field-value {
+  min-width: 0;
+  display: block;
+  font-size: 26rpx;
+  line-height: 1.45;
+  color: #6f7885;
+  font-weight: 400;
+  white-space: nowrap;
   overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
 }
 
 /* 悬浮按钮 */

@@ -240,7 +240,10 @@ Page({
     multiSelectState: {} as Record<string, Record<string, boolean>>,
     isEditMode: false,
     canvasWidth: 1,
-    canvasHeight: 1
+    canvasHeight: 1,
+    keyboardSpacerHeight: 0,
+    focusedInputTarget: '',
+    pageScrollTopBeforeKeyboard: 0
   },
 
   async onLoad(options: any) {
@@ -734,6 +737,69 @@ Page({
     const field = e.currentTarget.dataset.field;
     const value = e.detail.value;
     this.setData({ [`customData.${field}`]: value });
+  },
+
+  onInputFocus(e: any) {
+    const target = String(e.currentTarget.dataset.target || '');
+    if (!target) return;
+
+    const shouldRememberScrollTop = this.data.keyboardSpacerHeight <= 0;
+    this.setData({ focusedInputTarget: target });
+
+    if (shouldRememberScrollTop) {
+      const query = wx.createSelectorQuery();
+      query.selectViewport().scrollOffset();
+      query.exec((result: any[]) => {
+        const viewport = result && result[0];
+        if (!viewport) return;
+        this.setData({
+          pageScrollTopBeforeKeyboard: Math.max(0, Number(viewport.scrollTop || 0))
+        });
+      });
+    }
+
+    setTimeout(() => this.scrollInputIntoView(target), 120);
+  },
+
+  onKeyboardHeightChange(e: any) {
+    const height = Math.max(0, Number((e.detail && e.detail.height) || 0));
+    const target = this.data.focusedInputTarget;
+    const keyboardWasOpen = this.data.keyboardSpacerHeight > 0;
+    const restoreScrollTop = this.data.pageScrollTopBeforeKeyboard;
+    this.setData({
+      keyboardSpacerHeight: height > 0 ? height + 24 : 0,
+      focusedInputTarget: height > 0 ? target : ''
+    }, () => {
+      if (height > 0 && target) {
+        setTimeout(() => this.scrollInputIntoView(target), 60);
+      } else if (height === 0 && keyboardWasOpen) {
+        setTimeout(() => {
+          wx.pageScrollTo({
+            scrollTop: Math.max(0, Number(restoreScrollTop || 0)),
+            duration: 200
+          });
+        }, 60);
+      }
+    });
+  },
+
+  scrollInputIntoView(target: string) {
+    if (!target) return;
+
+    const query = wx.createSelectorQuery();
+    query.select(`#${target}`).boundingClientRect();
+    query.selectViewport().scrollOffset();
+    query.exec((result: any[]) => {
+      const fieldRect = result && result[0];
+      const viewport = result && result[1];
+      if (!fieldRect || !viewport) return;
+
+      const scrollTop = Number(viewport.scrollTop || 0) + Number(fieldRect.top || 0) - 20;
+      wx.pageScrollTo({
+        scrollTop: Math.max(0, scrollTop),
+        duration: 200
+      });
+    });
   },
 
   onVerificationCodeInput(e: any) {

@@ -485,6 +485,10 @@
 }
 
 /* 底部按钮 */
+.keyboard-spacer {
+  width: 100%;
+}
+
 .footer-placeholder {
   height: 128rpx;
 }

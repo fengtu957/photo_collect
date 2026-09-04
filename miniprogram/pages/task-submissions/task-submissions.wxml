@@ -17,28 +17,32 @@
     </view>
 
     <view class="submission-waterfall" wx:else>
-      <view class="submission-card" wx:for="{{submissions}}" wx:key="id">
+      <view class="submission-card" wx:for="{{submissions}}" wx:key="id" bindtap="editSubmission" data-id="{{item.id}}" hover-class="submission-card-active">
         <image
           class="submission-thumbnail"
           src="{{item.photo.thumbnail_url || item.photo.url}}"
           mode="aspectFill"
-          data-url="{{item.photo.url}}"
-          bindtap="previewSubmissionPhoto"
         />
         <view class="submission-content">
-          <view class="submission-header">
+          <view class="submission-fields" wx:if="{{item.customFieldItems.length}}">
+            <view class="submission-field-labels">
+              <text class="submission-field-label" wx:for="{{item.customFieldItems}}" wx:for-item="field" wx:key="id">{{field.label}}</text>
+            </view>
+            <view class="submission-field-colons">
+              <text class="submission-field-colon" wx:for="{{item.customFieldItems}}" wx:for-item="field" wx:key="id">:</text>
+            </view>
+            <view class="submission-field-values">
+              <text class="submission-field-value" wx:for="{{item.customFieldItems}}" wx:for-item="field" wx:key="id">{{field.value}}</text>
+            </view>
+          </view>
+          <view class="submission-meta">
             <view class="submitter">
               <image class="avatar" src="{{item.user_info.avatar_url}}" mode="aspectFill" />
               <text class="nickname">{{item.user_info.nick_name}}</text>
             </view>
-            <text class="edit-link" catchtap="editSubmission" data-id="{{item.id}}">编辑</text>
           </view>
-          <view class="first-field" wx:if="{{item.firstFieldLabel}}">
-            <text class="first-field-label">{{item.firstFieldLabel}}</text>
-            <text class="first-field-value">{{item.firstFieldValue}}</text>
-          </view>
-          <text class="time">{{item.createdAtFormatted}}</text>
         </view>
+        <text class="time">{{item.createdAtFormatted}}</text>
       </view>
     </view>
 

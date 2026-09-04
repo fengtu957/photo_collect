@@ -117,7 +117,7 @@
 
   <view class="section" wx:if="{{requiresVerificationCode}}">
     <view class="section-title">输入校验码</view>
-    <view class="card">
+    <view class="card" id="verification-code-field">
       <input
         class="input"
         type="number"
@@ -125,6 +125,9 @@
         placeholder="请输入数字校验码"
         value="{{verificationCodeInput}}"
         bindinput="onVerificationCodeInput"
+        bindfocus="onInputFocus"
+        bindkeyboardheightchange="onKeyboardHeightChange"
+        data-target="verification-code-field"
         adjust-position="{{false}}"
       />
       <text class="verification-tip">该任务开启了校验码，仅支持输入数字，填写正确后才能提交或更新照片。</text>
@@ -135,7 +138,7 @@
   <view class="section" wx:if="{{task && task.custom_fields && task.custom_fields.length > 0}}">
     <view class="section-title">填写信息</view>
     <view class="card">
-      <view class="field-item" wx:for="{{task.custom_fields}}" wx:key="id">
+      <view class="field-item" wx:for="{{task.custom_fields}}" wx:key="id" id="custom-field-{{index}}">
         <view class="field-label">
           <text>{{item.label}}</text>
           <text class="required" wx:if="{{item.required}}">*</text>
@@ -148,7 +151,10 @@
           placeholder="{{item.placeholder || '请输入' + item.label}}"
           value="{{customData[item.id]}}"
           data-field="{{item.id}}"
+          data-target="custom-field-{{index}}"
           bindinput="onCustomFieldInput"
+          bindfocus="onInputFocus"
+          bindkeyboardheightchange="onKeyboardHeightChange"
           adjust-position="{{false}}"
         />
 
@@ -160,7 +166,10 @@
           placeholder="{{item.placeholder || '请输入' + item.label}}"
           value="{{customData[item.id]}}"
           data-field="{{item.id}}"
+          data-target="custom-field-{{index}}"
           bindinput="onCustomFieldInput"
+          bindfocus="onInputFocus"
+          bindkeyboardheightchange="onKeyboardHeightChange"
           adjust-position="{{false}}"
         />
 
@@ -196,6 +205,7 @@
   </view>
 
   <!-- 提交按钮 -->
+  <view class="keyboard-spacer" wx:if="{{keyboardSpacerHeight > 0}}" style="height: {{keyboardSpacerHeight}}px;"></view>
   <view class="footer-placeholder"></view>
   <view class="footer">
     <button class="delete-btn" wx:if="{{isEditMode}}" bindtap="deleteSubmissionRecord" disabled="{{photoProcessing || backgroundProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">删除提交</button>

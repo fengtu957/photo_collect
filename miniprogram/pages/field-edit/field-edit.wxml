@@ -5,7 +5,7 @@
       <text class="type-arrow">∨</text>
     </view>
     <view class="input-wrap">
-      <input class="input" placeholder="输入名称" bindinput="onInput" data-field="label" value="{{field.label}}" adjust-position="{{false}}" />
+      <input class="input" maxlength="6" placeholder="输入名称（最多6个字）" bindinput="onInput" data-field="label" value="{{field.label}}" adjust-position="{{false}}" />
     </view>
     <view class="input-wrap">
       <input class="input" placeholder="说明（选填）" bindinput="onInput" data-field="placeholder" value="{{field.placeholder}}" adjust-position="{{false}}" />

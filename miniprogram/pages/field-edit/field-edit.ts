@@ -32,7 +32,9 @@ Page({
 
   onInput(e: any) {
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`field.${field}`]: e.detail.value });
+    const rawValue = String(e.detail.value || '');
+    const value = field === 'label' ? Array.from(rawValue).slice(0, 6).join('') : rawValue;
+    this.setData({ [`field.${field}`]: value });
   },
 
   onRequiredChange(e: any) {
@@ -81,10 +83,16 @@ Page({
   save() {
     const appInstance = getApp<any>();
     const { field, mode, index } = this.data;
-    if (!field.label) {
+    const label = String(field.label || '').trim();
+    if (!label) {
       wx.showToast({ title: '请输入名称', icon: 'none' });
       return;
     }
+    if (Array.from(label).length > 6) {
+      wx.showToast({ title: '名称最多6个字', icon: 'none' });
+      return;
+    }
+    field.label = label;
     if (!appInstance.globalData.customFields) appInstance.globalData.customFields = [];
     if (mode === 'add') {
       field.id = `field_${Date.now()}`;
