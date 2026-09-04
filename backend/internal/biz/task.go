@@ -380,13 +380,19 @@ func (uc *TaskUsecase) ListTasks(ctx context.Context, userID string) ([]*data.Ta
 		return nil, err
 	}
 
-	// 3. 我参与的任务（有提交记录的任务ID）
+	// 3. 我协作的任务
+	collaborating, err := uc.repo.FindByCollaboratorUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. 我参与的任务（有提交记录的任务ID）
 	participatedIDs, err := uc.subRepo.FindDistinctTaskIDsByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. 过滤掉已在创建或管理列表中的任务ID，避免重复查询
+	// 5. 过滤掉已在创建、管理或协作列表中的任务ID，避免重复查询
 	accessibleSet := make(map[string]bool)
 	for _, t := range created {
 		accessibleSet[t.ID.Hex()] = true
@@ -399,6 +405,14 @@ func (uc *TaskUsecase) ListTasks(ctx context.Context, userID string) ([]*data.Ta
 		accessibleSet[t.ID.Hex()] = true
 		uniqueManaged = append(uniqueManaged, t)
 	}
+	uniqueCollaborating := make([]*data.Task, 0, len(collaborating))
+	for _, t := range collaborating {
+		if accessibleSet[t.ID.Hex()] {
+			continue
+		}
+		accessibleSet[t.ID.Hex()] = true
+		uniqueCollaborating = append(uniqueCollaborating, t)
+	}
 	var newIDs []primitive.ObjectID
 	for _, oid := range participatedIDs {
 		if !accessibleSet[oid.Hex()] {
@@ -406,22 +420,23 @@ func (uc *TaskUsecase) ListTasks(ctx context.Context, userID string) ([]*data.Ta
 		}
 	}
 
-	// 5. 批量查询参与的任务
+	// 6. 批量查询参与的任务
 	participated, err := uc.repo.FindByIDs(ctx, newIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	// 6. 合并并按创建时间倒序排序
-	all := make([]*data.Task, 0, len(created)+len(uniqueManaged)+len(participated))
+	// 7. 合并并按创建时间倒序排序
+	all := make([]*data.Task, 0, len(created)+len(uniqueManaged)+len(uniqueCollaborating)+len(participated))
 	all = append(all, created...)
 	all = append(all, uniqueManaged...)
+	all = append(all, uniqueCollaborating...)
 	all = append(all, participated...)
 	sort.Slice(all, func(i, j int) bool {
 		return all[i].CreatedAt.After(all[j].CreatedAt)
 	})
 
-	// 7. 动态计算每个任务的提交数量
+	// 8. 动态计算每个任务的提交数量
 	for _, task := range all {
 		count, err := uc.subRepo.CountByTaskID(ctx, task.ID.Hex())
 		if err == nil {

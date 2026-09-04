@@ -75,6 +75,21 @@ func (r *TaskRepo) FindByAdminUserID(ctx context.Context, userID string) ([]*Tas
 	return tasks, nil
 }
 
+func (r *TaskRepo) FindByCollaboratorUserID(ctx context.Context, userID string) ([]*Task, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.data.DB().Collection("tasks").Find(ctx, bson.M{"collaborator_user_ids": userID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var tasks []*Task
+	if err := cursor.All(ctx, &tasks); err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
 func (r *TaskRepo) Create(ctx context.Context, task *Task) error {
 	task.ID = primitive.NewObjectID()
 	task.CreatedAt = time.Now()
