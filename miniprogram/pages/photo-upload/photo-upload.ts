@@ -422,6 +422,11 @@ Page({
     try {
       showLoading('处理照片中...');
       const preparedPhoto = await this.preparePhotoForUpload(filePath);
+      if (!this.data.aiAnalysisEnabled && !this.data.backgroundReplacementEnabled) {
+        await this.finalizeDirectPhoto(preparedPhoto);
+        return;
+      }
+
       const policy = await getUploadPolicy(this.data.taskId, 'temporary');
       await uploadPhotoToOSS(preparedPhoto.filePath, policy);
       this.setData({
@@ -448,6 +453,14 @@ Page({
       this.setData({ photoProcessing: false, backgroundProcessing: false });
       hideLoading();
     }
+  },
+
+  async finalizeDirectPhoto(preparedPhoto: any) {
+    showLoading('上传照片中...');
+    const finalPolicy = await getUploadPolicy(this.data.taskId, 'final');
+    await uploadPhotoToOSS(preparedPhoto.filePath, finalPolicy);
+    const finalized = await finalizePhoto(this.data.taskId, '', finalPolicy.key, '');
+    this.applyFinalizedPhoto(preparedPhoto, finalized);
   },
 
   async processTemporaryPhoto(preparedPhoto: any, temporaryKey: string) {
@@ -520,15 +533,19 @@ Page({
       finalKey,
       sourceVerificationToken
     );
+    this.applyFinalizedPhoto(finalPhoto, finalized);
+  },
+
+  applyFinalizedPhoto(finalPhoto: any, finalized: any) {
     this.setData({
       photoPath: finalPhoto.filePath,
-      photoKey: finalized.photo_key,
+      photoKey: finalized && finalized.photo_key ? finalized.photo_key : '',
       photoMeta: {
-        fileSize: Number(finalized.file_size || finalPhoto.fileSize),
+        fileSize: Number((finalized && finalized.file_size) || finalPhoto.fileSize),
         width: Number(finalPhoto.width || 0),
         height: Number(finalPhoto.height || 0)
       },
-      verificationToken: finalized.verification_token || '',
+      verificationToken: (finalized && finalized.verification_token) || '',
       analysisMessage: this.data.aiAnalysisEnabled ? '照片检查通过，可以提交。' : '',
       backgroundState: this.data.backgroundReplacementEnabled ? 'success' : '',
       backgroundError: '',

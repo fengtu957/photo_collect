@@ -66,8 +66,14 @@ func (s *UploadService) CreateUploadPolicy(w http.ResponseWriter, r *http.Reques
 		policy, err = s.oss.CreateTemporaryUploadPolicy(userID, task.ID.Hex())
 	case "final":
 		if !task.IsBackgroundReplacementEnabled() {
-			Error(w, 2014, "当前任务不需要客户端上传最终照片")
-			return
+			// A task without AI or background replacement can upload directly to
+			// its final key. AI tasks still need the temporary key for validation.
+			if task.IsAIAnalysisEnabled() {
+				Error(w, 2014, "当前任务需要先上传临时照片并完成 AI 检查")
+				return
+			}
+			policy, err = s.oss.CreateFinalUploadPolicy(userID, task.ID.Hex())
+			break
 		}
 		if err = s.validateBackgroundEntitlement(task); err != nil {
 			Error(w, 2014, err.Error())
@@ -106,12 +112,26 @@ func (s *UploadService) FinalizePhoto(w http.ResponseWriter, r *http.Request) {
 		Error(w, 2014, err.Error())
 		return
 	}
-	if err := s.validateTemporarySource(task, userID, req.SourceKey, req.VerificationToken); err != nil {
-		Error(w, 2014, err.Error())
-		return
+	sourceKey := strings.TrimSpace(req.SourceKey)
+	finalKey := strings.TrimSpace(req.FinalKey)
+	if sourceKey == "" {
+		// Direct final uploads are only allowed for tasks that do not require
+		// AI verification or background processing.
+		if task.IsAIAnalysisEnabled() || task.IsBackgroundReplacementEnabled() {
+			Error(w, 2013, "source_key 不能为空")
+			return
+		}
+		if !s.oss.IsOwnedFinalKey(userID, task.ID.Hex(), finalKey) {
+			Error(w, 2013, "final_key 无效")
+			return
+		}
+	} else {
+		if err := s.validateTemporarySource(task, userID, sourceKey, req.VerificationToken); err != nil {
+			Error(w, 2014, err.Error())
+			return
+		}
 	}
 
-	finalKey := strings.TrimSpace(req.FinalKey)
 	if task.IsBackgroundReplacementEnabled() {
 		if err := s.validateBackgroundEntitlement(task); err != nil {
 			Error(w, 2014, err.Error())
@@ -121,13 +141,13 @@ func (s *UploadService) FinalizePhoto(w http.ResponseWriter, r *http.Request) {
 			Error(w, 2013, "final_key 无效")
 			return
 		}
-	} else {
+	} else if sourceKey != "" {
 		if finalKey != "" {
 			Error(w, 2013, "当前任务的 final_key 必须为空")
 			return
 		}
 		finalKey = s.oss.NewFinalPhotoKey(userID, task.ID.Hex())
-		if err := s.oss.CopyObject(strings.TrimSpace(req.SourceKey), finalKey); err != nil {
+		if err := s.oss.CopyObject(sourceKey, finalKey); err != nil {
 			Error(w, 2014, err.Error())
 			return
 		}
