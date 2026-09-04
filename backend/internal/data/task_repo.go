@@ -251,3 +251,23 @@ func (r *TaskRepo) UpdateExportInfo(ctx context.Context, id string, exportInfo T
 	})
 	return err
 }
+
+func (r *TaskRepo) UpdateLatestExportStatus(ctx context.Context, id string, exportID string, exportInfo TaskExportInfo) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.data.DB().Collection("tasks").UpdateOne(
+		ctx,
+		bson.M{
+			"_id":                       objID,
+			"export_info.persistent_id": exportID,
+		},
+		bson.M{"$set": bson.M{
+			"export_info": exportInfo,
+			"updated_at":  time.Now(),
+		}},
+	)
+	return err
+}

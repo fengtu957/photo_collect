@@ -2,13 +2,18 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"path"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,10 +30,12 @@ var duplicateUnderscorePattern = regexp.MustCompile(`_+`)
 var windowsReservedNamePattern = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])$`)
 
 type ExportService struct {
-	taskRepo *data.TaskRepo
-	subRepo  *data.SubmissionRepo
-	ossSvc   *AliyunOSSService
-	vipUC    *biz.VIPUsecase
+	taskRepo    *data.TaskRepo
+	subRepo     *data.SubmissionRepo
+	exportRepo  *data.ExportRepo
+	ossSvc      *AliyunOSSService
+	vipUC       *biz.VIPUsecase
+	callbackURL string
 }
 
 type ExportTaskRequest struct {
@@ -36,13 +43,25 @@ type ExportTaskRequest struct {
 }
 
 type ExportTaskResponse struct {
-	Status         string `json:"status"`
-	FileName       string `json:"file_name"`
-	DownloadURL    string `json:"download_url"`
-	ExpiresAt      string `json:"expires_at"`
-	AvailableUntil string `json:"available_until,omitempty"`
-	Count          int    `json:"count"`
-	ErrorMessage   string `json:"error_message,omitempty"`
+	ID               string `json:"id,omitempty"`
+	Status           string `json:"status"`
+	FileName         string `json:"file_name"`
+	FilenameTemplate string `json:"filename_template,omitempty"`
+	DownloadURL      string `json:"download_url"`
+	ExpiresAt        string `json:"expires_at"`
+	AvailableUntil   string `json:"available_until,omitempty"`
+	Count            int    `json:"count"`
+	ErrorMessage     string `json:"error_message,omitempty"`
+	ExportedAt       string `json:"exported_at,omitempty"`
+	CreatedAt        string `json:"created_at,omitempty"`
+	UpdatedAt        string `json:"updated_at,omitempty"`
+}
+
+type ExportCallbackRequest struct {
+	ExportID     string `json:"export_id"`
+	Status       string `json:"status"`
+	ErrorMessage string `json:"error_message"`
+	UpdatedAt    string `json:"updated_at"`
 }
 
 type exportEntry struct {
@@ -61,12 +80,14 @@ type preparedExport struct {
 }
 
 type exportManifest struct {
-	Version   int                   `json:"version"`
-	TaskID    string                `json:"task_id"`
-	ExportID  string                `json:"export_id"`
-	ExportKey string                `json:"export_key"`
-	StatusKey string                `json:"status_key"`
-	Entries   []exportManifestEntry `json:"entries"`
+	Version       int                   `json:"version"`
+	TaskID        string                `json:"task_id"`
+	ExportID      string                `json:"export_id"`
+	ExportKey     string                `json:"export_key"`
+	StatusKey     string                `json:"status_key"`
+	CallbackURL   string                `json:"callback_url,omitempty"`
+	CallbackToken string                `json:"callback_token,omitempty"`
+	Entries       []exportManifestEntry `json:"entries"`
 }
 
 type exportManifestEntry struct {
@@ -80,8 +101,15 @@ type exportStatusDocument struct {
 	Message      string `json:"message"`
 }
 
-func NewExportService(taskRepo *data.TaskRepo, subRepo *data.SubmissionRepo, ossSvc *AliyunOSSService, vipUC *biz.VIPUsecase) *ExportService {
-	return &ExportService{taskRepo: taskRepo, subRepo: subRepo, ossSvc: ossSvc, vipUC: vipUC}
+func NewExportService(taskRepo *data.TaskRepo, subRepo *data.SubmissionRepo, exportRepo *data.ExportRepo, ossSvc *AliyunOSSService, vipUC *biz.VIPUsecase) *ExportService {
+	return &ExportService{
+		taskRepo:    taskRepo,
+		subRepo:     subRepo,
+		exportRepo:  exportRepo,
+		ossSvc:      ossSvc,
+		vipUC:       vipUC,
+		callbackURL: strings.TrimSpace(os.Getenv("EXPORT_CALLBACK_URL")),
+	}
 }
 
 func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
@@ -108,9 +136,40 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 		Error(w, 1012, err.Error())
 		return
 	}
+	if err := s.ensureLegacyExportRecord(context.Background(), task); err != nil {
+		Error(w, 1013, err.Error())
+		return
+	}
+	callbackToken := ""
+	if s.callbackURL != "" {
+		callbackToken, err = newExportCallbackToken()
+		if err != nil {
+			Error(w, 1013, err.Error())
+			return
+		}
+	}
+	availabilityTTL := s.buildExportAvailabilityTTL(context.Background(), task.UserID)
+	record := &data.ExportRecord{
+		ExportID:            prepared.exportID,
+		TaskID:              task.ID.Hex(),
+		UserID:              task.UserID,
+		Status:              "pending",
+		FilenameTemplate:    prepared.filenameTemplate,
+		ExportKey:           prepared.exportKey,
+		ManifestKey:         prepared.manifestKey,
+		StatusKey:           prepared.statusKey,
+		CallbackToken:       callbackToken,
+		AvailabilitySeconds: int64(availabilityTTL / time.Second),
+		FileName:            prepared.exportFileName,
+		Count:               len(prepared.entries),
+	}
+	if err := s.exportRepo.Create(context.Background(), record); err != nil {
+		Error(w, 1013, err.Error())
+		return
+	}
 
 	exportInfo := data.TaskExportInfo{
-		Status:           "processing",
+		Status:           record.Status,
 		PersistentID:     prepared.exportID,
 		FilenameTemplate: prepared.filenameTemplate,
 		ExportKey:        prepared.exportKey,
@@ -120,17 +179,20 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 		Count:            len(prepared.entries),
 	}
 	if err := s.taskRepo.UpdateExportInfo(context.Background(), task.ID.Hex(), exportInfo); err != nil {
+		s.markExportFailed(context.Background(), record, err)
 		Error(w, 1013, err.Error())
 		return
 	}
 
 	manifest := exportManifest{
-		Version:   1,
-		TaskID:    task.ID.Hex(),
-		ExportID:  prepared.exportID,
-		ExportKey: prepared.exportKey,
-		StatusKey: prepared.statusKey,
-		Entries:   make([]exportManifestEntry, 0, len(prepared.entries)),
+		Version:       1,
+		TaskID:        task.ID.Hex(),
+		ExportID:      prepared.exportID,
+		ExportKey:     prepared.exportKey,
+		StatusKey:     prepared.statusKey,
+		CallbackURL:   s.callbackURL,
+		CallbackToken: callbackToken,
+		Entries:       make([]exportManifestEntry, 0, len(prepared.entries)),
 	}
 	for _, entry := range prepared.entries {
 		manifest.Entries = append(manifest.Entries, exportManifestEntry{
@@ -140,18 +202,157 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 	}
 	manifestBody, err := json.Marshal(manifest)
 	if err != nil {
+		s.markExportFailed(context.Background(), record, err)
 		Error(w, 1013, err.Error())
 		return
 	}
 	if err := s.ossSvc.PutObject(prepared.manifestKey, manifestBody); err != nil {
-		exportInfo.Status = "failed"
-		exportInfo.ErrorMessage = err.Error()
-		_ = s.taskRepo.UpdateExportInfo(context.Background(), task.ID.Hex(), exportInfo)
+		s.markExportFailed(context.Background(), record, err)
 		Error(w, 1013, err.Error())
 		return
 	}
 
-	Success(w, buildExportTaskResponse(exportInfo))
+	Success(w, buildExportRecordResponse(record))
+}
+
+func (s *ExportService) ListExports(w http.ResponseWriter, r *http.Request) {
+	task, userID, ok := s.requireCreatorTask(w, r, 1020, 1021)
+	if !ok {
+		return
+	}
+	if task.UserID != userID {
+		Error(w, 1021, "无权限查看此任务的导出记录")
+		return
+	}
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	result, err := s.exportRepo.FindByTaskID(context.Background(), task.ID.Hex(), page, limit)
+	if err != nil {
+		Error(w, 1022, err.Error())
+		return
+	}
+
+	for _, record := range result.List {
+		if record != nil &&
+			(record.Status == "pending" || record.Status == "processing") &&
+			(record.CallbackToken == "" || time.Since(record.UpdatedAt) > 15*time.Second) {
+			_, _ = s.syncExportRecord(context.Background(), record)
+		}
+	}
+	if result.Total == 0 && result.Page == 1 && task.ExportInfo.FileName != "" {
+		result.List = []*data.ExportRecord{legacyExportRecord(task)}
+		result.Total = 1
+		result.HasMore = false
+	}
+	items := make([]*ExportTaskResponse, 0, len(result.List))
+	for _, record := range result.List {
+		items = append(items, buildExportRecordResponse(record))
+	}
+	Success(w, map[string]interface{}{
+		"list":     items,
+		"total":    result.Total,
+		"page":     result.Page,
+		"has_more": result.HasMore,
+	})
+}
+
+func (s *ExportService) AuthorizeExportRecordLink(w http.ResponseWriter, r *http.Request) {
+	task, userID, ok := s.requireCreatorTask(w, r, 1023, 1024)
+	if !ok {
+		return
+	}
+	if task.UserID != userID {
+		Error(w, 1024, "无权限操作此任务")
+		return
+	}
+	exportID := strings.TrimSpace(mux.Vars(r)["exportId"])
+	record, err := s.exportRepo.FindByExportID(context.Background(), exportID)
+	if err != nil {
+		Error(w, 1025, err.Error())
+		return
+	}
+	if record == nil {
+		legacyID := legacyExportRecord(task).ExportID
+		if exportID != legacyID || task.ExportInfo.FileName == "" {
+			Error(w, 1025, "导出记录不存在")
+			return
+		}
+		s.authorizeLegacyExportLink(w, task)
+		return
+	}
+	if record.TaskID != task.ID.Hex() || record.UserID != userID {
+		Error(w, 1025, "导出记录不存在")
+		return
+	}
+	if record.Status == "pending" || record.Status == "processing" {
+		record, err = s.syncExportRecord(context.Background(), record)
+		if err != nil {
+			Error(w, 1025, err.Error())
+			return
+		}
+	}
+	if record.Status == "pending" || record.Status == "processing" {
+		Error(w, 1025, "导出仍在处理中")
+		return
+	}
+	if record.Status == "failed" {
+		message := record.ErrorMessage
+		if message == "" {
+			message = "导出失败，请重新导出"
+		}
+		Error(w, 1025, message)
+		return
+	}
+	if !record.AvailableUntil.IsZero() && time.Now().After(record.AvailableUntil) {
+		Error(w, 1025, "导出下载有效期已结束")
+		return
+	}
+	downloadURL, err := s.ossSvc.GetFileURLWithTTL(record.ExportKey, exportLinkTTL)
+	if err != nil {
+		Error(w, 1025, err.Error())
+		return
+	}
+	response := buildExportRecordResponse(record)
+	response.DownloadURL = downloadURL
+	response.ExpiresAt = time.Now().Add(exportLinkTTL).Format(time.RFC3339)
+	Success(w, response)
+}
+
+func (s *ExportService) ExportCallback(w http.ResponseWriter, r *http.Request) {
+	var req ExportCallbackRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024)).Decode(&req); err != nil {
+		Error(w, 1026, "回调数据无效")
+		return
+	}
+	req.ExportID = strings.TrimSpace(req.ExportID)
+	req.Status = strings.ToLower(strings.TrimSpace(req.Status))
+	if req.ExportID == "" || (req.Status != "processing" && req.Status != "success" && req.Status != "failed") {
+		Error(w, 1026, "回调状态无效")
+		return
+	}
+	record, err := s.exportRepo.FindByExportID(context.Background(), req.ExportID)
+	if err != nil {
+		Error(w, 1027, err.Error())
+		return
+	}
+	if record == nil {
+		Error(w, 1027, "导出记录不存在")
+		return
+	}
+	callbackToken := strings.TrimSpace(r.Header.Get("X-Export-Callback-Token"))
+	if record.CallbackToken == "" || subtle.ConstantTimeCompare([]byte(callbackToken), []byte(record.CallbackToken)) != 1 {
+		Error(w, 1027, "回调凭证无效")
+		return
+	}
+	statusTime := time.Now()
+	if parsed, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(req.UpdatedAt)); parseErr == nil {
+		statusTime = parsed
+	}
+	if err := s.applyExportRecordStatus(context.Background(), record, req.Status, req.ErrorMessage, statusTime); err != nil {
+		Error(w, 1028, err.Error())
+		return
+	}
+	Success(w, nil)
 }
 
 func (s *ExportService) SyncExportStatus(w http.ResponseWriter, r *http.Request) {
@@ -229,6 +430,150 @@ func (s *ExportService) AuthorizeExportLink(w http.ResponseWriter, r *http.Reque
 		AvailableUntil: formatTimeRFC3339(exportInfo.AvailableUntil),
 		Count:          exportInfo.Count,
 	})
+}
+
+func (s *ExportService) authorizeLegacyExportLink(w http.ResponseWriter, task *data.Task) {
+	exportInfo, err := s.syncExportInfo(context.Background(), task)
+	if err != nil {
+		Error(w, 1025, err.Error())
+		return
+	}
+	if exportInfo.Status == "processing" || exportInfo.Status == "pending" {
+		Error(w, 1025, "导出仍在处理中")
+		return
+	}
+	if exportInfo.Status == "failed" {
+		message := exportInfo.ErrorMessage
+		if message == "" {
+			message = "导出失败，请重新导出"
+		}
+		Error(w, 1025, message)
+		return
+	}
+	if exportInfo.ExportKey == "" {
+		Error(w, 1025, "当前任务导出文件不存在")
+		return
+	}
+	if !exportInfo.AvailableUntil.IsZero() && time.Now().After(exportInfo.AvailableUntil) {
+		Error(w, 1025, "导出下载有效期已结束")
+		return
+	}
+	downloadURL, err := s.ossSvc.GetFileURLWithTTL(exportInfo.ExportKey, exportLinkTTL)
+	if err != nil {
+		Error(w, 1025, err.Error())
+		return
+	}
+	response := buildExportTaskResponse(exportInfo)
+	response.ID = legacyExportRecord(task).ExportID
+	response.DownloadURL = downloadURL
+	response.ExpiresAt = time.Now().Add(exportLinkTTL).Format(time.RFC3339)
+	Success(w, response)
+}
+
+func (s *ExportService) markExportFailed(ctx context.Context, record *data.ExportRecord, exportErr error) {
+	if record == nil || exportErr == nil {
+		return
+	}
+	_ = s.applyExportRecordStatus(ctx, record, "failed", exportErr.Error(), time.Now())
+}
+
+func (s *ExportService) ensureLegacyExportRecord(ctx context.Context, task *data.Task) error {
+	if task == nil || task.ExportInfo.FileName == "" {
+		return nil
+	}
+	result, err := s.exportRepo.FindByTaskID(ctx, task.ID.Hex(), 1, 1)
+	if err != nil {
+		return err
+	}
+	if result.Total > 0 {
+		return nil
+	}
+	return s.exportRepo.Create(ctx, legacyExportRecord(task))
+}
+
+func (s *ExportService) applyExportRecordStatus(ctx context.Context, record *data.ExportRecord, status string, errorMessage string, statusTime time.Time) error {
+	if record == nil {
+		return fmt.Errorf("导出记录不存在")
+	}
+	if record.Status == "success" || (record.Status == "failed" && status != "success") {
+		return nil
+	}
+	if statusTime.IsZero() {
+		statusTime = time.Now()
+	}
+	record.Status = status
+	record.ErrorMessage = ""
+	if status == "success" {
+		record.ExportedAt = statusTime
+		availabilitySeconds := record.AvailabilitySeconds
+		if availabilitySeconds <= 0 {
+			availabilitySeconds = int64(freeExportAvailabilityTTL / time.Second)
+		}
+		record.AvailableUntil = statusTime.Add(time.Duration(availabilitySeconds) * time.Second)
+	} else if status == "failed" {
+		record.ErrorMessage = strings.TrimSpace(errorMessage)
+		if record.ErrorMessage == "" {
+			record.ErrorMessage = "导出失败，请重新导出"
+		}
+	}
+	updated, err := s.exportRepo.UpdateStatus(ctx, record)
+	if err != nil {
+		return err
+	}
+	if !updated {
+		latest, findErr := s.exportRepo.FindByExportID(ctx, record.ExportID)
+		if findErr != nil {
+			return findErr
+		}
+		if latest != nil {
+			*record = *latest
+		}
+		return nil
+	}
+	exportInfo := exportRecordToTaskExportInfo(record)
+	return s.taskRepo.UpdateLatestExportStatus(ctx, record.TaskID, record.ExportID, exportInfo)
+}
+
+func (s *ExportService) syncExportRecord(ctx context.Context, record *data.ExportRecord) (*data.ExportRecord, error) {
+	if record == nil || record.ExportKey == "" || s == nil || s.ossSvc == nil {
+		return record, nil
+	}
+	objectInfo, err := s.ossSvc.ProbeObject(record.ExportKey)
+	if err == nil && objectInfo != nil && objectInfo.Size > 0 {
+		if err := s.applyExportRecordStatus(ctx, record, "success", "", time.Now()); err != nil {
+			return record, err
+		}
+		return record, nil
+	}
+	if err != nil && !isOSSObjectNotFound(err) {
+		return record, err
+	}
+	if record.StatusKey == "" {
+		return record, nil
+	}
+	statusBody, statusErr := s.ossSvc.ReadSmallObject(record.StatusKey, 64*1024)
+	if statusErr != nil {
+		if isOSSObjectNotFound(statusErr) {
+			return record, nil
+		}
+		return record, statusErr
+	}
+	var statusDoc exportStatusDocument
+	if err := json.Unmarshal(statusBody, &statusDoc); err != nil {
+		return record, fmt.Errorf("解析导出状态失败: %w", err)
+	}
+	status := strings.ToLower(strings.TrimSpace(statusDoc.Status))
+	if status != "processing" && status != "failed" {
+		return record, nil
+	}
+	message := strings.TrimSpace(statusDoc.ErrorMessage)
+	if message == "" {
+		message = strings.TrimSpace(statusDoc.Message)
+	}
+	if err := s.applyExportRecordStatus(ctx, record, status, message, time.Now()); err != nil {
+		return record, err
+	}
+	return record, nil
 }
 
 func (s *ExportService) syncExportInfo(ctx context.Context, task *data.Task) (data.TaskExportInfo, error) {
@@ -364,15 +709,22 @@ func (s *ExportService) prepareExport(task *data.Task, submissions []*data.Submi
 
 func buildExportTaskResponse(exportInfo data.TaskExportInfo) *ExportTaskResponse {
 	return &ExportTaskResponse{
-		Status:         exportInfo.Status,
-		FileName:       exportInfo.FileName,
-		AvailableUntil: formatTimeRFC3339(exportInfo.AvailableUntil),
-		Count:          exportInfo.Count,
-		ErrorMessage:   exportInfo.ErrorMessage,
+		ID:               exportInfo.PersistentID,
+		Status:           exportInfo.Status,
+		FileName:         exportInfo.FileName,
+		FilenameTemplate: exportInfo.FilenameTemplate,
+		AvailableUntil:   formatTimeRFC3339(exportInfo.AvailableUntil),
+		Count:            exportInfo.Count,
+		ErrorMessage:     exportInfo.ErrorMessage,
+		ExportedAt:       formatTimeRFC3339(exportInfo.ExportedAt),
 	}
 }
 
 func (s *ExportService) buildExportAvailableUntil(ctx context.Context, userID string, exportedAt time.Time) time.Time {
+	return exportedAt.Add(s.buildExportAvailabilityTTL(ctx, userID))
+}
+
+func (s *ExportService) buildExportAvailabilityTTL(ctx context.Context, userID string) time.Duration {
 	ttl := freeExportAvailabilityTTL
 	if s.vipUC != nil {
 		entitlements, err := s.vipUC.GetUserEntitlements(ctx, userID)
@@ -380,7 +732,81 @@ func (s *ExportService) buildExportAvailableUntil(ctx context.Context, userID st
 			ttl = vipExportAvailabilityTTL
 		}
 	}
-	return exportedAt.Add(ttl)
+	return ttl
+}
+
+func buildExportRecordResponse(record *data.ExportRecord) *ExportTaskResponse {
+	if record == nil {
+		return &ExportTaskResponse{}
+	}
+	return &ExportTaskResponse{
+		ID:               record.ExportID,
+		Status:           record.Status,
+		FileName:         record.FileName,
+		FilenameTemplate: record.FilenameTemplate,
+		AvailableUntil:   formatTimeRFC3339(record.AvailableUntil),
+		Count:            record.Count,
+		ErrorMessage:     record.ErrorMessage,
+		ExportedAt:       formatTimeRFC3339(record.ExportedAt),
+		CreatedAt:        formatTimeRFC3339(record.CreatedAt),
+		UpdatedAt:        formatTimeRFC3339(record.UpdatedAt),
+	}
+}
+
+func exportRecordToTaskExportInfo(record *data.ExportRecord) data.TaskExportInfo {
+	if record == nil {
+		return data.TaskExportInfo{}
+	}
+	return data.TaskExportInfo{
+		Status:           record.Status,
+		PersistentID:     record.ExportID,
+		FilenameTemplate: record.FilenameTemplate,
+		ExportKey:        record.ExportKey,
+		ManifestKey:      record.ManifestKey,
+		StatusKey:        record.StatusKey,
+		FileName:         record.FileName,
+		Count:            record.Count,
+		ExportedAt:       record.ExportedAt,
+		AvailableUntil:   record.AvailableUntil,
+		ErrorMessage:     record.ErrorMessage,
+	}
+}
+
+func legacyExportRecord(task *data.Task) *data.ExportRecord {
+	info := task.ExportInfo
+	exportID := info.PersistentID
+	if exportID == "" {
+		exportID = "legacy_" + task.ID.Hex()
+	}
+	createdAt := info.ExportedAt
+	if createdAt.IsZero() {
+		createdAt = task.UpdatedAt
+	}
+	return &data.ExportRecord{
+		ExportID:         exportID,
+		TaskID:           task.ID.Hex(),
+		UserID:           task.UserID,
+		Status:           info.Status,
+		FilenameTemplate: info.FilenameTemplate,
+		ExportKey:        info.ExportKey,
+		ManifestKey:      info.ManifestKey,
+		StatusKey:        info.StatusKey,
+		FileName:         info.FileName,
+		Count:            info.Count,
+		ErrorMessage:     info.ErrorMessage,
+		ExportedAt:       info.ExportedAt,
+		AvailableUntil:   info.AvailableUntil,
+		CreatedAt:        createdAt,
+		UpdatedAt:        task.UpdatedAt,
+	}
+}
+
+func newExportCallbackToken() (string, error) {
+	buffer := make([]byte, 32)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", fmt.Errorf("生成导出回调凭证失败: %w", err)
+	}
+	return hex.EncodeToString(buffer), nil
 }
 
 func formatTimeRFC3339(value time.Time) string {

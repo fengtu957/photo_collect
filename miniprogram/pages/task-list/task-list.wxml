@@ -1,24 +1,5 @@
 <scroll-view scroll-y style="height: 100vh;">
   <view class="list">
-    <view class="notice-banner">
-      <view class="notice-copy">
-        <text class="notice-title">使用说明</text>
-        <view class="notice-grid">
-          <view class="notice-item">
-            <text class="notice-tip">· {{createTip}}</text>
-          </view>
-          <view class="notice-item">
-            <text class="notice-tip">· {{submissionTip}}</text>
-          </view>
-          <view class="notice-item">
-            <text class="notice-tip">· {{durationTip}}</text>
-          </view>
-          <view class="notice-item">
-            <text class="notice-tip">· {{retentionTip}}</text>
-          </view>
-        </view>
-      </view>
-    </view>
     <view class="toolbar-card">
       <view class="filter-list">
         <view

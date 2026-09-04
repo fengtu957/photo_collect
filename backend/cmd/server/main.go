@@ -24,11 +24,15 @@ func main() {
 
 	taskRepo := data.NewTaskRepo(d)
 	subRepo := data.NewSubmissionRepo(d)
+	exportRepo := data.NewExportRepo(d)
 	vipRepo := data.NewVIPRepo(d)
 	if err := taskRepo.EnsureIndexes(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 	if err := vipRepo.EnsureIndexes(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+	if err := exportRepo.EnsureIndexes(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 	vipUC := biz.NewVIPUsecase(vipRepo)
@@ -41,7 +45,7 @@ func main() {
 	segmentSvc := service.NewSegmentService(ossSvc, service.NewAliyunImageSegService(), taskUC, vipUC)
 	qwenClient := pkg.NewQwenClient()
 	evalUC := biz.NewEvaluationUsecase(qwenClient)
-	exportSvc := service.NewExportService(taskRepo, subRepo, ossSvc, vipUC)
+	exportSvc := service.NewExportService(taskRepo, subRepo, exportRepo, ossSvc, vipUC)
 
 	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo, vipUC)
 	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, ossSvc)
@@ -57,6 +61,7 @@ func main() {
 	r.HandleFunc(adminPageRoute+"/", adminSvc.Page).Methods("GET")
 	r.HandleFunc("/api/v1/auth/login", authSvc.Login).Methods("POST")
 	r.HandleFunc("/api/v1/admin/login", adminSvc.Login).Methods("POST")
+	r.HandleFunc("/api/v1/export-callback", exportSvc.ExportCallback).Methods("POST")
 
 	// 管理员接口
 	adminAPI := r.PathPrefix("/api/v1/admin").Subrouter()
@@ -74,6 +79,8 @@ func main() {
 	api.HandleFunc("/tasks/{id}/mini-code", taskSvc.GetTaskMiniCode).Methods("GET")
 	api.HandleFunc("/tasks/{id}", taskSvc.UpdateTask).Methods("PUT")
 	api.HandleFunc("/tasks/{id}/export", exportSvc.ExportTask).Methods("POST")
+	api.HandleFunc("/tasks/{id}/exports", exportSvc.ListExports).Methods("GET")
+	api.HandleFunc("/tasks/{id}/exports/{exportId}/authorize", exportSvc.AuthorizeExportRecordLink).Methods("POST")
 	api.HandleFunc("/tasks/{id}/export/status", exportSvc.SyncExportStatus).Methods("POST")
 	api.HandleFunc("/tasks/{id}/export/authorize", exportSvc.AuthorizeExportLink).Methods("POST")
 	api.HandleFunc("/tasks/{id}", taskSvc.DeleteTask).Methods("DELETE")

@@ -4,6 +4,8 @@
     "pages/task-create/task-create",
     "pages/photo-spec-select/photo-spec-select",
     "pages/task-detail/task-detail",
+    "pages/task-export/task-export",
+    "pages/task-export-edit/task-export-edit",
     "pages/photo-upload/photo-upload",
     "pages/camera-shoot/camera-shoot",
     "pages/custom-fields/custom-fields",

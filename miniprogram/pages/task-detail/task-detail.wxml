@@ -72,45 +72,8 @@
       <text class="share-entry-link" catchtap="saveTaskMiniCode">保存小程序码</text>
     </view>
 
-    <view class="export-panel export-panel-tip" wx:if="{{isCreator && !canExportTask}}">
-      <text class="export-title">导出图片</text>
-      <text class="export-locked-tip">任务结束后才能导出图片</text>
-      <text class="export-locked-tip">{{downloadLimitTip}}</text>
-    </view>
-
-    <view class="export-panel" wx:elif="{{isCreator && canExportTask}}">
-      <text class="export-title">导出图片</text>
-      <text class="export-tip">{{downloadLimitTip}}</text>
-      <text class="export-label">文件命名模板</text>
-      <textarea
-        class="export-textarea"
-        value="{{exportTemplate}}"
-        placeholder="请输入图片命名模板，不要写扩展名"
-        bindinput="onExportTemplateInput"
-        adjust-position="{{false}}"
-        maxlength="-1"
-      ></textarea>
-      <text class="export-tip">{{exportTemplateHint}}</text>
-
-      <view class="export-actions">
-        <view class="export-action-btn export-action-primary" bindtap="exportTask">开始导出</view>
-        <view class="export-action-btn export-action-secondary" bindtap="refreshExportStatus" wx:if="{{exportFileName && exportStatus !== 'success'}}">刷新导出状态</view>
-        <view class="export-action-btn export-action-secondary" bindtap="authorizeTaskExport" wx:if="{{exportFileName && exportStatus === 'success' && canAuthorizeExportLink}}">重新生成链接</view>
-        <view class="export-action-btn export-action-secondary" bindtap="copyExportLink" wx:if="{{exportDownloadUrl && exportStatus === 'success'}}">复制链接</view>
-      </view>
-
-      <view class="export-result" wx:if="{{exportFileName}}">
-        <text class="export-result-line" wx:if="{{exportStatusText}}">导出状态：{{exportStatusText}}</text>
-        <text class="export-result-line">导出文件：{{exportFileName}}</text>
-        <text class="export-result-line">图片数量：{{exportCount}}</text>
-        <text class="export-result-line" wx:if="{{exportAvailableUntil}}">可重新生成下载链接至：{{exportAvailableUntil}}</text>
-        <text class="export-result-line" wx:if="{{exportExpiresAt}}">本次下载链接有效期至：{{exportExpiresAt}}</text>
-        <text class="export-result-error" wx:if="{{exportErrorMessage}}">{{exportErrorMessage}}</text>
-        <text class="export-label">下载链接</text>
-        <view class="export-link-box">
-          <text class="export-link-text">{{exportDownloadUrl || '导出完成后这里会出现下载链接'}}</text>
-        </view>
-      </view>
+    <view class="export-entry" wx:if="{{isCreator}}" bindtap="goToExports">
+      去导出
     </view>
   </view>
 

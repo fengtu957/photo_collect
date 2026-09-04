@@ -95,6 +95,8 @@ function validateManifest(manifest, manifestKey) {
   const exportId = text(manifest.export_id);
   const exportKey = text(manifest.export_key);
   const statusKey = text(manifest.status_key);
+  const callbackUrl = text(manifest.callback_url);
+  const callbackToken = text(manifest.callback_token);
   if (!taskId || !exportId || !isSafePathSegment(taskId) || !isSafePathSegment(exportId)
     || !exportKey || !statusKey || !Array.isArray(manifest.entries) || manifest.entries.length === 0) {
     throw new Error('manifest is incomplete');
@@ -106,6 +108,12 @@ function validateManifest(manifest, manifestKey) {
   const expectedStatusKey = `${prefixes.exportPrefix}/${taskId}/${exportId}.status.json`;
   if (manifestKey !== expectedManifestKey || exportKey !== expectedExportKey || statusKey !== expectedStatusKey) {
     throw new Error('manifest paths do not match task and export id');
+  }
+  if (callbackUrl) {
+    const parsedCallbackUrl = new URL(callbackUrl);
+    if ((parsedCallbackUrl.protocol !== 'https:' && parsedCallbackUrl.protocol !== 'http:') || !callbackToken) {
+      throw new Error('callback configuration is invalid');
+    }
   }
 
   const photoPrefix = `${prefixes.photoPrefix}/${taskId}/`;
@@ -122,7 +130,7 @@ function validateManifest(manifest, manifestKey) {
     }
     return { objectKey, fileName };
   });
-  return { taskId, exportId, exportKey, statusKey, entries };
+  return { taskId, exportId, exportKey, statusKey, callbackUrl, callbackToken, entries };
 }
 
 async function readManifest(client, key) {
@@ -147,14 +155,55 @@ async function objectExists(client, key) {
 }
 
 async function writeStatus(client, key, status, message) {
+  const updatedAt = new Date().toISOString();
   const body = JSON.stringify({
     status,
     error_message: status === 'failed' ? text(message) : '',
-    updated_at: new Date().toISOString()
+    updated_at: updatedAt
   });
   await client.put(key, Buffer.from(body, 'utf8'), {
     headers: { 'Content-Type': 'application/json; charset=utf-8' }
   });
+  return updatedAt;
+}
+
+async function notifyCallback(job, status, message, updatedAt) {
+  if (!job || !job.callbackUrl || !job.callbackToken) {
+    return;
+  }
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(job.callbackUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Export-Callback-Token': job.callbackToken
+        },
+        body: JSON.stringify({
+          export_id: job.exportId,
+          status,
+          error_message: status === 'failed' ? text(message) : '',
+          updated_at: updatedAt
+        })
+      });
+      if (response.ok) {
+        return;
+      }
+      lastError = new Error(`callback returned HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+    }
+  }
+  console.error('failed to notify export callback', lastError && lastError.message ? lastError.message : lastError);
 }
 
 async function uploadArchiveStream(client, key, archive) {
@@ -298,15 +347,18 @@ async function handler(event, context) {
   try {
     const manifest = await readManifest(client, manifestKey);
     job = validateManifest(manifest, manifestKey);
-    await writeStatus(client, job.statusKey, 'processing', '');
+    const processingAt = await writeStatus(client, job.statusKey, 'processing', '');
+    await notifyCallback(job, 'processing', '', processingAt);
     await createArchive(client, job);
-    await writeStatus(client, job.statusKey, 'success', '');
+    const successAt = await writeStatus(client, job.statusKey, 'success', '');
+    await notifyCallback(job, 'success', '', successAt);
     return { status: 'success', export_key: job.exportKey };
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
     if (job && job.statusKey) {
       try {
-        await writeStatus(client, job.statusKey, 'failed', message);
+        const failedAt = await writeStatus(client, job.statusKey, 'failed', message);
+        await notifyCallback(job, 'failed', message, failedAt);
       } catch (statusError) {
         console.error('failed to write export status', statusError);
       }

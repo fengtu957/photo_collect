@@ -1,13 +1,6 @@
 import { getTaskByCode, listTasks } from '../../services/task';
-import { getUserEntitlements } from '../../services/entitlement';
 import { showError } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
-import {
-  buildActiveTaskTip,
-  buildOpenDurationTip,
-  buildRetentionTip,
-  buildSubmissionLimitTip
-} from '../../utils/display-limit';
 
 const STATUS_FILTER_OPTIONS = ['全部', '进行中', '未开始', '已截止'];
 const STATUS_SORT_WEIGHT: Record<string, number> = {
@@ -93,11 +86,7 @@ Page({
     joiningByCode: false,
     showJoinActions: false,
     showTaskCodePanel: false,
-    emptyText: '暂无任务',
-    createTip: buildActiveTaskTip(null),
-    submissionTip: buildSubmissionLimitTip(null),
-    durationTip: buildOpenDurationTip(null),
-    retentionTip: buildRetentionTip(null)
+    emptyText: '暂无任务'
   },
 
   onLoad() { this.loadTasks(); },
@@ -106,12 +95,6 @@ Page({
   async loadTasks() {
     try {
       const tasks = await listTasks();
-      let entitlements = null;
-      try {
-        entitlements = await getUserEntitlements();
-        const appInstance = getApp<any>();
-        appInstance.globalData.entitlements = entitlements;
-      } catch (err) {}
       const formatted = (tasks || []).map((t: any) => ({
         ...t,
         status: getTaskStatus(t),
@@ -123,11 +106,7 @@ Page({
         start_time_formatted: formatTime(String(t.start_time || '')),
       }));
       this.setData({
-        allTasks: formatted,
-        createTip: buildActiveTaskTip(entitlements),
-        submissionTip: buildSubmissionLimitTip(entitlements),
-        durationTip: buildOpenDurationTip(entitlements),
-        retentionTip: buildRetentionTip(entitlements)
+        allTasks: formatted
       });
       this.applyTaskFilters();
     } catch (err: any) {

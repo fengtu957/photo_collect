@@ -1,11 +1,10 @@
-import { getTask, deleteTask, exportTask as requestExportTask, authorizeExportLink, syncExportStatus as requestSyncExportStatus, downloadTaskMiniProgramCode } from '../../services/task';
-import { getUserEntitlements } from '../../services/entitlement';
+import { getTask, deleteTask, downloadTaskMiniProgramCode } from '../../services/task';
 import { listSubmissions, deleteSubmission } from '../../services/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
 import { isTaskAIAnalysisEnabled } from '../../utils/task';
-import { buildDownloadLimitTip, buildTaskSubmissionLimitText } from '../../utils/display-limit';
+import { buildTaskSubmissionLimitText } from '../../utils/display-limit';
 const PAGE_SIZE = 20;
 const TASK_SHARE_IMAGE_URL = '/imgs/invited_2.png';
 
@@ -32,14 +31,6 @@ function getTaskStatus(task: any): string {
   return '';
 }
 
-function canExportTask(task: any): boolean {
-  if (!task || !isEffectiveTime(task.end_time)) {
-    return false;
-  }
-
-  return new Date().getTime() > new Date(task.end_time).getTime();
-}
-
 function formatSubmissions(list: any[], customFields: any[]) {
   const fieldLabelMap: Record<string, string> = {};
   (customFields || []).forEach((f: any) => {
@@ -61,82 +52,6 @@ function formatSubmissions(list: any[], customFields: any[]) {
 function getCustomFieldSummary(customFields: any[]): string {
   const labels = (customFields || []).map((field: any) => String(field.label || '').trim()).filter(Boolean);
   return labels.join('、');
-}
-
-function getDefaultExportTemplate(task: any): string {
-  const customFields = (task && task.custom_fields) || [];
-  if (customFields.length > 0 && customFields[0].label) {
-    return `{index}_{field:${customFields[0].label}}_{nick_name}`;
-  }
-  return '{index}_{nick_name}';
-}
-
-function getExportTemplateHint(task: any): string {
-  const tokens = ['{index}', '{nick_name}', '{created_at}', '{task_title}'];
-  const customFields = ((task && task.custom_fields) || []).slice(0, 3);
-
-  customFields.forEach((field: any) => {
-    if (field && field.label) {
-      tokens.push(`{field:${field.label}}`);
-    }
-  });
-
-  return `可用变量：${tokens.join(' ')}，不要写扩展名，系统会自动补原图后缀`;
-}
-
-function getTaskExportInfo(task: any) {
-  return (task && task.export_info) || {};
-}
-
-function normalizeExportStatus(exportInfo: any): string {
-  if (!exportInfo) return '';
-  if (exportInfo.status) return String(exportInfo.status);
-  if (exportInfo.file_name) return 'processing';
-  return '';
-}
-
-function getExportStatusText(status: string): string {
-  if (status === 'success') return '已完成';
-  if (status === 'failed') return '导出失败';
-  if (status === 'pending') return '排队中';
-  if (status === 'processing') return '处理中';
-  return '';
-}
-
-function canAuthorizeExportLink(availableUntil: string): boolean {
-  if (!isEffectiveTime(availableUntil)) {
-    return true;
-  }
-
-  return new Date(availableUntil).getTime() > Date.now();
-}
-
-function buildExportState(task: any) {
-  const exportInfo = getTaskExportInfo(task);
-  const exportStatus = normalizeExportStatus(exportInfo);
-  const availableUntil = String(exportInfo.available_until || '');
-  return {
-    exportStatus,
-    exportStatusText: getExportStatusText(exportStatus),
-    exportTemplate: exportInfo.filename_template || getDefaultExportTemplate(task),
-    exportTemplateHint: getExportTemplateHint(task),
-    exportFileName: exportInfo.file_name || '',
-    exportCount: Number(exportInfo.count || 0),
-    exportAvailableUntil: isEffectiveTime(availableUntil) ? formatTime(availableUntil) : '',
-    canAuthorizeExportLink: canAuthorizeExportLink(availableUntil),
-    exportErrorMessage: exportInfo.error_message || ''
-  };
-}
-
-function mergeTaskExportInfo(task: any, exportInfo: any) {
-  if (!task) return task;
-  return {
-    ...task,
-    export_info: {
-      ...getTaskExportInfo(task),
-      ...exportInfo
-    }
-  };
 }
 
 function buildTaskSharePath(taskId: string): string {
@@ -342,25 +257,12 @@ Page({
     task: null as any,
     taskStatusText: '',
     customFieldSummary: '',
-    exportTemplate: '',
-    exportTemplateHint: '',
-    exportStatus: '',
-    exportStatusText: '',
-    exportFileName: '',
-    exportDownloadUrl: '',
-    exportExpiresAt: '',
-    exportAvailableUntil: '',
-    canAuthorizeExportLink: true,
-    exportCount: 0,
-    exportErrorMessage: '',
     submissionLimitText: buildTaskSubmissionLimitText(null),
-    downloadLimitTip: buildDownloadLimitTip(null),
     aiAnalysisEnabled: true,
     submissions: [] as any[],
     startTime: '',
     endTime: '',
     isCreator: false,
-    canExportTask: false,
     fromShare: false,
     currentUserId: '',
     mySubmissionId: '',
@@ -432,13 +334,6 @@ Page({
     this.setData({ pageLoading: true });
 
     try {
-      let entitlements = null;
-      try {
-        entitlements = await getUserEntitlements();
-        const appInstance = getApp<any>();
-        appInstance.globalData.entitlements = entitlements;
-      } catch (err) {}
-
       const [task, result] = await Promise.all([
         getTask(this.data.taskId),
         listSubmissions(this.data.taskId, 1, PAGE_SIZE)
@@ -455,24 +350,17 @@ Page({
       const formattedSubmissions = formatSubmissions(list, customFields);
       const customFieldSummary = getCustomFieldSummary(customFields);
       const total = (result && result.total) || 0;
-      const exportState = buildExportState(task);
-
       const mySubmission = list.find((s: any) => s.user_id === currentOpenid);
       this.setData({
         task,
         taskStatusText: getTaskStatus(task),
         customFieldSummary,
-        ...exportState,
-        exportDownloadUrl: '',
-        exportExpiresAt: '',
         submissionLimitText: buildTaskSubmissionLimitText(task),
-        downloadLimitTip: buildDownloadLimitTip(entitlements),
         submissions: formattedSubmissions,
         startTime,
         endTime,
         isCreator,
         aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
-        canExportTask: canExportTask(task),
         currentUserId: currentOpenid,
         mySubmissionId: (mySubmission && mySubmission.id) || '',
         page: 1,
@@ -480,13 +368,6 @@ Page({
         hasMore: (result && result.has_more) || false,
         pageLoading: false
       });
-
-      this.clearAuthorizedExportLink();
-      if (exportState.exportStatus === 'processing' || exportState.exportStatus === 'pending') {
-        this.syncExportStatus(true);
-      } else if (exportState.exportStatus === 'success' && exportState.canAuthorizeExportLink) {
-        this.fetchAuthorizedExportLink(true);
-      }
     } catch (err: any) {
       this.setData({ pageLoading: false });
       showError(err.message || '加载失败');
@@ -514,116 +395,6 @@ Page({
       this.setData({ loadingMore: false });
       showError(err.message || '加载失败');
     }
-  },
-
-  onExportTemplateInput(e: any) {
-    this.setData({
-      exportTemplate: e.detail.value
-    });
-  },
-
-  clearAuthorizedExportLink() {
-    this.setData({
-      exportDownloadUrl: '',
-      exportExpiresAt: ''
-    });
-  },
-
-  applyExportResult(result: any, extra: any = {}) {
-    const nextTask = mergeTaskExportInfo(this.data.task, {
-      status: result.status || '',
-      filename_template: extra.filename_template || getTaskExportInfo(this.data.task).filename_template || this.data.exportTemplate,
-      file_name: result.file_name,
-      count: Number(result.count || 0),
-      available_until: result.available_until || getTaskExportInfo(this.data.task).available_until || '',
-      error_message: result.error_message || '',
-      exported_at: extra.exported_at || getTaskExportInfo(this.data.task).exported_at || ''
-    });
-
-    this.setData({
-      task: nextTask,
-      ...buildExportState(nextTask)
-    });
-
-    const status = String(result.status || '');
-    if (status === 'processing' || status === 'pending') {
-      this.clearAuthorizedExportLink();
-    } else if (status !== 'success') {
-      this.clearAuthorizedExportLink();
-    }
-  },
-
-  applyAuthorizedExportLink(result: any) {
-    const nextTask = mergeTaskExportInfo(this.data.task, {
-      available_until: result.available_until || getTaskExportInfo(this.data.task).available_until || ''
-    });
-    this.setData({
-      task: nextTask,
-      exportDownloadUrl: result.download_url || '',
-      exportExpiresAt: isEffectiveTime(String(result.expires_at || '')) ? formatTime(String(result.expires_at || '')) : '',
-      exportAvailableUntil: isEffectiveTime(String(result.available_until || '')) ? formatTime(String(result.available_until || '')) : this.data.exportAvailableUntil,
-      canAuthorizeExportLink: canAuthorizeExportLink(String(result.available_until || ''))
-    });
-  },
-
-  async fetchAuthorizedExportLink(silent: boolean = false) {
-    if (!this.data.isCreator || !this.data.canExportTask || !this.data.exportFileName || this.data.exportStatus !== 'success' || !this.data.canAuthorizeExportLink) {
-      return;
-    }
-
-    try {
-      const result = await authorizeExportLink(this.data.taskId);
-      this.applyAuthorizedExportLink(result);
-      if (!silent) {
-        wx.showToast({
-          title: '链接已更新',
-          icon: 'success'
-        });
-      }
-    } catch (err: any) {
-      this.clearAuthorizedExportLink();
-      if (!silent) {
-        showError(err.message || '生成链接失败');
-      }
-    }
-  },
-
-  async syncExportStatus(silent: boolean = false) {
-    if (!this.data.isCreator || !this.data.canExportTask || !this.data.exportFileName) {
-      return;
-    }
-
-    try {
-      const result = await requestSyncExportStatus(this.data.taskId);
-      const prevStatus = this.data.exportStatus;
-      this.applyExportResult(result);
-
-      if (result.status === 'success') {
-        await this.fetchAuthorizedExportLink(true);
-        if (prevStatus !== 'success' && !silent) {
-          wx.showToast({
-            title: '导出已完成',
-            icon: 'success'
-          });
-        }
-      }
-
-      if (result.status === 'failed' && result.error_message && !silent) {
-        showError(result.error_message);
-      }
-    } catch (err: any) {
-      if (!silent) {
-        showError(err.message || '刷新导出状态失败');
-      }
-    }
-  },
-
-  refreshExportStatus() {
-    if (!this.data.canExportTask) {
-      showError('任务结束后才能导出');
-      return;
-    }
-    this.syncExportStatus(false);
   },
 
   async saveTaskMiniCode() {
@@ -657,104 +428,12 @@ Page({
     }
   },
 
-  async exportTask() {
+  goToExports() {
     if (!this.data.isCreator) {
       showError('只有创建者可导出');
       return;
     }
-    if (!this.data.canExportTask) {
-      showError('任务结束后才能导出');
-      return;
-    }
-
-    const template = String(this.data.exportTemplate || '').trim() || getDefaultExportTemplate(this.data.task);
-
-    try {
-      showLoading('导出中...');
-      const result = await requestExportTask(this.data.taskId, {
-        filename_template: template
-      });
-      hideLoading();
-
-      this.applyExportResult(result, {
-        filename_template: template,
-        exported_at: result.status === 'success' ? new Date().toISOString() : ''
-      });
-      if (result.status === 'success') {
-        await this.fetchAuthorizedExportLink(true);
-      }
-
-      wx.showToast({
-        title: result.status === 'success' ? '导出完成' : '已开始导出',
-        icon: 'success'
-      });
-    } catch (err: any) {
-      hideLoading();
-      showError(err.message || '导出失败');
-    }
-  },
-
-  copyExportLink() {
-    if (!this.data.canExportTask) {
-      showError('任务结束后才能导出');
-      return;
-    }
-    if (this.data.exportStatus !== 'success') {
-      showError('导出未完成，请先刷新状态');
-      return;
-    }
-    if (!this.data.exportDownloadUrl) {
-      showError(this.data.exportFileName ? '链接已失效，请先重新生成' : '暂无可复制的下载链接');
-      return;
-    }
-
-    wx.setClipboardData({
-      data: this.data.exportDownloadUrl,
-      success: () => {
-        wx.showToast({
-          title: '链接已复制',
-          icon: 'success'
-        });
-      }
-    });
-  },
-
-  async authorizeTaskExport() {
-    if (!this.data.isCreator) {
-      showError('只有创建者可操作');
-      return;
-    }
-    if (!this.data.canExportTask) {
-      showError('任务结束后才能导出');
-      return;
-    }
-    if (!this.data.exportFileName) {
-      showError('请先完成导出');
-      return;
-    }
-    try {
-      showLoading('生成链接中...');
-      await this.syncExportStatus(true);
-      if (this.data.exportStatus !== 'success') {
-        hideLoading();
-        showError(this.data.exportStatus === 'failed' && this.data.exportErrorMessage
-          ? this.data.exportErrorMessage
-          : '导出未完成，请稍后再试');
-        return;
-      }
-      const result = await authorizeExportLink(this.data.taskId);
-      hideLoading();
-
-      this.applyAuthorizedExportLink(result);
-
-      wx.showToast({
-        title: '链接已更新',
-        icon: 'success'
-      });
-    } catch (err: any) {
-      hideLoading();
-      showError(err.message || '生成链接失败');
-    }
+    wx.navigateTo({ url: `/pages/task-export/task-export?taskId=${this.data.taskId}` });
   },
 
   goToUpload() {

@@ -6,13 +6,25 @@ export interface ExportTaskParams {
 }
 
 export interface ExportTaskResult {
+  id: string;
   status: string;
   file_name: string;
+  filename_template?: string;
   download_url: string;
   expires_at: string;
   available_until?: string;
   count: number;
   error_message?: string;
+  exported_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ExportHistoryResult {
+  list: ExportTaskResult[];
+  total: number;
+  page: number;
+  has_more: boolean;
 }
 
 export async function createTask(params: CreateTaskParams) {
@@ -49,6 +61,18 @@ export async function exportTask(id: string, params: ExportTaskParams) {
   return request<ExportTaskResult>(`/tasks/${id}/export`, {
     method: 'POST',
     data: params
+  });
+}
+
+export async function listTaskExports(id: string, page: number = 1, limit: number = 20) {
+  return request<ExportHistoryResult>(`/tasks/${id}/exports?page=${page}&limit=${limit}`, {
+    method: 'GET'
+  });
+}
+
+export async function authorizeTaskExportLink(id: string, exportId: string) {
+  return request<ExportTaskResult>(`/tasks/${id}/exports/${exportId}/authorize`, {
+    method: 'POST'
   });
 }
 

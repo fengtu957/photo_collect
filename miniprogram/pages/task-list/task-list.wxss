@@ -2,51 +2,6 @@
   padding: 16rpx;
 }
 
-.notice-banner {
-  display: flex;
-  align-items: center;
-  background: linear-gradient(135deg, #eef6ff 0%, #dbeeff 100%);
-  border-radius: 20rpx;
-  padding: 28rpx 24rpx;
-  margin-bottom: 16rpx;
-  box-shadow: 0 8rpx 20rpx rgba(25, 137, 250, 0.12);
-}
-
-.notice-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.notice-title {
-  display: block;
-  font-size: 34rpx;
-  color: #1457a8;
-  font-weight: bold;
-  margin-bottom: 14rpx;
-}
-
-.notice-grid {
-  display: flex;
-  flex-wrap: wrap;
-  margin: 0 -8rpx;
-}
-
-.notice-item {
-  width: 50%;
-  padding: 0 8rpx;
-  box-sizing: border-box;
-  margin-bottom: 10rpx;
-}
-
-.notice-tip {
-  display: block;
-  font-size: 24rpx;
-  color: #2b6cb8;
-  line-height: 1.6;
-  word-break: break-all;
-  overflow-wrap: break-word;
-}
-
 .toolbar-card {
   background: white;
   border-radius: 16rpx;
