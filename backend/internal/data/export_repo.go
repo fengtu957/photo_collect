@@ -28,6 +28,9 @@ func (r *ExportRepo) EnsureIndexes(ctx context.Context) error {
 		{
 			Keys: bson.D{{Key: "task_id", Value: 1}, {Key: "created_at", Value: -1}},
 		},
+		{
+			Keys: bson.D{{Key: "status", Value: 1}, {Key: "created_at", Value: 1}},
+		},
 	}
 	_, err := r.data.DB().Collection("export_records").Indexes().CreateMany(ctx, indexes)
 	return err
@@ -89,6 +92,30 @@ func (r *ExportRepo) FindByExportID(ctx context.Context, exportID string) (*Expo
 		return nil, err
 	}
 	return &record, nil
+}
+
+func (r *ExportRepo) FindActiveCreatedBefore(ctx context.Context, before time.Time, limit int64) ([]*ExportRecord, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	cursor, err := r.data.DB().Collection("export_records").Find(
+		ctx,
+		bson.M{
+			"status":     bson.M{"$in": []string{"pending", "processing"}},
+			"created_at": bson.M{"$lte": before},
+		},
+		options.Find().SetSort(bson.D{{Key: "created_at", Value: 1}}).SetLimit(limit),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var records []*ExportRecord
+	if err := cursor.All(ctx, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
 }
 
 func (r *ExportRepo) UpdateStatus(ctx context.Context, record *ExportRecord) (bool, error) {

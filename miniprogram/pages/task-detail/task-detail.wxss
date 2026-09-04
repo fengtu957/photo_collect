@@ -129,17 +129,6 @@
   line-height: 1.6;
 }
 
-.export-entry {
-  margin-top: 24rpx;
-  height: 80rpx;
-  line-height: 80rpx;
-  border-radius: 40rpx;
-  text-align: center;
-  background: #1989fa;
-  color: #fff;
-  font-size: 30rpx;
-}
-
 .entry-card {
   background: #fff;
   border-radius: 12rpx;
@@ -413,16 +402,15 @@
   box-shadow: 0 -2rpx 8rpx rgba(0,0,0,0.1);
 }
 
-.btn-danger {
+.btn-export {
   flex: 1;
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
   border-radius: 44rpx;
   font-size: 32rpx;
-  background: #fff0f0;
-  color: #ff4444;
-  border: 1rpx solid #ffcccc;
+  background: #07c160;
+  color: white;
 }
 
 .btn-primary {

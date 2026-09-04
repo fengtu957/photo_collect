@@ -46,6 +46,7 @@ func main() {
 	qwenClient := pkg.NewQwenClient()
 	evalUC := biz.NewEvaluationUsecase(qwenClient)
 	exportSvc := service.NewExportService(taskRepo, subRepo, exportRepo, ossSvc, vipUC)
+	exportSvc.StartRecovery(context.Background())
 
 	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo, vipUC)
 	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, ossSvc)

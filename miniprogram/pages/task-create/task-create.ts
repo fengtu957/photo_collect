@@ -1,4 +1,4 @@
-import { createTask, getTask, updateTask } from '../../services/task';
+import { createTask, deleteTask, getTask, updateTask } from '../../services/task';
 import { getUserEntitlements } from '../../services/entitlement';
 import { showError, showSuccess } from '../../utils/request';
 import { isEffectiveTime, toRFC3339 } from '../../utils/time';
@@ -362,6 +362,26 @@ Page({
     const appInstance = getApp<any>();
     appInstance.globalData.customFields = cloneCustomFields(this.data.form.custom_fields);
     wx.navigateTo({ url: '/pages/custom-fields/custom-fields' });
+  },
+
+  deleteActivity() {
+    if (!this.data.isEditMode || !this.data.taskId) return;
+    wx.showModal({
+      title: '确认删除',
+      content: '删除后任务及所有提交记录将无法恢复，确认删除？',
+      confirmText: '删除',
+      confirmColor: '#ff4444',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await deleteTask(this.data.taskId);
+          wx.showToast({ title: '删除成功', icon: 'success' });
+          setTimeout(() => wx.reLaunch({ url: '/pages/task-list/task-list' }), 1500);
+        } catch (err: any) {
+          wx.showToast({ title: err.message || '删除失败', icon: 'none' });
+        }
+      }
+    });
   },
 
   async onSubmit() {

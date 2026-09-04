@@ -253,6 +253,15 @@
   font-size: 32rpx;
 }
 
+.delete-task-btn {
+  background: #fff0f0;
+  color: #ff4444;
+  border-radius: 60rpx;
+  margin-top: 20rpx;
+  font-size: 32rpx;
+  border: 1rpx solid #ffcccc;
+}
+
 .contact-btn {
   background: white;
   color: #1989fa;

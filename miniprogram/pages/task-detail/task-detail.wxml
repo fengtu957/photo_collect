@@ -72,9 +72,6 @@
       <text class="share-entry-link" catchtap="saveTaskMiniCode">保存小程序码</text>
     </view>
 
-    <view class="export-entry" wx:if="{{isCreator}}" bindtap="goToExports">
-      去导出
-    </view>
   </view>
 
   <view class="entry-card" wx:if="{{!isCreator && fromShare}}">
@@ -149,9 +146,9 @@
 
   <!-- 创建者底栏 -->
   <view class="footer" wx:if="{{isCreator}}">
-    <view class="btn-danger" bindtap="deleteActivity">删除任务</view>
     <button class="btn-secondary btn-share" open-type="share">分享任务</button>
     <view class="btn-primary" bindtap="goToUpload">上传照片</view>
+    <view class="btn-export" bindtap="goToExports">去导出</view>
   </view>
 
   <!-- 非创建者底栏 -->

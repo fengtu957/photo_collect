@@ -1,4 +1,4 @@
-import { getTask, deleteTask, downloadTaskMiniProgramCode } from '../../services/task';
+import { getTask, downloadTaskMiniProgramCode } from '../../services/task';
 import { listSubmissions, deleteSubmission } from '../../services/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
@@ -471,25 +471,6 @@ Page({
 
   copyTask() {
     wx.navigateTo({ url: `/pages/task-create/task-create?copyFrom=${this.data.taskId}` });
-  },
-
-  deleteActivity() {
-    wx.showModal({
-      title: '确认删除',
-      content: '删除后任务及所有提交记录将无法恢复，确认删除？',
-      confirmText: '删除',
-      confirmColor: '#ff4444',
-      success: async (res) => {
-        if (!res.confirm) return;
-        try {
-          await deleteTask(this.data.taskId);
-          wx.showToast({ title: '删除成功', icon: 'success' });
-          setTimeout(() => wx.navigateBack(), 1500);
-        } catch (err: any) {
-          wx.showToast({ title: err.message || '删除失败', icon: 'none' });
-        }
-      }
-    });
   },
 
   deleteSubmissionRecord(e: any) {

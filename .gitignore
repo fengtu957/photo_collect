@@ -10,3 +10,4 @@ backend/tests
 .pnpm-store/
 aliyun/export-worker/node_modules/
 aliyun/*.zip
+aliyun/export-worker/*.zip

@@ -35,6 +35,7 @@ cp .env.example .env
 - `ALIYUN_OSS_PHOTO_PREFIX`（可选，默认 `photos`）
 - `ALIYUN_OSS_EXPORT_PREFIX`（可选，默认 `exports`）
 - `ALIYUN_OSS_EXPORT_JOB_PREFIX`（可选，默认 `export-jobs`）
+- `EXPORT_CALLBACK_URL`（批量导出必填，完整地址，例如 `https://photo-collect-qa.starpix.cn/api/v1/export-callback`）
 - `ALIYUN_IMAGESEG_ENDPOINT`（可选，默认 `https://imageseg.cn-shanghai.aliyuncs.com/`）
 - `QWEN_API_KEY`
 
@@ -70,6 +71,7 @@ http://localhost:8000/paper/hinge-58241/entry
 - `GET /paper/hinge-58241/entry`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/admin/login`
+- `POST /api/v1/export-callback`（函数计算回调，使用单次导出令牌校验）
 
 需要 JWT 的接口：
 
@@ -85,6 +87,8 @@ http://localhost:8000/paper/hinge-58241/entry
 - `POST /api/v1/photos/finalize`
 - `POST /api/v1/photos/segment`
 - `POST /api/v1/tasks/{id}/export`
+- `GET /api/v1/tasks/{id}/exports`
+- `POST /api/v1/tasks/{id}/exports/{exportId}/authorize`
 - `POST /api/v1/tasks/{id}/export/status`
 - `POST /api/v1/tasks/{id}/export/authorize`
 
@@ -115,9 +119,9 @@ OSS 需要允许小程序域名执行表单上传和下载，并为临时前缀�
 
 批量导出由阿里云函数计算处理。Go 只写入一个很小的 `export-jobs/` manifest 到 OSS，OSS 的 ObjectCreated 事件触发函数计算；函数计算从 OSS 流式读取照片并将 ZIP 写入 `exports/`。Go 和小程序不会下载或压缩照片。
 
-任务详情页打开或用户主动刷新下载链接时，后端只对当前 `export_key` 做一次 HEAD 检查，并读取很小的状态文件。不会启动后台协程，也不会定时轮询函数计算。
+函数计算开始、完成或失败后，会调用 `EXPORT_CALLBACK_URL` 更新 `export_records` 中的导出历史状态。小程序只轮询数据库中的历史记录；回调缺失时，后端会通过 OSS ZIP 和状态文件兜底同步，超过 15 分钟仍未得到结果的任务会由后台恢复服务自动标记为失败。
 
-函数计算代码位于 [aliyun/export-worker](/mnt/d/code/latest/photo/aliyun/export-worker)。上传代码包时，ZIP 根目录必须直接包含 `index.js`、`package.json` 和 `node_modules/`；函数入口为 `index.handler`。OSS 触发器只监听 `export-jobs/` 前缀下的 `.json` 文件。
+函数计算代码、打包命令、环境变量、RAM 权限、OSS 触发器和更新步骤见 [aliyun/export-worker/README.md](../aliyun/export-worker/README.md)。
 
 ## 当前缺口
 

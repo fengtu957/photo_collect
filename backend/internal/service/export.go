@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -23,6 +24,9 @@ import (
 const exportLinkTTL = 2 * time.Hour
 const freeExportAvailabilityTTL = 7 * 24 * time.Hour
 const vipExportAvailabilityTTL = 30 * 24 * time.Hour
+const exportRecoveryInterval = time.Minute
+const exportExecutionTimeout = 15 * time.Minute
+const exportRecoveryBatchSize = 100
 
 var invalidFileNameChars = regexp.MustCompile(`[\\/:*?"<>|\r\n\t]+`)
 var exportTemplatePattern = regexp.MustCompile(`\{([^{}]+)\}`)
@@ -112,6 +116,51 @@ func NewExportService(taskRepo *data.TaskRepo, subRepo *data.SubmissionRepo, exp
 	}
 }
 
+func (s *ExportService) StartRecovery(ctx context.Context) {
+	if s == nil || s.exportRepo == nil {
+		return
+	}
+	go func() {
+		recoverExports := func() {
+			if err := s.recoverStaleExports(ctx); err != nil {
+				log.Printf("recover stale exports failed: %v", err)
+			}
+		}
+		recoverExports()
+		ticker := time.NewTicker(exportRecoveryInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				recoverExports()
+			}
+		}
+	}()
+}
+
+func (s *ExportService) recoverStaleExports(ctx context.Context) error {
+	records, err := s.exportRepo.FindActiveCreatedBefore(ctx, time.Now().Add(-exportExecutionTimeout), exportRecoveryBatchSize)
+	if err != nil {
+		return err
+	}
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		refreshed, syncErr := s.syncExportRecord(ctx, record)
+		if syncErr != nil {
+			s.markExportFailed(ctx, record, fmt.Errorf("导出状态检查失败: %w", syncErr))
+			continue
+		}
+		if refreshed != nil && (refreshed.Status == "pending" || refreshed.Status == "processing") {
+			s.markExportFailed(ctx, refreshed, fmt.Errorf("函数计算执行超时或未回调"))
+		}
+	}
+	return nil
+}
+
 func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 	task, userID, ok := s.requireCreatorTask(w, r, 1010, 1011)
 	if !ok {
@@ -140,13 +189,14 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 		Error(w, 1013, err.Error())
 		return
 	}
-	callbackToken := ""
-	if s.callbackURL != "" {
-		callbackToken, err = newExportCallbackToken()
-		if err != nil {
-			Error(w, 1013, err.Error())
-			return
-		}
+	if s.callbackURL == "" {
+		Error(w, 1013, "导出回调地址未配置")
+		return
+	}
+	callbackToken, err := newExportCallbackToken()
+	if err != nil {
+		Error(w, 1013, err.Error())
+		return
 	}
 	availabilityTTL := s.buildExportAvailabilityTTL(context.Background(), task.UserID)
 	record := &data.ExportRecord{

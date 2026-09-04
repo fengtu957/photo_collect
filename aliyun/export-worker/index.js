@@ -133,6 +133,18 @@ function validateManifest(manifest, manifestKey) {
   return { taskId, exportId, exportKey, statusKey, callbackUrl, callbackToken, entries };
 }
 
+function getManifestCallbackJob(manifest) {
+  if (!manifest || typeof manifest !== 'object') {
+    return null;
+  }
+  return {
+    exportId: text(manifest.export_id),
+    statusKey: text(manifest.status_key),
+    callbackUrl: text(manifest.callback_url),
+    callbackToken: text(manifest.callback_token)
+  };
+}
+
 async function readManifest(client, key) {
   const result = await client.get(key);
   const content = result && result.content;
@@ -336,16 +348,19 @@ async function createArchive(client, job) {
 }
 
 async function handler(event, context) {
-  const manifestKey = getEventObjectKey(event);
-  const prefixes = getPrefixes();
-  if (!manifestKey.startsWith(`${prefixes.jobPrefix}/`) || !manifestKey.endsWith('.json')) {
-    return { status: 'ignored', reason: 'event is outside export job prefix' };
-  }
-
-  const client = makeOSSClient(context);
+  let client;
   let job;
+  let callbackJob;
   try {
+    const manifestKey = getEventObjectKey(event);
+    const prefixes = getPrefixes();
+    if (!manifestKey.startsWith(`${prefixes.jobPrefix}/`) || !manifestKey.endsWith('.json')) {
+      return { status: 'ignored', reason: 'event is outside export job prefix' };
+    }
+
+    client = makeOSSClient(context);
     const manifest = await readManifest(client, manifestKey);
+    callbackJob = getManifestCallbackJob(manifest);
     job = validateManifest(manifest, manifestKey);
     const processingAt = await writeStatus(client, job.statusKey, 'processing', '');
     await notifyCallback(job, 'processing', '', processingAt);
@@ -355,13 +370,17 @@ async function handler(event, context) {
     return { status: 'success', export_key: job.exportKey };
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
-    if (job && job.statusKey) {
+    const failureJob = job || callbackJob;
+    const failedAt = new Date().toISOString();
+    if (client && failureJob && failureJob.statusKey) {
       try {
-        const failedAt = await writeStatus(client, job.statusKey, 'failed', message);
-        await notifyCallback(job, 'failed', message, failedAt);
+        await writeStatus(client, failureJob.statusKey, 'failed', message);
       } catch (statusError) {
         console.error('failed to write export status', statusError);
       }
+    }
+    if (failureJob) {
+      await notifyCallback(failureJob, 'failed', message, failedAt);
     }
     console.error('export worker failed', message);
     throw error;
