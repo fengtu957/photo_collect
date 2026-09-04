@@ -58,7 +58,7 @@ func TestBuildRejectionSubscribeMessageLinksToSubmissionEditor(t *testing.T) {
 		rejectionRemarkField: "thing7",
 	}
 
-	message := authSvc.buildRejectionSubscribeMessage("submitter-openid", "task-id", "submission-id")
+	message := authSvc.buildRejectionSubscribeMessage("submitter-openid", "task-id", "submission-id", "待修改", "请重新拍摄并提交")
 	if message.ToUser != "submitter-openid" {
 		t.Fatalf("ToUser = %q", message.ToUser)
 	}
@@ -71,10 +71,10 @@ func TestBuildRejectionSubscribeMessageLinksToSubmissionEditor(t *testing.T) {
 	if len(message.Data) != 2 {
 		t.Fatalf("data length = %d", len(message.Data))
 	}
-	if message.Data["phrase4"].Value != "审核不通过" {
+	if message.Data["phrase4"].Value != "待修改" {
 		t.Fatalf("result = %q", message.Data["phrase4"].Value)
 	}
-	if message.Data["thing7"].Value != "请点击进入编辑并重新提交" {
+	if message.Data["thing7"].Value != "请重新拍摄并提交" {
 		t.Fatalf("remark = %q", message.Data["thing7"].Value)
 	}
 }

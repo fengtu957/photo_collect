@@ -248,9 +248,13 @@ Page({
     customData: {} as Record<string, any>,
     multiSelectState: {} as Record<string, Record<string, boolean>>,
     isEditMode: false,
+    submissionUserId: '',
     canNotifySubmitter: false,
     notificationTemplateId: '',
     notifying: false,
+    notificationDialogVisible: false,
+    notificationReviewStatus: '审核不通过',
+    notificationPrompt: '请点击进入编辑并重新提交',
     canvasWidth: 1,
     canvasHeight: 1,
     keyboardSpacerHeight: 0,
@@ -342,6 +346,7 @@ Page({
       const aiAnalysisEnabled = isTaskAIAnalysisEnabled(this.data.task);
 
       this.setData({
+        submissionUserId: String(submission.user_id || ''),
         customData: normalizedCustomData,
         multiSelectState: buildMultiSelectState(this.data.task, normalizedCustomData),
         photoPath: photoUrl,
@@ -873,7 +878,10 @@ Page({
 
   async requestRejectionSubscription() {
     const templateId = String(this.data.notificationTemplateId || '').trim();
-    if (!templateId || this.data.isTaskCreator) return;
+    const currentOpenid = String(wx.getStorageSync('openid') || '');
+    const submissionUserId = String(this.data.submissionUserId || '');
+    if (!templateId) return;
+    if (this.data.isEditMode && (!currentOpenid || !submissionUserId || submissionUserId !== currentOpenid)) return;
 
     await new Promise<void>((resolve) => {
       wx.requestSubscribeMessage({
@@ -1004,29 +1012,55 @@ Page({
     });
   },
 
-  notifyRejected() {
+  openNotificationDialog() {
     if (!this.data.canNotifySubmitter || !this.data.submissionId || this.data.notifying) return;
+    this.setData({ notificationDialogVisible: true });
+  },
 
-    wx.showModal({
-      title: '确认发送通知',
-      content: '将通知提交人审核不通过，并引导对方进入编辑页面重新提交。',
-      confirmText: '发送通知',
-      success: async (res) => {
-        if (!res.confirm) return;
-        try {
-          this.setData({ notifying: true });
-          showLoading('发送中...');
-          await notifySubmissionRejected(this.data.submissionId);
-          hideLoading();
-          this.setData({ notifying: false });
-          wx.showToast({ title: '通知已发送', icon: 'success' });
-        } catch (err: any) {
-          hideLoading();
-          this.setData({ notifying: false });
-          showError(err.message || '通知发送失败');
-        }
-      }
-    });
+  closeNotificationDialog() {
+    if (this.data.notifying) return;
+    this.setData({ notificationDialogVisible: false });
+  },
+
+  preventDialogClose() {},
+
+  onNotificationReviewStatusInput(e: any) {
+    this.setData({ notificationReviewStatus: e.detail.value });
+  },
+
+  onNotificationPromptInput(e: any) {
+    this.setData({ notificationPrompt: e.detail.value });
+  },
+
+  async sendNotification() {
+    if (!this.data.canNotifySubmitter || !this.data.submissionId || this.data.notifying) return;
+    const reviewStatus = String(this.data.notificationReviewStatus || '').trim();
+    const prompt = String(this.data.notificationPrompt || '').trim();
+    if (!reviewStatus) {
+      showError('请填写审核状态');
+      return;
+    }
+    if (!prompt) {
+      showError('请填写提示');
+      return;
+    }
+
+    try {
+      this.setData({
+        notifying: true,
+        notificationReviewStatus: reviewStatus,
+        notificationPrompt: prompt
+      });
+      showLoading('发送中...');
+      await notifySubmissionRejected(this.data.submissionId, reviewStatus, prompt);
+      hideLoading();
+      this.setData({ notifying: false, notificationDialogVisible: false });
+      wx.showToast({ title: '通知已发送', icon: 'success' });
+    } catch (err: any) {
+      hideLoading();
+      this.setData({ notifying: false });
+      showError(err.message || '通知发送失败');
+    }
   },
 
   saveSubmission(photoKey: string, preparedPhoto?: any) {

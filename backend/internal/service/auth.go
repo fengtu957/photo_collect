@@ -193,7 +193,7 @@ func (s *AuthService) subscribeMessageState() string {
 	}
 }
 
-func (s *AuthService) buildRejectionSubscribeMessage(openID string, taskID string, submissionID string) WechatSubscribeMessageRequest {
+func (s *AuthService) buildRejectionSubscribeMessage(openID string, taskID string, submissionID string, reviewStatus string, prompt string) WechatSubscribeMessageRequest {
 	return WechatSubscribeMessageRequest{
 		ToUser:           openID,
 		TemplateID:       s.rejectionTemplateID,
@@ -201,8 +201,8 @@ func (s *AuthService) buildRejectionSubscribeMessage(openID string, taskID strin
 		MiniProgramState: s.subscribeMessageState(),
 		Lang:             "zh_CN",
 		Data: map[string]WechatSubscribeMessageValue{
-			s.rejectionResultField: {Value: "审核不通过"},
-			s.rejectionRemarkField: {Value: "请点击进入编辑并重新提交"},
+			s.rejectionResultField: {Value: reviewStatus},
+			s.rejectionRemarkField: {Value: prompt},
 		},
 	}
 }
@@ -245,15 +245,23 @@ func (s *AuthService) requestSubscribeMessage(accessToken string, message Wechat
 	return nil, nil
 }
 
-func (s *AuthService) SendRejectionSubscribeMessage(openID string, taskID string, submissionID string) error {
+func (s *AuthService) SendRejectionSubscribeMessage(openID string, taskID string, submissionID string, reviewStatus string, prompt string) error {
 	if s.rejectionTemplateID == "" {
 		return fmt.Errorf("审核不通过通知模板未配置")
 	}
 	if strings.TrimSpace(openID) == "" {
 		return fmt.Errorf("提交人信息无效")
 	}
+	reviewStatus = strings.TrimSpace(reviewStatus)
+	prompt = strings.TrimSpace(prompt)
+	if reviewStatus == "" {
+		return fmt.Errorf("请填写审核状态")
+	}
+	if prompt == "" {
+		return fmt.Errorf("请填写提示")
+	}
 
-	message := s.buildRejectionSubscribeMessage(openID, taskID, submissionID)
+	message := s.buildRejectionSubscribeMessage(openID, taskID, submissionID, reviewStatus, prompt)
 	accessToken, err := s.GetAccessToken()
 	if err != nil {
 		return err

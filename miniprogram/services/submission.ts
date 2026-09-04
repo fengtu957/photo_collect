@@ -27,9 +27,13 @@ export async function getRejectionNotificationConfig() {
   });
 }
 
-export async function notifySubmissionRejected(id: string) {
+export async function notifySubmissionRejected(id: string, reviewStatus: string, prompt: string) {
   return request<{ id: string }>(`/submissions/${id}/rejection-notification`, {
-    method: 'POST'
+    method: 'POST',
+    data: {
+      review_status: reviewStatus,
+      prompt
+    }
   });
 }
 

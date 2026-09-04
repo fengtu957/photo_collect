@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
@@ -30,6 +31,11 @@ type AnalyzePreviewRequest struct {
 	Photo  struct {
 		URL string `json:"url"`
 	} `json:"photo"`
+}
+
+type RejectionNotificationRequest struct {
+	ReviewStatus string `json:"review_status"`
+	Prompt       string `json:"prompt"`
 }
 
 func (s *SubmissionService) validatePhotoVerification(r *http.Request, sub *data.Submission) error {
@@ -260,13 +266,21 @@ func (s *SubmissionService) SendRejectionNotification(w http.ResponseWriter, r *
 		Error(w, 2014, "审核通知服务不可用")
 		return
 	}
+	req := RejectionNotificationRequest{
+		ReviewStatus: "审核不通过",
+		Prompt:       "请点击进入编辑并重新提交",
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+		Error(w, 2014, "通知内容无效")
+		return
+	}
 
 	submission, task, err := s.uc.GetSubmissionForTaskCreator(context.Background(), id, userID)
 	if err != nil {
 		Error(w, 2014, err.Error())
 		return
 	}
-	if err := s.authSvc.SendRejectionSubscribeMessage(submission.UserID, task.ID.Hex(), submission.ID.Hex()); err != nil {
+	if err := s.authSvc.SendRejectionSubscribeMessage(submission.UserID, task.ID.Hex(), submission.ID.Hex(), req.ReviewStatus, req.Prompt); err != nil {
 		Error(w, 2014, err.Error())
 		return
 	}

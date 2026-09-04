@@ -205,7 +205,6 @@
   </view>
 
   <view class="submission-admin-actions" wx:if="{{isEditMode && isTaskCreator}}">
-    <button class="notify-btn" wx:if="{{canNotifySubmitter}}" bindtap="notifyRejected" disabled="{{notifying}}">{{notifying ? '发送中...' : '通知审核不通过'}}</button>
     <button class="delete-btn" bindtap="deleteSubmissionRecord" disabled="{{photoProcessing || backgroundProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">删除提交</button>
   </view>
 
@@ -213,8 +212,41 @@
   <view class="keyboard-spacer" wx:if="{{keyboardSpacerHeight > 0}}" style="height: {{keyboardSpacerHeight}}px;"></view>
   <view class="footer-placeholder"></view>
   <view class="footer">
+    <button class="notify-btn" wx:if="{{isEditMode && canNotifySubmitter}}" bindtap="openNotificationDialog" disabled="{{notifying}}">通知</button>
     <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath || !!taskUnavailableMessage || !canSubmit || photoProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">
       {{taskUnavailableMessage ? '当前不可提交' : (backgroundProcessing ? '背景生成中...' : ((aiAnalysisEnabled && analysisState === 'analyzing') ? 'AI检查中...' : (photoProcessing ? '照片处理中...' : (isEditMode ? '更新' : '提交'))))}}
     </button>
+  </view>
+
+  <view class="notification-mask" wx:if="{{notificationDialogVisible}}" bindtap="closeNotificationDialog">
+    <view class="notification-dialog" catchtap="preventDialogClose">
+      <view class="notification-title">发送通知</view>
+      <view class="notification-field">
+        <text class="notification-label">审核状态</text>
+        <input
+          class="notification-input"
+          value="{{notificationReviewStatus}}"
+          maxlength="5"
+          placeholder="请填写审核状态"
+          adjust-position="{{false}}"
+          bindinput="onNotificationReviewStatusInput"
+        />
+      </view>
+      <view class="notification-field">
+        <text class="notification-label">提示</text>
+        <input
+          class="notification-input"
+          value="{{notificationPrompt}}"
+          maxlength="20"
+          placeholder="请填写提示"
+          adjust-position="{{false}}"
+          bindinput="onNotificationPromptInput"
+        />
+      </view>
+      <view class="notification-dialog-actions">
+        <button class="notification-cancel-btn" bindtap="closeNotificationDialog" disabled="{{notifying}}">取消</button>
+        <button class="notification-send-btn" bindtap="sendNotification" disabled="{{notifying}}">{{notifying ? '发送中...' : '发送'}}</button>
+      </view>
+    </view>
   </view>
 </view>
