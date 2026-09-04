@@ -63,7 +63,8 @@ Page({
     loadingMore: false,
     pageLoading: true,
     initialized: false,
-    needsRefresh: false
+    needsRefresh: false,
+    viewMode: 'list' as 'list' | 'grid'
   },
 
   async onLoad(options: any) {
@@ -152,6 +153,12 @@ Page({
       this.setData({ loadingMore: false });
       showError(err.message || '加载失败');
     }
+  },
+
+  toggleViewMode() {
+    this.setData({
+      viewMode: this.data.viewMode === 'list' ? 'grid' : 'list'
+    });
   },
 
   editSubmission(e: any) {

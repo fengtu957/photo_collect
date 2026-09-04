@@ -9,14 +9,49 @@
         <text class="section-title">全部提交</text>
         <text class="section-task" wx:if="{{task && task.title}}">{{task.title}}</text>
       </view>
-      <text class="section-count">{{total}} 条</text>
+      <view class="section-actions">
+        <text class="section-count">{{total}} 条</text>
+        <view
+          class="view-toggle"
+          bindtap="toggleViewMode"
+          hover-class="view-toggle-active"
+          aria-role="button"
+          aria-label="{{viewMode === 'list' ? '切换为图片视图' : '切换为列表视图'}}"
+        >
+          <view class="view-icon-grid" wx:if="{{viewMode === 'list'}}">
+            <view class="view-icon-cell"></view>
+            <view class="view-icon-cell"></view>
+            <view class="view-icon-cell"></view>
+            <view class="view-icon-cell"></view>
+          </view>
+          <view class="view-icon-list" wx:else>
+            <view class="view-icon-line"></view>
+            <view class="view-icon-line"></view>
+            <view class="view-icon-line"></view>
+          </view>
+        </view>
+      </view>
     </view>
 
     <view class="empty" wx:if="{{submissions.length === 0}}">
       <text class="empty-text">暂无提交记录</text>
     </view>
 
-    <view class="submission-waterfall" wx:else>
+    <block wx:else>
+      <view class="submission-grid" wx:if="{{viewMode === 'grid'}}">
+        <image
+          class="submission-grid-photo"
+          wx:for="{{submissions}}"
+          wx:key="id"
+          src="{{item.photo.thumbnail_url || item.photo.url}}"
+          mode="aspectFill"
+          bindtap="editSubmission"
+          data-id="{{item.id}}"
+          lazy-load="{{true}}"
+        />
+      </view>
+
+      <view class="submission-waterfall" wx:else>
       <view class="submission-card" wx:for="{{submissions}}" wx:key="id" bindtap="editSubmission" data-id="{{item.id}}" hover-class="submission-card-active">
         <image
           class="submission-thumbnail"
@@ -44,7 +79,8 @@
         </view>
         <text class="time">{{item.createdAtFormatted}}</text>
       </view>
-    </view>
+      </view>
+    </block>
 
     <view class="load-more" wx:if="{{loadingMore}}">
       <text class="load-more-text">加载中...</text>
