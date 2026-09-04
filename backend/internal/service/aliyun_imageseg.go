@@ -104,7 +104,11 @@ func (s *AliyunImageSegService) SegmentBody(imageURL string) (string, error) {
 		}
 		return "", errors.New("阿里云人体分割未返回结果")
 	}
-	return result.Data.ImageURL, nil
+	resultURL := strings.TrimSpace(result.Data.ImageURL)
+	if strings.HasPrefix(resultURL, "http://") {
+		resultURL = "https://" + strings.TrimPrefix(resultURL, "http://")
+	}
+	return resultURL, nil
 }
 
 func truncateLogBody(body []byte, max int) string {
