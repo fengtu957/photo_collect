@@ -4,6 +4,7 @@ import {
   analyzePhotoPreview,
   createSubmission,
   deleteSubmission,
+  authorizeSubmissionPhotoLink,
   getRejectionNotificationConfig,
   getSubmission,
   notifySubmissionRejected,
@@ -215,6 +216,7 @@ function getBackgroundColor(value: string): string {
 
 Page({
   data: {
+    pageLoading: true,
     taskId: '',
     submissionId: '',
     task: null as any,
@@ -230,6 +232,8 @@ Page({
     temporaryPhotoMeta: { fileSize: 0, width: 0, height: 0 },
     photoKey: '',
     photoMeta: { fileSize: 0, width: 0, height: 0 },
+    hasUploadedPhoto: false,
+    copyingPhotoLink: false,
     analysisState: '' as '' | 'existing' | 'analyzing' | 'success' | 'fallback' | 'error',
     analysisResult: null as SubmissionAnalysisResult | null,
     analysisPassed: false,
@@ -249,12 +253,13 @@ Page({
     multiSelectState: {} as Record<string, Record<string, boolean>>,
     isEditMode: false,
     submissionUserId: '',
+    isSubmissionCreator: false,
     canNotifySubmitter: false,
     notificationTemplateId: '',
     notifying: false,
     notificationDialogVisible: false,
-    notificationReviewStatus: '审核不通过',
-    notificationPrompt: '请点击进入编辑并重新提交',
+    notificationReviewStatus: '图片不合格',
+    notificationPrompt: '',
     canvasWidth: 1,
     canvasHeight: 1,
     keyboardSpacerHeight: 0,
@@ -275,6 +280,7 @@ Page({
     });
 
     if (!this.data.taskId) {
+      this.setData({ pageLoading: false });
       showError('任务参数无效');
       return;
     }
@@ -286,14 +292,18 @@ Page({
       }
     } catch (err) {}
 
-    await Promise.all([
-      this.loadTask(),
-      this.loadRejectionNotificationConfig()
-    ]);
+    try {
+      await Promise.all([
+        this.loadTask(),
+        this.loadRejectionNotificationConfig()
+      ]);
 
-    // 如果是编辑模式，加载已有的提交数据
-    if (this.data.isEditMode) {
-      await this.loadSubmission();
+      // 如果是编辑模式，加载已有的提交数据
+      if (this.data.isEditMode) {
+        await this.loadSubmission();
+      }
+    } finally {
+      this.setData({ pageLoading: false });
     }
   },
 
@@ -341,15 +351,21 @@ Page({
   async loadSubmission() {
     try {
       const submission = await getSubmission(this.data.submissionId);
+      if (!submission || String(submission.task_id || '') !== this.data.taskId) {
+        throw new Error('提交记录与任务不匹配');
+      }
       const photoUrl = (submission.photo && submission.photo.url) || '';
+      const currentOpenid = String(wx.getStorageSync('openid') || '');
       const normalizedCustomData = normalizeCustomData(this.data.task, submission.custom_data || {});
       const aiAnalysisEnabled = isTaskAIAnalysisEnabled(this.data.task);
 
       this.setData({
         submissionUserId: String(submission.user_id || ''),
+        isSubmissionCreator: String(submission.user_id || '') === currentOpenid,
         customData: normalizedCustomData,
         multiSelectState: buildMultiSelectState(this.data.task, normalizedCustomData),
         photoPath: photoUrl,
+        hasUploadedPhoto: !!photoUrl && !(submission.photo && submission.photo.deleted),
         photoKey: extractFileKey(photoUrl),
         photoMeta: {
           fileSize: Number((submission.photo && submission.photo.file_size) || 0),
@@ -1012,9 +1028,38 @@ Page({
     });
   },
 
+  async copyPhotoDownloadLink() {
+    if (!this.data.isEditMode || !this.data.isTaskCreator || !this.data.hasUploadedPhoto || this.data.copyingPhotoLink) return;
+
+    try {
+      this.setData({ copyingPhotoLink: true });
+      showLoading('生成链接中...');
+      const result = await authorizeSubmissionPhotoLink(this.data.submissionId);
+      hideLoading();
+      this.setData({ copyingPhotoLink: false });
+      const downloadUrl = String((result && result.download_url) || '');
+      if (!downloadUrl) {
+        showError('下载链接生成失败');
+        return;
+      }
+      wx.setClipboardData({
+        data: downloadUrl,
+        success: () => wx.showToast({ title: '链接已复制', icon: 'success' })
+      });
+    } catch (err: any) {
+      hideLoading();
+      this.setData({ copyingPhotoLink: false });
+      showError(err.message || '下载链接生成失败');
+    }
+  },
+
   openNotificationDialog() {
     if (!this.data.canNotifySubmitter || !this.data.submissionId || this.data.notifying) return;
-    this.setData({ notificationDialogVisible: true });
+    this.setData({
+      notificationDialogVisible: true,
+      notificationReviewStatus: '图片不合格',
+      notificationPrompt: ''
+    });
   },
 
   closeNotificationDialog() {

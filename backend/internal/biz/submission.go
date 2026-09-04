@@ -58,7 +58,7 @@ func validateSubmissionVerificationCode(task *data.Task, sub *data.Submission, a
 	if task == nil || sub == nil || !task.VerificationCodeEnabled {
 		return nil
 	}
-	if task.UserID == actingUserID {
+	if task.CanManage(actingUserID) {
 		return nil
 	}
 
@@ -211,8 +211,8 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 		return err
 	}
 
-	// 非创建者限制唯一提交
-	if task.UserID != sub.UserID {
+	// 普通用户限制唯一提交，任务管理者和协作者可多次提交。
+	if !task.AllowsMultipleSubmissions(sub.UserID) {
 		existing, err := uc.repo.FindOneByTaskIDAndUserID(ctx, sub.TaskID.Hex(), sub.UserID)
 		if err == nil && existing != nil {
 			return errors.New("该任务已提交，请使用更新接口")
@@ -260,7 +260,7 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 	}
 
 	// 权限检查：只有提交者本人或任务创建者可以更新
-	if existing.UserID != userID && task.UserID != userID {
+	if existing.UserID != userID && !task.CanManage(userID) {
 		return errors.New("无权限更新此提交")
 	}
 	if err := validateSubmissionVerificationCode(task, sub, userID); err != nil {
@@ -313,7 +313,7 @@ func (uc *SubmissionUsecase) GetSubmission(ctx context.Context, id string, userI
 		return nil, errors.New("任务不存在")
 	}
 
-	if submission.UserID != userID && task.UserID != userID {
+	if submission.UserID != userID && !task.CanManage(userID) {
 		return nil, errors.New("无权限查看此提交")
 	}
 
@@ -336,8 +336,8 @@ func (uc *SubmissionUsecase) GetSubmissionForTaskCreator(ctx context.Context, id
 	if task == nil {
 		return nil, nil, errors.New("任务不存在")
 	}
-	if task.UserID != userID {
-		return nil, nil, errors.New("只有创建者可以发送审核通知")
+	if !task.CanManage(userID) {
+		return nil, nil, errors.New("只有任务创建者或管理员可以操作")
 	}
 
 	return submission, task, nil
@@ -359,8 +359,8 @@ func (uc *SubmissionUsecase) DeleteSubmission(ctx context.Context, id string, us
 	if task == nil {
 		return errors.New("任务不存在")
 	}
-	if task.UserID != userID {
-		return errors.New("只有创建者可以删除提交记录")
+	if !task.CanManage(userID) && submission.UserID != userID {
+		return errors.New("无权限删除此提交")
 	}
 
 	return uc.repo.Delete(ctx, id)
@@ -372,7 +372,7 @@ type SubmissionListResult struct {
 	HasMore bool               `json:"has_more"`
 }
 
-func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string, userID string, includeAll bool, page, limit int) (*SubmissionListResult, error) {
+func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string, userID string, page, limit int) (*SubmissionListResult, error) {
 	task, err := uc.taskRepo.FindByID(ctx, taskID)
 	if err != nil {
 		return nil, err
@@ -384,10 +384,7 @@ func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string,
 	var list []*data.Submission
 	var total int64
 
-	if includeAll {
-		if task.UserID != userID {
-			return nil, errors.New("无权限查看全部提交")
-		}
+	if task.CanManage(userID) {
 		list, err = uc.repo.FindByTaskID(ctx, taskID, page, limit)
 		if err != nil {
 			return nil, err

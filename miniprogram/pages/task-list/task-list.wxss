@@ -64,6 +64,11 @@
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 }
 
+.card-expired {
+  background: #f8f8f8;
+  box-shadow: none;
+}
+
 .card-top {
   margin-bottom: 16rpx;
   padding-bottom: 16rpx;
@@ -151,6 +156,21 @@
   flex-shrink: 0;
 }
 
+.expired-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 140rpx;
+  height: 140rpx;
+  flex-shrink: 0;
+  border: 2rpx solid #ccc;
+  border-radius: 70rpx;
+  box-sizing: border-box;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #999;
+}
+
 .card-bot {
   display: flex;
   justify-content: space-between;
@@ -173,6 +193,10 @@
   display: flex;
   align-items: center;
   gap: 10rpx;
+}
+
+.action-item-disabled {
+  opacity: 0.45;
 }
 
 .action-icon {

@@ -162,7 +162,7 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		Error(w, 1011, "无权限导出此任务")
 		return
 	}
@@ -261,7 +261,7 @@ func (s *ExportService) ListExports(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		Error(w, 1021, "无权限查看此任务的导出记录")
 		return
 	}
@@ -302,7 +302,7 @@ func (s *ExportService) AuthorizeExportRecordLink(w http.ResponseWriter, r *http
 	if !ok {
 		return
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		Error(w, 1024, "无权限操作此任务")
 		return
 	}
@@ -321,7 +321,7 @@ func (s *ExportService) AuthorizeExportRecordLink(w http.ResponseWriter, r *http
 		s.authorizeLegacyExportLink(w, task)
 		return
 	}
-	if record.TaskID != task.ID.Hex() || record.UserID != userID {
+	if record.TaskID != task.ID.Hex() || record.UserID != task.UserID {
 		Error(w, 1025, "导出记录不存在")
 		return
 	}
@@ -401,7 +401,7 @@ func (s *ExportService) SyncExportStatus(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		Error(w, 1018, "无权限操作此任务")
 		return
 	}
@@ -422,7 +422,7 @@ func (s *ExportService) AuthorizeExportLink(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	if task.UserID != userID {
+	if !task.CanManage(userID) {
 		Error(w, 1015, "无权限操作此任务")
 		return
 	}

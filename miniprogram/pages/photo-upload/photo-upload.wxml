@@ -1,6 +1,11 @@
 <view class="page">
+  <view class="page-loading" wx:if="{{pageLoading}}">
+    <text class="page-loading-text">加载中...</text>
+  </view>
+
+  <block wx:elif="{{task}}">
   <!-- 任务信息 -->
-  <view class="card" wx:if="{{task}}">
+  <view class="card">
     <view class="card-title">{{task.title}}</view>
     <view class="card-desc" wx:if="{{task.description}}">{{task.description}}</view>
     <view class="spec-info">
@@ -204,7 +209,8 @@
     </view>
   </view>
 
-  <view class="submission-admin-actions" wx:if="{{isEditMode && isTaskCreator}}">
+  <view class="submission-admin-actions" wx:if="{{isEditMode && (isTaskCreator || isSubmissionCreator)}}">
+    <button class="copy-link-btn" wx:if="{{isTaskCreator && hasUploadedPhoto}}" bindtap="copyPhotoDownloadLink" disabled="{{copyingPhotoLink}}">{{copyingPhotoLink ? '生成中...' : '复制图片下载链接'}}</button>
     <button class="delete-btn" bindtap="deleteSubmissionRecord" disabled="{{photoProcessing || backgroundProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">删除提交</button>
   </view>
 
@@ -249,4 +255,5 @@
       </view>
     </view>
   </view>
+  </block>
 </view>

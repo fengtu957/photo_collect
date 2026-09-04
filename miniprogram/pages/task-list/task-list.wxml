@@ -20,7 +20,7 @@
         adjust-position="{{false}}"
       />
     </view>
-    <view class="card" wx:for="{{tasks}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+    <view class="card {{item.status.expired ? 'card-expired' : ''}}" wx:for="{{tasks}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}" data-expired="{{item.status.expired}}">
       <view class="card-top">
         <view class="title-wrap">
           <view class="title-icon">
@@ -37,16 +37,17 @@
           <text class="card-line">创建日期：{{item.created_at_formatted}}</text>
           <text class="card-line">截止日期：{{item.end_time_formatted}}</text>
         </view>
-        <image class="status-icon" src="{{item.status.icon}}" mode="aspectFit" />
+        <view class="expired-status" wx:if="{{item.status.expired}}">已失效</view>
+        <image class="status-icon" wx:else src="{{item.status.icon}}" mode="aspectFit" />
       </view>
       <view class="card-bot">
         <text class="card-count">已收集 {{item.stats.total_submissions || 0}} 张</text>
         <view class="card-actions">
-          <view class="action-item" catchtap="viewList" data-id="{{item.id}}">
+          <view class="action-item {{item.status.expired ? 'action-item-disabled' : ''}}" catchtap="viewList" data-id="{{item.id}}" data-expired="{{item.status.expired}}">
             <text class="action-icon action-icon-list">▣</text>
             <text class="btn-text">照片列表</text>
           </view>
-          <view class="action-item" catchtap="goToUpload" data-id="{{item.id}}">
+          <view class="action-item {{item.status.expired ? 'action-item-disabled' : ''}}" catchtap="goToUpload" data-id="{{item.id}}" data-expired="{{item.status.expired}}">
             <text class="action-icon action-icon-camera">▣</text>
             <text class="btn-text">拍照</text>
           </view>

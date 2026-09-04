@@ -1,4 +1,4 @@
-import { getTask, downloadTaskMiniProgramCode } from '../../services/task';
+import { createTaskInvitation, getTask, downloadTaskMiniProgramCode } from '../../services/task';
 import { listSubmissions } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
@@ -51,6 +51,12 @@ function formatSubmissions(list: any[], customFields: any[]) {
       customFieldItems
     };
   });
+}
+
+function isTaskEnded(task: any): boolean {
+  if (!task || !isEffectiveTime(task.end_time)) return false;
+  const end = new Date(task.end_time);
+  return !isNaN(end.getTime()) && new Date().getTime() > end.getTime();
 }
 
 function preserveSubmissionPhotoURLs(nextList: any[], previousList: any[]) {
@@ -107,6 +113,14 @@ function buildTaskShareTitle(task: any): string {
   }
 
   return '邀请你参与照片采集';
+}
+
+function buildTaskInvitationShareTitle(task: any, roleText: string): string {
+  const title = String((task && task.title) || '').trim();
+  if (title) {
+    return `邀请你成为「${title}」的${roleText}`;
+  }
+  return `邀请你成为任务${roleText}`;
 }
 
 function normalizeTaskId(value: any): string {
@@ -292,6 +306,8 @@ Page({
     startTime: '',
     endTime: '',
     isCreator: false,
+    taskEnded: false,
+    canSubmitMultiple: false,
     fromShare: false,
     mySubmissionId: '',
     // 分页
@@ -301,7 +317,10 @@ Page({
     total: 0,
     pageLoading: true,
     bootstrapping: false,
-    needsRefresh: false
+    needsRefresh: false,
+    inviteModalVisible: false,
+    preparingInvitations: false,
+    invitationTokens: {} as Record<string, any>
   },
 
   async onLoad(options: any) {
@@ -339,6 +358,12 @@ Page({
   },
 
   onShow() {
+    if (this.data.task) {
+      const taskEnded = isTaskEnded(this.data.task);
+      if (taskEnded !== this.data.taskEnded) {
+        this.setData({ taskEnded });
+      }
+    }
     if (!this.data.taskId || this.data.bootstrapping || !this.data.needsRefresh) return;
 
     this.setData({ page: 1, hasMore: true, needsRefresh: false });
@@ -393,6 +418,8 @@ Page({
         startTime,
         endTime,
         isCreator,
+        taskEnded: isTaskEnded(task),
+        canSubmitMultiple: !!task.can_submit_multiple,
         aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
         mySubmissionId: (mySubmission && mySubmission.id) || '',
         page: 1,
@@ -462,10 +489,49 @@ Page({
 
   goToExports() {
     if (!this.data.isCreator) {
-      showError('只有创建者可导出');
+      showError('只有管理员可导出');
       return;
     }
     wx.navigateTo({ url: `/pages/task-export/task-export?taskId=${this.data.taskId}` });
+  },
+
+  async openCollaboration() {
+    if (!this.data.isCreator || this.data.preparingInvitations) {
+      return;
+    }
+    if (isTaskEnded(this.data.task)) {
+      this.setData({ taskEnded: true });
+      showError('任务已结束，不能继续邀请');
+      return;
+    }
+
+    this.setData({ preparingInvitations: true });
+    wx.showLoading({ title: '准备邀请...', mask: true });
+    try {
+      const invitations = await Promise.all([
+        createTaskInvitation(this.data.taskId, 'admin'),
+        createTaskInvitation(this.data.taskId, 'collaborator')
+      ]);
+      this.setData({
+        invitationTokens: {
+          admin: invitations[0],
+          collaborator: invitations[1]
+        },
+        inviteModalVisible: true
+      });
+    } catch (err: any) {
+      showError((err && err.message) || '邀请创建失败');
+    } finally {
+      wx.hideLoading();
+      this.setData({ preparingInvitations: false });
+    }
+  },
+
+  closeInviteModal() {
+    this.setData({ inviteModalVisible: false });
+  },
+
+  stopPropagation() {
   },
 
   viewAllSubmissions() {
@@ -478,7 +544,7 @@ Page({
 
   goToUpload() {
     this.setData({ needsRefresh: true });
-    if (!this.data.isCreator && this.data.mySubmissionId) {
+    if (!this.data.isCreator && !this.data.canSubmitMultiple && this.data.mySubmissionId) {
       wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${this.data.mySubmissionId}` });
     } else {
       wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}` });
@@ -497,7 +563,20 @@ Page({
     wx.navigateTo({ url: `/pages/task-create/task-create?id=${this.data.taskId}` });
   },
 
-  onShareAppMessage() {
+  onShareAppMessage(options: any) {
+    const target = options && options.target;
+    const dataset = (target && target.dataset) || {};
+    const role = String(dataset.role || '');
+    const invitation = role ? this.data.invitationTokens[role] : null;
+    if (invitation && invitation.token) {
+      this.setData({ inviteModalVisible: false });
+      return {
+        title: buildTaskInvitationShareTitle(this.data.task, invitation.role_text || '协作者'),
+        path: `/pages/task-invite/task-invite?token=${encodeURIComponent(invitation.token)}`,
+        imageUrl: TASK_SHARE_IMAGE_URL
+      };
+    }
+
     return {
       title: buildTaskShareTitle(this.data.task),
       path: buildTaskSharePath(this.data.taskId),

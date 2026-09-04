@@ -127,19 +127,38 @@
     <text class="load-more-text">已加载全部</text>
   </view>
 
-  <!-- 创建者底栏 -->
+  <!-- 任务管理员底栏 -->
   <view class="footer" wx:if="{{isCreator}}">
     <button class="btn-secondary btn-share" open-type="share">分享任务</button>
     <view class="btn-primary" bindtap="goToUpload">上传照片</view>
-    <view class="btn-export" bindtap="goToExports">去导出</view>
+    <view class="btn-export" wx:if="{{taskEnded}}" bindtap="goToExports">导出</view>
+    <view class="btn-collaborate" wx:else bindtap="openCollaboration">协作</view>
   </view>
 
   <!-- 非创建者底栏 -->
   <view class="footer" wx:else>
     <button class="btn-secondary btn-share" open-type="share">分享任务</button>
     <view class="btn-primary" bindtap="goToUpload">
-      <text>{{mySubmissionId ? '编辑提交' : '上传照片'}}</text>
+      <text>{{mySubmissionId && !canSubmitMultiple ? '编辑提交' : '上传照片'}}</text>
     </view>
   </view>
   </block>
+
+  <view class="invite-modal-mask" wx:if="{{inviteModalVisible}}" bindtap="closeInviteModal" catchtouchmove="stopPropagation">
+    <view class="invite-modal" catchtap="stopPropagation">
+      <view class="invite-modal-header">
+        <text class="invite-modal-title">选择邀请身份</text>
+        <text class="invite-modal-close" bindtap="closeInviteModal">×</text>
+      </view>
+      <text class="invite-modal-desc">邀请通过微信好友发送，每个邀请仅能被一人领取。</text>
+      <button class="invite-role-button invite-role-admin" open-type="share" data-role="admin">
+        <text class="invite-role-title">新增管理员</text>
+        <text class="invite-role-desc">可管理任务、审核和导出</text>
+      </button>
+      <button class="invite-role-button invite-role-collaborator" open-type="share" data-role="collaborator">
+        <text class="invite-role-title">新增协作员</text>
+        <text class="invite-role-desc">普通用户权限，可多次上传</text>
+      </button>
+    </view>
+  </view>
 </view>

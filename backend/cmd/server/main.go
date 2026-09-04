@@ -68,6 +68,8 @@ func main() {
 	adminAPI := r.PathPrefix("/api/v1/admin").Subrouter()
 	adminAPI.Use(service.AdminAuthMiddleware)
 	adminAPI.HandleFunc("/tasks", adminSvc.ListTasks).Methods("GET")
+	adminAPI.HandleFunc("/tasks/{id}/admins", adminSvc.UpdateTaskAdmins).Methods("PUT")
+	adminAPI.HandleFunc("/tasks/{id}/collaborators", adminSvc.UpdateTaskCollaborators).Methods("PUT")
 	adminAPI.HandleFunc("/vip/grant", adminSvc.GrantVIP).Methods("POST")
 
 	// 需要认证的接口
@@ -78,6 +80,9 @@ func main() {
 	api.HandleFunc("/tasks/code/{taskCode}", taskSvc.GetTaskByCode).Methods("GET")
 	api.HandleFunc("/tasks/{id}", taskSvc.GetTask).Methods("GET")
 	api.HandleFunc("/tasks/{id}/mini-code", taskSvc.GetTaskMiniCode).Methods("GET")
+	api.HandleFunc("/tasks/{id}/invitations", taskSvc.CreateTaskInvitation).Methods("POST")
+	api.HandleFunc("/task-invitations/{token}", taskSvc.GetTaskInvitation).Methods("GET")
+	api.HandleFunc("/task-invitations/{token}/accept", taskSvc.AcceptTaskInvitation).Methods("POST")
 	api.HandleFunc("/tasks/{id}", taskSvc.UpdateTask).Methods("PUT")
 	api.HandleFunc("/tasks/{id}/export", exportSvc.ExportTask).Methods("POST")
 	api.HandleFunc("/tasks/{id}/exports", exportSvc.ListExports).Methods("GET")
@@ -92,6 +97,7 @@ func main() {
 	api.HandleFunc("/submissions/{id}", subSvc.GetSubmission).Methods("GET")
 	api.HandleFunc("/submissions/{id}", subSvc.UpdateSubmission).Methods("PUT")
 	api.HandleFunc("/submissions/{id}", subSvc.DeleteSubmission).Methods("DELETE")
+	api.HandleFunc("/submissions/{id}/photo/authorize", subSvc.AuthorizeSubmissionPhotoLink).Methods("POST")
 	api.HandleFunc("/submissions/{id}/rejection-notification", subSvc.SendRejectionNotification).Methods("POST")
 	api.HandleFunc("/notifications/rejection-config", subSvc.GetRejectionNotificationConfig).Methods("GET")
 	api.HandleFunc("/tasks/{taskId}/submissions", subSvc.ListSubmissions).Methods("GET")

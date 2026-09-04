@@ -101,12 +101,21 @@ function getCopyTaskTimeValue(value: string): string {
   return new Date(value).getTime() > Date.now() ? value : '';
 }
 
+function canEditTaskStartTime(task: any): boolean {
+  if (!task || !isEffectiveTime(task.start_time)) {
+    return false;
+  }
+  const startTime = new Date(task.start_time).getTime();
+  return !isNaN(startTime) && Date.now() < startTime;
+}
+
 Page({
   data: {
     taskId: '',
     taskCode: '',
     isEditMode: false,
     isCopyMode: false,
+    startTimeEditable: true,
     taskLoaded: false,
     initialAIAnalysisEnabled: false,
     initialBackgroundReplacementEnabled: false,
@@ -234,6 +243,7 @@ Page({
 
       this.setData({
         taskLoaded: true,
+        startTimeEditable: isCopyMode || canEditTaskStartTime(task),
         taskCode: isCopyMode ? '' : String(task.task_code || ''),
         initialAIAnalysisEnabled: isCopyMode ? false : aiAnalysisEnabled,
         initialBackgroundReplacementEnabled: isCopyMode ? false : backgroundReplacementEnabled,
@@ -341,12 +351,12 @@ Page({
   },
 
   onStartDateChange(e: any) {
-    if (this.data.isEditMode) return;
+    if (this.data.isEditMode && !this.data.startTimeEditable) return;
     this.setData({ startDate: e.detail.value, 'form.start_time': toRFC3339(e.detail.value, this.data.startTime) });
   },
 
   onStartTimeChange(e: any) {
-    if (this.data.isEditMode) return;
+    if (this.data.isEditMode && !this.data.startTimeEditable) return;
     this.setData({ startTime: e.detail.value, 'form.start_time': toRFC3339(this.data.startDate, e.detail.value) });
   },
 

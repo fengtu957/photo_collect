@@ -7,8 +7,11 @@ const STATUS_SORT_WEIGHT: Record<string, number> = {
   '进行中': 0,
   '未开始': 1,
   '已截止': 2,
-  '已关闭': 3
+  '已关闭': 3,
+  '已失效': 4
 };
+
+const TASK_EXPIRED_AFTER_MS = 60 * 24 * 60 * 60 * 1000;
 
 function getTaskStatus(task: any) {
   const now = Date.now();
@@ -16,6 +19,14 @@ function getTaskStatus(task: any) {
   const hasEndTime = isEffectiveTime(task && task.end_time);
   const startTime = hasStartTime ? new Date(task.start_time).getTime() : 0;
   const endTime = hasEndTime ? new Date(task.end_time).getTime() : 0;
+
+  if ((task && task.expired) || (hasEndTime && now > endTime + TASK_EXPIRED_AFTER_MS)) {
+    return {
+      text: '已失效',
+      icon: '../../imgs/已截止.png',
+      expired: true
+    };
+  }
 
   if (task && task.enabled === false) {
     return {
@@ -75,6 +86,13 @@ function normalizeTaskCodeInput(value: any): string {
   return String(value || '').replace(/\D/g, '').slice(0, 5);
 }
 
+function isExpiredTaskEvent(e: any): boolean {
+  const value = e && e.currentTarget && e.currentTarget.dataset
+    ? e.currentTarget.dataset.expired
+    : false;
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
 Page({
   data: {
     tasks: [] as any[],
@@ -120,7 +138,9 @@ Page({
     const tasks = (this.data.allTasks || []).filter((task: any) => {
       const statusText = String(task && task.status && task.status.text || '');
       const searchText = buildTaskSearchText(task);
-      const matchesFilter = activeFilter === '全部' || statusText === activeFilter;
+      const matchesFilter = activeFilter === '全部'
+        || statusText === activeFilter
+        || (activeFilter === '已截止' && statusText === '已失效');
       const matchesKeyword = !keyword || searchText.indexOf(keyword) >= 0;
       return matchesFilter && matchesKeyword;
     }).sort((a: any, b: any) => {
@@ -136,7 +156,7 @@ Page({
 
       const aTime = getTaskSortTime(a);
       const bTime = getTaskSortTime(b);
-      if (aStatus === '已截止' || aStatus === '已关闭') {
+      if (aStatus === '已截止' || aStatus === '已关闭' || aStatus === '已失效') {
         return bTime - aTime;
       }
 
@@ -227,14 +247,26 @@ Page({
   },
 
   goToDetail(e: any) {
+    if (isExpiredTaskEvent(e)) {
+      showError('任务已失效，相关照片可能已清理');
+      return;
+    }
     wx.navigateTo({ url: `/pages/task-detail/task-detail?id=${e.currentTarget.dataset.id}` });
   },
 
   viewList(e: any) {
+    if (isExpiredTaskEvent(e)) {
+      showError('任务已失效，相关照片可能已清理');
+      return;
+    }
     wx.navigateTo({ url: `/pages/task-detail/task-detail?id=${e.currentTarget.dataset.id}` });
   },
 
   goToUpload(e: any) {
+    if (isExpiredTaskEvent(e)) {
+      showError('任务已失效，相关照片可能已清理');
+      return;
+    }
     wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${e.currentTarget.dataset.id}` });
   }
 });

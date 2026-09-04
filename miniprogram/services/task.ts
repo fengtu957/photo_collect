@@ -27,6 +27,18 @@ export interface ExportHistoryResult {
   has_more: boolean;
 }
 
+export interface TaskInvitation {
+  task_id: string;
+  task_title: string;
+  role: 'admin' | 'collaborator';
+  role_text: string;
+  token?: string;
+  status: 'valid' | 'used' | 'expired' | 'accepted';
+  message: string;
+  valid: boolean;
+  accepted?: boolean;
+}
+
 export async function createTask(params: CreateTaskParams) {
   return request<{ id: string }>('/tasks', {
     method: 'POST',
@@ -61,6 +73,25 @@ export async function exportTask(id: string, params: ExportTaskParams) {
   return request<ExportTaskResult>(`/tasks/${id}/export`, {
     method: 'POST',
     data: params
+  });
+}
+
+export async function createTaskInvitation(id: string, role: 'admin' | 'collaborator') {
+  return request<TaskInvitation>(`/tasks/${id}/invitations`, {
+    method: 'POST',
+    data: { role }
+  });
+}
+
+export async function getTaskInvitation(token: string) {
+  return request<TaskInvitation>(`/task-invitations/${encodeURIComponent(token)}`, {
+    method: 'GET'
+  });
+}
+
+export async function acceptTaskInvitation(token: string) {
+  return request<TaskInvitation>(`/task-invitations/${encodeURIComponent(token)}/accept`, {
+    method: 'POST'
   });
 }
 

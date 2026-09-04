@@ -134,7 +134,7 @@
   height: 88rpx;
   line-height: 88rpx;
   box-sizing: border-box;
-  border-radius: 44rpx;
+  border-radius: 8rpx;
   text-align: center;
   color: #fff;
   background: #1989fa;

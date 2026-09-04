@@ -44,9 +44,22 @@ type TaskExportInfo struct {
 	ErrorMessage     string    `bson:"error_message,omitempty" json:"error_message,omitempty"`
 }
 
+type TaskInvitation struct {
+	Token         string     `bson:"token" json:"-"`
+	Role          string     `bson:"role" json:"role"`
+	InviterUserID string     `bson:"inviter_user_id" json:"-"`
+	CreatedAt     time.Time  `bson:"created_at" json:"created_at"`
+	UsedBy        string     `bson:"used_by,omitempty" json:"-"`
+	UsedAt        *time.Time `bson:"used_at,omitempty" json:"-"`
+}
+
 type Task struct {
 	ID                           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	UserID                       string             `bson:"user_id" json:"user_id"`
+	AdminUserIDs                 []string           `bson:"admin_user_ids,omitempty" json:"admin_user_ids,omitempty"`
+	CollaboratorUserIDs          []string           `bson:"collaborator_user_ids,omitempty" json:"collaborator_user_ids,omitempty"`
+	CanSubmitMultiple            bool               `bson:"-" json:"can_submit_multiple,omitempty"`
+	Expired                      bool               `bson:"-" json:"expired,omitempty"`
 	TaskCode                     string             `bson:"task_code,omitempty" json:"task_code,omitempty"`
 	Title                        string             `bson:"title" json:"title"`
 	Description                  string             `bson:"description" json:"description"`
@@ -63,8 +76,41 @@ type Task struct {
 	CustomFields                 []CustomField      `bson:"custom_fields" json:"custom_fields"`
 	Stats                        TaskStats          `bson:"stats" json:"stats"`
 	ExportInfo                   TaskExportInfo     `bson:"export_info,omitempty" json:"export_info,omitempty"`
+	Invitations                  []TaskInvitation   `bson:"invitations,omitempty" json:"-"`
 	CreatedAt                    time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt                    time.Time          `bson:"updated_at" json:"updated_at"`
+}
+
+// CanManage reports whether the user is the task creator or a configured task administrator.
+func (t *Task) CanManage(userID string) bool {
+	if t == nil || userID == "" {
+		return false
+	}
+	if t.UserID == userID {
+		return true
+	}
+	for _, adminUserID := range t.AdminUserIDs {
+		if adminUserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Task) IsCollaborator(userID string) bool {
+	if t == nil || userID == "" {
+		return false
+	}
+	for _, collaboratorUserID := range t.CollaboratorUserIDs {
+		if collaboratorUserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Task) AllowsMultipleSubmissions(userID string) bool {
+	return t.CanManage(userID) || t.IsCollaborator(userID)
 }
 
 func (t *Task) IsAIAnalysisEnabled() bool {

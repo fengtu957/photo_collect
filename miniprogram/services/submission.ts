@@ -21,6 +21,12 @@ export async function deleteSubmission(id: string) {
   });
 }
 
+export async function authorizeSubmissionPhotoLink(id: string) {
+  return request<{ download_url: string; expires_at: string }>(`/submissions/${id}/photo/authorize`, {
+    method: 'POST'
+  });
+}
+
 export async function getRejectionNotificationConfig() {
   return request<{ enabled: boolean; template_id: string }>('/notifications/rejection-config', {
     method: 'GET'

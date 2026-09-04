@@ -39,6 +39,10 @@ export interface TaskExportInfo {
 export interface Task {
   id: string;
   user_id: string;
+  admin_user_ids?: string[];
+  collaborator_user_ids?: string[];
+  can_submit_multiple?: boolean;
+  expired?: boolean;
   task_code?: string;
   title: string;
   description: string;

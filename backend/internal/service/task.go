@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
+	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -15,14 +17,27 @@ type TaskService struct {
 	auth *AuthService
 }
 
+const taskExpiredAfter = 60 * 24 * time.Hour
+
+func isTaskExpired(task *data.Task, now time.Time) bool {
+	return task != nil && !task.EndTime.IsZero() && now.After(task.EndTime.Add(taskExpiredAfter))
+}
+
 func sanitizeTaskForViewer(task *data.Task, viewerID string) *data.Task {
 	if task == nil {
 		return nil
 	}
 
 	safeTask := *task
-	if safeTask.UserID != viewerID {
+	safeTask.CanSubmitMultiple = task.AllowsMultipleSubmissions(viewerID)
+	safeTask.Expired = isTaskExpired(task, time.Now())
+	if task.CanManage(viewerID) {
+		// 兼容现有小程序：客户端通过 user_id 判断是否显示管理功能。
+		safeTask.UserID = viewerID
+	} else {
 		safeTask.VerificationCode = ""
+		safeTask.AdminUserIDs = nil
+		safeTask.CollaboratorUserIDs = nil
 	}
 
 	return &safeTask
@@ -68,6 +83,10 @@ func (s *TaskService) GetTask(w http.ResponseWriter, r *http.Request) {
 		Error(w, 1004, err.Error())
 		return
 	}
+	if isTaskExpired(task, time.Now()) {
+		Error(w, 1004, "任务已失效")
+		return
+	}
 
 	Success(w, sanitizeTaskForViewer(task, userID))
 }
@@ -83,6 +102,10 @@ func (s *TaskService) GetTaskByCode(w http.ResponseWriter, r *http.Request) {
 	task, err := s.uc.GetTaskByCode(context.Background(), taskCode)
 	if err != nil {
 		Error(w, 1010, err.Error())
+		return
+	}
+	if isTaskExpired(task, time.Now()) {
+		Error(w, 1010, "任务已失效")
 		return
 	}
 
@@ -127,6 +150,62 @@ func (s *TaskService) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Success(w, nil)
+}
+
+func (s *TaskService) CreateTaskInvitation(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimSpace(mux.Vars(r)["id"])
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1013, "unauthorized")
+		return
+	}
+
+	var req struct {
+		Role string `json:"role"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		Error(w, 1013, err.Error())
+		return
+	}
+
+	invitation, err := s.uc.CreateTaskInvitation(r.Context(), taskID, userID, req.Role)
+	if err != nil {
+		Error(w, 1013, err.Error())
+		return
+	}
+	Success(w, invitation)
+}
+
+func (s *TaskService) GetTaskInvitation(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(mux.Vars(r)["token"])
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1014, "unauthorized")
+		return
+	}
+
+	invitation, err := s.uc.GetTaskInvitation(r.Context(), token, userID)
+	if err != nil {
+		Error(w, 1014, err.Error())
+		return
+	}
+	Success(w, invitation)
+}
+
+func (s *TaskService) AcceptTaskInvitation(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(mux.Vars(r)["token"])
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1015, "unauthorized")
+		return
+	}
+
+	invitation, err := s.uc.AcceptTaskInvitation(r.Context(), token, userID)
+	if err != nil {
+		Error(w, 1015, err.Error())
+		return
+	}
+	Success(w, invitation)
 }
 
 func (s *TaskService) GetTaskMiniCode(w http.ResponseWriter, r *http.Request) {

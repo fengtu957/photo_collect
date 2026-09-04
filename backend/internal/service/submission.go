@@ -267,8 +267,7 @@ func (s *SubmissionService) SendRejectionNotification(w http.ResponseWriter, r *
 		return
 	}
 	req := RejectionNotificationRequest{
-		ReviewStatus: "审核不通过",
-		Prompt:       "请点击进入编辑并重新提交",
+		ReviewStatus: "图片不合格",
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
 		Error(w, 2014, "通知内容无效")
@@ -357,6 +356,40 @@ func (s *SubmissionService) GetSubmission(w http.ResponseWriter, r *http.Request
 	Success(w, submission)
 }
 
+func (s *SubmissionService) AuthorizeSubmissionPhotoLink(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 2007, "unauthorized")
+		return
+	}
+	if s.ossSvc == nil {
+		Error(w, 2007, "图片下载服务不可用")
+		return
+	}
+
+	submission, _, err := s.uc.GetSubmissionForTaskCreator(context.Background(), id, userID)
+	if err != nil {
+		Error(w, 2007, err.Error())
+		return
+	}
+	photoKey := strings.TrimSpace(submission.Photo.URL)
+	if photoKey == "" || submission.Photo.Deleted {
+		Error(w, 2007, "该提交没有已上传的图片")
+		return
+	}
+
+	downloadURL, err := s.ossSvc.GetFileURLWithTTL(photoKey, time.Hour)
+	if err != nil {
+		Error(w, 2007, err.Error())
+		return
+	}
+	Success(w, map[string]interface{}{
+		"download_url": downloadURL,
+		"expires_at":   time.Now().Add(time.Hour).Format(time.RFC3339),
+	})
+}
+
 func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 	taskID := mux.Vars(r)["taskId"]
 
@@ -375,8 +408,7 @@ func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Reque
 		limit = 20
 	}
 
-	includeAll := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("scope")), "all")
-	result, err := s.uc.ListSubmissions(context.Background(), taskID, userID, includeAll, page, limit)
+	result, err := s.uc.ListSubmissions(context.Background(), taskID, userID, page, limit)
 	if err != nil {
 		Error(w, 2003, err.Error())
 		return

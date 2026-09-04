@@ -339,6 +339,35 @@
       margin-top: 20px;
     }
 
+    .admin-editor {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    .admin-editor textarea {
+      width: 100%;
+      min-height: 92px;
+      resize: vertical;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.92);
+      padding: 12px 16px;
+      font: inherit;
+      line-height: 1.55;
+      color: var(--ink);
+      outline: none;
+    }
+
+    .admin-editor textarea:focus {
+      border-color: rgba(31, 122, 92, 0.55);
+      box-shadow: 0 0 0 4px rgba(31, 122, 92, 0.1);
+    }
+
     .task-vip {
       margin-top: 14px;
       font-size: 14px;
@@ -400,8 +429,13 @@
         flex-direction: column;
       }
 
-      .task-actions .btn {
+      .task-actions .btn,
+      .admin-editor .btn {
         width: 100%;
+      }
+
+      .admin-editor {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -485,6 +519,8 @@
         page: 1,
         loading: false,
         grantingUserId: '',
+        savingAdminTaskId: '',
+        savingCollaboratorTaskId: '',
         vipStatusByUserId: {}
       };
 
@@ -662,11 +698,16 @@
         const html = state.tasks.map(function (task) {
           const status = taskStatus(task);
           const userId = task && task.user_id ? String(task.user_id) : '';
+          const taskId = task && task.id ? String(task.id) : '';
+          const adminUserIds = task && Array.isArray(task.admin_user_ids) ? task.admin_user_ids : [];
+          const collaboratorUserIds = task && Array.isArray(task.collaborator_user_ids) ? task.collaborator_user_ids : [];
           const isGranting = state.grantingUserId === userId;
+          const isSavingAdmins = state.savingAdminTaskId === taskId;
+          const isSavingCollaborators = state.savingCollaboratorTaskId === taskId;
           const vipText = buildVipText(userId) || (task && task.vip_status_text ? String(task.vip_status_text) : '');
 
           return '' +
-            '<article class="task-card">' +
+            '<article class="task-card" data-task-id="' + escapeHtml(taskId) + '">' +
               '<div class="task-head">' +
                 '<div>' +
                   '<h3 class="task-title">' + escapeHtml(task && task.title ? task.title : '未命名任务') + '</h3>' +
@@ -687,6 +728,20 @@
               '<div class="task-actions">' +
                 '<button class="btn btn-secondary" data-action="copy-user-id" data-user-id="' + escapeHtml(userId) + '">复制用户ID</button>' +
                 '<button class="btn btn-primary" data-action="grant-vip" data-user-id="' + escapeHtml(userId) + '"' + (isGranting ? ' disabled' : '') + '>' + (isGranting ? '开通中...' : '给该用户开通 VIP') + '</button>' +
+              '</div>' +
+              '<div class="admin-editor">' +
+                '<div class="field">' +
+                  '<label for="admins-' + escapeHtml(taskId) + '">协作管理员 OpenID</label>' +
+                  '<textarea id="admins-' + escapeHtml(taskId) + '" data-admin-input="' + escapeHtml(taskId) + '" placeholder="每行填写一个 OpenID，留空表示移除全部">' + escapeHtml(adminUserIds.join('\n')) + '</textarea>' +
+                '</div>' +
+                '<button class="btn btn-secondary" data-action="save-admins" data-task-id="' + escapeHtml(taskId) + '"' + (isSavingAdmins ? ' disabled' : '') + '>' + (isSavingAdmins ? '保存中...' : '保存管理员') + '</button>' +
+              '</div>' +
+              '<div class="admin-editor">' +
+                '<div class="field">' +
+                  '<label for="collaborators-' + escapeHtml(taskId) + '">协作者 OpenID</label>' +
+                  '<textarea id="collaborators-' + escapeHtml(taskId) + '" data-collaborator-input="' + escapeHtml(taskId) + '" placeholder="每行填写一个 OpenID，留空表示移除全部">' + escapeHtml(collaboratorUserIds.join('\n')) + '</textarea>' +
+                '</div>' +
+                '<button class="btn btn-secondary" data-action="save-collaborators" data-task-id="' + escapeHtml(taskId) + '"' + (isSavingCollaborators ? ' disabled' : '') + '>' + (isSavingCollaborators ? '保存中...' : '保存协作者') + '</button>' +
               '</div>' +
             '</article>';
         }).join('');
@@ -843,12 +898,98 @@
         }
       }
 
+      async function saveTaskAdmins(taskId) {
+        if (!taskId || state.savingAdminTaskId) {
+          return;
+        }
+
+        const input = document.querySelector('[data-admin-input="' + taskId + '"]');
+        if (!(input instanceof HTMLTextAreaElement)) {
+          showMessage('error', '未找到管理员输入框');
+          return;
+        }
+
+        const adminUserIds = input.value
+          .split(/[\s,，;；]+/)
+          .map(function (value) { return value.trim(); })
+          .filter(function (value) { return !!value; });
+
+        state.savingAdminTaskId = taskId;
+        renderTasks();
+        clearMessage();
+
+        try {
+          const result = await request(API_BASE + '/admin/tasks/' + encodeURIComponent(taskId) + '/admins', {
+            method: 'PUT',
+            body: {
+              admin_user_ids: adminUserIds
+            }
+          });
+          state.tasks = state.tasks.map(function (task) {
+            if (task && task.id === taskId) {
+              task.admin_user_ids = result.admin_user_ids || [];
+            }
+            return task;
+          });
+          showMessage('success', '任务管理员已保存');
+        } catch (error) {
+          showMessage('error', error.message || '保存任务管理员失败');
+        } finally {
+          state.savingAdminTaskId = '';
+          renderTasks();
+        }
+      }
+
+      async function saveTaskCollaborators(taskId) {
+        if (!taskId || state.savingCollaboratorTaskId) {
+          return;
+        }
+
+        const input = document.querySelector('[data-collaborator-input="' + taskId + '"]');
+        if (!(input instanceof HTMLTextAreaElement)) {
+          showMessage('error', '未找到协作者输入框');
+          return;
+        }
+
+        const collaboratorUserIds = input.value
+          .split(/[\s,，;；]+/)
+          .map(function (value) { return value.trim(); })
+          .filter(function (value) { return !!value; });
+
+        state.savingCollaboratorTaskId = taskId;
+        renderTasks();
+        clearMessage();
+
+        try {
+          const result = await request(API_BASE + '/admin/tasks/' + encodeURIComponent(taskId) + '/collaborators', {
+            method: 'PUT',
+            body: {
+              collaborator_user_ids: collaboratorUserIds
+            }
+          });
+          state.tasks = state.tasks.map(function (task) {
+            if (task && task.id === taskId) {
+              task.collaborator_user_ids = result.collaborator_user_ids || [];
+            }
+            return task;
+          });
+          showMessage('success', '任务协作者已保存');
+        } catch (error) {
+          showMessage('error', error.message || '保存任务协作者失败');
+        } finally {
+          state.savingCollaboratorTaskId = '';
+          renderTasks();
+        }
+      }
+
       function logout() {
         clearSession();
         state.tasks = [];
         state.total = 0;
         state.page = 1;
         state.grantingUserId = '';
+        state.savingAdminTaskId = '';
+        state.savingCollaboratorTaskId = '';
         state.vipStatusByUserId = {};
         syncView();
         clearMessage();
@@ -929,6 +1070,14 @@
         }
         if (action === 'grant-vip') {
           grantVip(userId);
+          return;
+        }
+        if (action === 'save-admins') {
+          saveTaskAdmins(target.getAttribute('data-task-id'));
+          return;
+        }
+        if (action === 'save-collaborators') {
+          saveTaskCollaborators(target.getAttribute('data-task-id'));
         }
       });
 

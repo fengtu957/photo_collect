@@ -203,8 +203,18 @@
 }
 
 .confirm-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
   background: #1989fa;
   color: white;
-  border-radius: 60rpx;
+  border-radius: 8rpx;
   font-size: 32rpx;
+}
+
+.confirm-btn::after {
+  border: none;
 }

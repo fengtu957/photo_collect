@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -41,10 +42,37 @@ func (r *TaskRepo) EnsureIndexes(ctx context.Context) error {
 				SetUnique(true).
 				SetSparse(true),
 		},
+		{
+			Keys: bson.D{{Key: "admin_user_ids", Value: 1}},
+		},
+		{
+			Keys: bson.D{{Key: "collaborator_user_ids", Value: 1}},
+		},
+		{
+			Keys: bson.D{{Key: "invitations.token", Value: 1}},
+			Options: options.Index().
+				SetUnique(true).
+				SetSparse(true),
+		},
 	}
 
 	_, err := r.data.DB().Collection("tasks").Indexes().CreateMany(ctx, indexes)
 	return err
+}
+
+func (r *TaskRepo) FindByAdminUserID(ctx context.Context, userID string) ([]*Task, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.data.DB().Collection("tasks").Find(ctx, bson.M{"admin_user_ids": userID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var tasks []*Task
+	if err := cursor.All(ctx, &tasks); err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }
 
 func (r *TaskRepo) Create(ctx context.Context, task *Task) error {
@@ -140,6 +168,8 @@ func (r *TaskRepo) AdminListTasks(ctx context.Context, query AdminTaskListQuery)
 				{"title": bson.M{"$regex": pattern}},
 				{"description": bson.M{"$regex": pattern}},
 				{"user_id": bson.M{"$regex": pattern}},
+				{"admin_user_ids": bson.M{"$regex": pattern}},
+				{"collaborator_user_ids": bson.M{"$regex": pattern}},
 				{"task_code": bson.M{"$regex": pattern}},
 			}
 
@@ -178,6 +208,115 @@ func (r *TaskRepo) AdminListTasks(ctx context.Context, query AdminTaskListQuery)
 		Page:     page,
 		PageSize: pageSize,
 	}, nil
+}
+
+func (r *TaskRepo) UpdateAdminUserIDs(ctx context.Context, id string, adminUserIDs []string) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	result, err := r.data.DB().Collection("tasks").UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$set": bson.M{
+			"admin_user_ids": adminUserIDs,
+			"updated_at":     time.Now(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return errors.New("任务不存在")
+	}
+	return nil
+}
+
+func (r *TaskRepo) UpdateCollaboratorUserIDs(ctx context.Context, id string, collaboratorUserIDs []string) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	result, err := r.data.DB().Collection("tasks").UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$set": bson.M{
+			"collaborator_user_ids": collaboratorUserIDs,
+			"updated_at":            time.Now(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return errors.New("任务不存在")
+	}
+	return nil
+}
+
+func (r *TaskRepo) AddInvitation(ctx context.Context, id string, invitation TaskInvitation) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	result, err := r.data.DB().Collection("tasks").UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$push": bson.M{"invitations": invitation},
+		"$set":  bson.M{"updated_at": time.Now()},
+	})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return errors.New("任务不存在")
+	}
+	return nil
+}
+
+func (r *TaskRepo) FindByInvitationToken(ctx context.Context, token string) (*Task, error) {
+	var task Task
+	err := r.data.DB().Collection("tasks").FindOne(ctx, bson.M{"invitations.token": token}).Decode(&task)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	return &task, err
+}
+
+func (r *TaskRepo) AcceptInvitation(ctx context.Context, taskID, token, role, userID string, usedAt time.Time) (bool, error) {
+	objID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		return false, err
+	}
+
+	filter := bson.M{
+		"_id": objID,
+		"invitations": bson.M{"$elemMatch": bson.M{
+			"token":   token,
+			"role":    role,
+			"used_at": bson.M{"$exists": false},
+		}},
+		"user_id": bson.M{"$ne": userID},
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"invitations.$.used_by": userID,
+			"invitations.$.used_at": usedAt,
+			"updated_at":            usedAt,
+		},
+	}
+	if role == "admin" {
+		filter["admin_user_ids"] = bson.M{"$ne": userID}
+		update["$addToSet"] = bson.M{"admin_user_ids": userID}
+		update["$pull"] = bson.M{"collaborator_user_ids": userID}
+	} else {
+		filter["admin_user_ids"] = bson.M{"$ne": userID}
+		filter["collaborator_user_ids"] = bson.M{"$ne": userID}
+		update["$addToSet"] = bson.M{"collaborator_user_ids": userID}
+	}
+
+	result, err := r.data.DB().Collection("tasks").UpdateOne(ctx, filter, update)
+	if err != nil {
+		return false, err
+	}
+	return result.ModifiedCount == 1, nil
 }
 
 // FindByIDs 按多个ID批量查询任务，按创建时间倒序
