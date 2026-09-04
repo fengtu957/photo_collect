@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"path"
 	"photo-backend/internal/biz"
 	"photo-backend/internal/data"
@@ -34,12 +33,11 @@ var duplicateUnderscorePattern = regexp.MustCompile(`_+`)
 var windowsReservedNamePattern = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])$`)
 
 type ExportService struct {
-	taskRepo    *data.TaskRepo
-	subRepo     *data.SubmissionRepo
-	exportRepo  *data.ExportRepo
-	ossSvc      *AliyunOSSService
-	vipUC       *biz.VIPUsecase
-	callbackURL string
+	taskRepo   *data.TaskRepo
+	subRepo    *data.SubmissionRepo
+	exportRepo *data.ExportRepo
+	ossSvc     *AliyunOSSService
+	vipUC      *biz.VIPUsecase
 }
 
 type ExportTaskRequest struct {
@@ -89,7 +87,6 @@ type exportManifest struct {
 	ExportID      string                `json:"export_id"`
 	ExportKey     string                `json:"export_key"`
 	StatusKey     string                `json:"status_key"`
-	CallbackURL   string                `json:"callback_url,omitempty"`
 	CallbackToken string                `json:"callback_token,omitempty"`
 	Entries       []exportManifestEntry `json:"entries"`
 }
@@ -107,12 +104,11 @@ type exportStatusDocument struct {
 
 func NewExportService(taskRepo *data.TaskRepo, subRepo *data.SubmissionRepo, exportRepo *data.ExportRepo, ossSvc *AliyunOSSService, vipUC *biz.VIPUsecase) *ExportService {
 	return &ExportService{
-		taskRepo:    taskRepo,
-		subRepo:     subRepo,
-		exportRepo:  exportRepo,
-		ossSvc:      ossSvc,
-		vipUC:       vipUC,
-		callbackURL: strings.TrimSpace(os.Getenv("EXPORT_CALLBACK_URL")),
+		taskRepo:   taskRepo,
+		subRepo:    subRepo,
+		exportRepo: exportRepo,
+		ossSvc:     ossSvc,
+		vipUC:      vipUC,
 	}
 }
 
@@ -189,10 +185,6 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 		Error(w, 1013, err.Error())
 		return
 	}
-	if s.callbackURL == "" {
-		Error(w, 1013, "导出回调地址未配置")
-		return
-	}
 	callbackToken, err := newExportCallbackToken()
 	if err != nil {
 		Error(w, 1013, err.Error())
@@ -240,7 +232,6 @@ func (s *ExportService) ExportTask(w http.ResponseWriter, r *http.Request) {
 		ExportID:      prepared.exportID,
 		ExportKey:     prepared.exportKey,
 		StatusKey:     prepared.statusKey,
-		CallbackURL:   s.callbackURL,
 		CallbackToken: callbackToken,
 		Entries:       make([]exportManifestEntry, 0, len(prepared.entries)),
 	}

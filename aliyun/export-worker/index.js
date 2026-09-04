@@ -95,7 +95,7 @@ function validateManifest(manifest, manifestKey) {
   const exportId = text(manifest.export_id);
   const exportKey = text(manifest.export_key);
   const statusKey = text(manifest.status_key);
-  const callbackUrl = text(manifest.callback_url);
+  const callbackUrl = text(process.env.EXPORT_CALLBACK_URL) || text(manifest.callback_url);
   const callbackToken = text(manifest.callback_token);
   if (!taskId || !exportId || !isSafePathSegment(taskId) || !isSafePathSegment(exportId)
     || !exportKey || !statusKey || !Array.isArray(manifest.entries) || manifest.entries.length === 0) {
@@ -109,11 +109,12 @@ function validateManifest(manifest, manifestKey) {
   if (manifestKey !== expectedManifestKey || exportKey !== expectedExportKey || statusKey !== expectedStatusKey) {
     throw new Error('manifest paths do not match task and export id');
   }
-  if (callbackUrl) {
-    const parsedCallbackUrl = new URL(callbackUrl);
-    if ((parsedCallbackUrl.protocol !== 'https:' && parsedCallbackUrl.protocol !== 'http:') || !callbackToken) {
-      throw new Error('callback configuration is invalid');
-    }
+  if (!callbackUrl || !callbackToken) {
+    throw new Error('callback configuration is missing');
+  }
+  const parsedCallbackUrl = new URL(callbackUrl);
+  if (parsedCallbackUrl.protocol !== 'https:' && parsedCallbackUrl.protocol !== 'http:') {
+    throw new Error('callback configuration is invalid');
   }
 
   const photoPrefix = `${prefixes.photoPrefix}/${taskId}/`;
@@ -140,7 +141,7 @@ function getManifestCallbackJob(manifest) {
   return {
     exportId: text(manifest.export_id),
     statusKey: text(manifest.status_key),
-    callbackUrl: text(manifest.callback_url),
+    callbackUrl: text(process.env.EXPORT_CALLBACK_URL) || text(manifest.callback_url),
     callbackToken: text(manifest.callback_token)
   };
 }

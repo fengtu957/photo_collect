@@ -35,7 +35,6 @@ cp .env.example .env
 - `ALIYUN_OSS_PHOTO_PREFIX`（可选，默认 `photos`）
 - `ALIYUN_OSS_EXPORT_PREFIX`（可选，默认 `exports`）
 - `ALIYUN_OSS_EXPORT_JOB_PREFIX`（可选，默认 `export-jobs`）
-- `EXPORT_CALLBACK_URL`（批量导出必填，完整地址，例如 `https://photo-collect-qa.starpix.cn/api/v1/export-callback`）
 - `ALIYUN_IMAGESEG_ENDPOINT`（可选，默认 `https://imageseg.cn-shanghai.aliyuncs.com/`）
 - `QWEN_API_KEY`
 
@@ -119,7 +118,7 @@ OSS 需要允许小程序域名执行表单上传和下载，并为临时前缀�
 
 批量导出由阿里云函数计算处理。Go 只写入一个很小的 `export-jobs/` manifest 到 OSS，OSS 的 ObjectCreated 事件触发函数计算；函数计算从 OSS 流式读取照片并将 ZIP 写入 `exports/`。Go 和小程序不会下载或压缩照片。
 
-函数计算开始、完成或失败后，会调用 `EXPORT_CALLBACK_URL` 更新 `export_records` 中的导出历史状态。小程序只轮询数据库中的历史记录；回调缺失时，后端会通过 OSS ZIP 和状态文件兜底同步，超过 15 分钟仍未得到结果的任务会由后台恢复服务自动标记为失败。
+函数计算开始、完成或失败后，会调用 FC 环境变量 `EXPORT_CALLBACK_URL` 指向的地址更新 `export_records` 中的导出历史状态。小程序只轮询数据库中的历史记录；回调缺失时，后端会通过 OSS ZIP 和状态文件兜底同步，超过 15 分钟仍未得到结果的任务会由后台恢复服务自动标记为失败。
 
 函数计算代码、打包命令、环境变量、RAM 权限、OSS 触发器和更新步骤见 [aliyun/export-worker/README.md](../aliyun/export-worker/README.md)。
 

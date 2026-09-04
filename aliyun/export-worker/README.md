@@ -62,6 +62,7 @@ node_modules/
 
 ```text
 ALIYUN_OSS_BUCKET=实际 Bucket 名称
+EXPORT_CALLBACK_URL=https://photo-collect-qa.starpix.cn/api/v1/export-callback
 ```
 
 建议配置：
@@ -81,19 +82,7 @@ ALIYUN_OSS_EXPORT_JOB_PREFIX=export-jobs
 
 三个前缀必须与 Go 后端中的同名配置保持一致。
 
-以下变量不配置在 FC：
-
-```text
-EXPORT_CALLBACK_URL
-```
-
-它应配置在 Go 后端运行环境中，例如测试环境：
-
-```text
-EXPORT_CALLBACK_URL=https://photo-collect-qa.starpix.cn/api/v1/export-callback
-```
-
-后端会把回调地址和每次导出的独立回调令牌写入私有 manifest，FC 无需额外配置回调密钥。
+回调地址配置在 FC；Go 后端只把每次导出的独立回调令牌写入私有 manifest，无需配置回调地址或共享回调密钥。
 
 ## 四、配置 OSS 触发器
 
