@@ -21,8 +21,7 @@
       <text class="history-line" wx:if="{{item.exportedAtFormatted}}">完成时间：{{item.exportedAtFormatted}}</text>
       <text class="history-line" wx:if="{{item.filename_template}}">命名模板：{{item.filename_template}}</text>
       <text class="history-line" wx:if="{{item.availableUntilFormatted}}">下载保留至：{{item.availableUntilFormatted}}</text>
-      <text class="history-error" wx:if="{{item.error_message}}">{{item.error_message}}</text>
-      <view class="download-btn" wx:if="{{item.canDownload}}" catchtap="copyDownloadLink" data-id="{{item.id}}">生成并复制下载链接</view>
+      <view class="download-btn" wx:if="{{item.canDownload}}" catchtap="copyDownloadLink" data-id="{{item.id}}">复制下载链接</view>
       <text class="expired-tip" wx:elif="{{item.status === 'success'}}">下载文件已过期</text>
     </view>
 

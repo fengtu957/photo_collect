@@ -172,6 +172,13 @@
   margin-left: 8rpx;
 }
 
+.section-action {
+  margin-left: auto;
+  font-size: 28rpx;
+  color: #1989fa;
+  padding: 8rpx 0 8rpx 24rpx;
+}
+
 /* 空状态 */
 .empty {
   background: white;

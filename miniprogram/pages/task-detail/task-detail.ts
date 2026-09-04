@@ -436,6 +436,13 @@ Page({
     wx.navigateTo({ url: `/pages/task-export/task-export?taskId=${this.data.taskId}` });
   },
 
+  viewAllSubmissions() {
+    if (!this.data.isCreator) {
+      return;
+    }
+    wx.navigateTo({ url: `/pages/task-submissions/task-submissions?taskId=${this.data.taskId}` });
+  },
+
   goToUpload() {
     if (!this.data.isCreator && this.data.mySubmissionId) {
       wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${this.data.mySubmissionId}` });

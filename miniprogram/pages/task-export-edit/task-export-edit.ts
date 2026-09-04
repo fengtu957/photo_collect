@@ -85,7 +85,7 @@ Page({
     } catch (err: any) {
       hideLoading();
       this.setData({ submitting: false });
-      showError(err.message || '导出失败');
+      showError('导出失败');
     }
   }
 });

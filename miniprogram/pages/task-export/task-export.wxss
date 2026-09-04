@@ -99,14 +99,6 @@
   overflow-wrap: break-word;
 }
 
-.history-error {
-  display: block;
-  margin-top: 10rpx;
-  color: #ff4444;
-  font-size: 25rpx;
-  line-height: 1.6;
-}
-
 .download-btn {
   height: 72rpx;
   line-height: 72rpx;

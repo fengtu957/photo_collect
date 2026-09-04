@@ -83,10 +83,11 @@
   <view class="section-header">
     <text class="section-title">{{isCreator ? '提交记录' : '我的提交'}}</text>
     <text class="section-count">({{total}})</text>
+    <text class="section-action" wx:if="{{isCreator}}" bindtap="viewAllSubmissions">查看提交</text>
   </view>
 
   <view class="empty" wx:if="{{submissions.length === 0}}">
-    <text class="empty-text">{{isCreator ? '暂无提交记录' : '你还没有提交，点击下方上传照片'}}</text>
+    <text class="empty-text">你还没有提交，点击下方上传照片</text>
   </view>
 
   <view class="submission-card" wx:for="{{submissions}}" wx:key="id">

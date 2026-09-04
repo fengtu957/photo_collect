@@ -39,9 +39,9 @@ export async function submitPhoto(params: SubmitPhotoParams) {
   });
 }
 
-export async function listSubmissions(taskId: string, page: number = 1, limit: number = 20) {
+export async function listSubmissions(taskId: string, page: number = 1, limit: number = 20, scope: 'mine' | 'all' = 'mine') {
   return request<SubmissionListResponse>(
-    `/tasks/${taskId}/submissions?page=${page}&limit=${limit}`,
+    `/tasks/${taskId}/submissions?page=${page}&limit=${limit}&scope=${scope}`,
     { method: 'GET' }
   );
 }

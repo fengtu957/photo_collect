@@ -322,7 +322,8 @@ func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Reque
 		limit = 20
 	}
 
-	result, err := s.uc.ListSubmissions(context.Background(), taskID, userID, page, limit)
+	includeAll := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("scope")), "all")
+	result, err := s.uc.ListSubmissions(context.Background(), taskID, userID, includeAll, page, limit)
 	if err != nil {
 		Error(w, 2003, err.Error())
 		return
