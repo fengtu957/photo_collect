@@ -48,7 +48,7 @@ export interface Task {
   disallow_album_photos?: boolean;
   verification_code_enabled?: boolean;
   verification_code?: string;
-  max_submissions?: number;
+  max_submissions: number;
   start_time: string;
   end_time: string;
   enabled: boolean;

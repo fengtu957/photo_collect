@@ -43,13 +43,6 @@
     </view>
 
     <view class="info-row">
-      <text class="label">采集校验：</text>
-      <text class="value" wx:if="{{!task.verification_code_enabled}}">未开启</text>
-      <text class="value" wx:elif="{{task.verification_code}}">已开启，校验码 {{task.verification_code}}</text>
-      <text class="value" wx:else>已开启，提交时需输入校验码</text>
-    </view>
-
-    <view class="info-row">
       <text class="label">开始时间：</text>
       <text class="value">{{startTime}}</text>
     </view>

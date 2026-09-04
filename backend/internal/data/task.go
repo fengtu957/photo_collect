@@ -56,7 +56,7 @@ type Task struct {
 	DisallowAlbumPhotos          bool               `bson:"disallow_album_photos,omitempty" json:"disallow_album_photos,omitempty"`
 	VerificationCodeEnabled      bool               `bson:"verification_code_enabled,omitempty" json:"verification_code_enabled,omitempty"`
 	VerificationCode             string             `bson:"verification_code,omitempty" json:"verification_code,omitempty"`
-	MaxSubmissions               int                `bson:"max_submissions,omitempty" json:"max_submissions,omitempty"`
+	MaxSubmissions               int                `bson:"max_submissions" json:"max_submissions"`
 	StartTime                    time.Time          `bson:"start_time" json:"start_time"`
 	EndTime                      time.Time          `bson:"end_time" json:"end_time"`
 	Enabled                      bool               `bson:"enabled" json:"enabled"`

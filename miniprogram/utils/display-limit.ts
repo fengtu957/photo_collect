@@ -103,24 +103,10 @@ export function buildRetentionTip(entitlements: any): string {
   return `保留${getDisplayExportAvailableDays(entitlements)}天`;
 }
 
-export function buildTaskSubmissionLimitText(task: any, entitlements: any): string {
+export function buildTaskSubmissionLimitText(task: any): string {
   const taskLimit = toNumber(task && task.max_submissions);
   if (taskLimit > 0) {
     return `${taskLimit}人`;
   }
-  if (task && task.max_submissions === 0) {
-    return '不限制';
-  }
-
-  const displayLimit = getDisplayMaxSubmissionsPerTask(entitlements);
-  if (displayLimit === 0) {
-    return '不限制';
-  }
-
-  const currentCount = toNumber(task && task.stats && task.stats.total_submissions);
-  if (currentCount > displayLimit) {
-    return `${currentCount}人以上`;
-  }
-
-  return `${displayLimit}人`;
+  return '不限制';
 }
