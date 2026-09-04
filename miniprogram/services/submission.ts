@@ -21,6 +21,18 @@ export async function deleteSubmission(id: string) {
   });
 }
 
+export async function getRejectionNotificationConfig() {
+  return request<{ enabled: boolean; template_id: string }>('/notifications/rejection-config', {
+    method: 'GET'
+  });
+}
+
+export async function notifySubmissionRejected(id: string) {
+  return request<{ id: string }>(`/submissions/${id}/rejection-notification`, {
+    method: 'POST'
+  });
+}
+
 export async function getSubmission(id: string) {
   return request<Submission>(`/submissions/${id}`, { method: 'GET' });
 }

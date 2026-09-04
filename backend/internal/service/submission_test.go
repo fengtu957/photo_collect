@@ -49,3 +49,27 @@ func TestBuildPhotoSpecTextOmitsBackgroundBeforeAutomaticReplacement(t *testing.
 		t.Fatalf("buildPhotoSpecText() = %q, background requirement must be omitted before replacement", got)
 	}
 }
+
+func TestBuildRejectionSubscribeMessageLinksToSubmissionEditor(t *testing.T) {
+	authSvc := &AuthService{
+		envVersion:           "trial",
+		rejectionTemplateID:  "template-id",
+		rejectionTaskField:   "thing1",
+		rejectionResultField: "phrase2",
+		rejectionRemarkField: "thing3",
+	}
+
+	message := authSvc.buildRejectionSubscribeMessage("submitter-openid", "task-id", "submission-id", "证件照收集")
+	if message.ToUser != "submitter-openid" {
+		t.Fatalf("ToUser = %q", message.ToUser)
+	}
+	if message.Page != "pages/photo-upload/photo-upload?taskId=task-id&submissionId=submission-id" {
+		t.Fatalf("Page = %q", message.Page)
+	}
+	if message.MiniProgramState != "trial" {
+		t.Fatalf("MiniProgramState = %q", message.MiniProgramState)
+	}
+	if message.Data["phrase2"].Value != "审核不通过" {
+		t.Fatalf("result = %q", message.Data["phrase2"].Value)
+	}
+}

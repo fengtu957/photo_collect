@@ -204,11 +204,15 @@
     </view>
   </view>
 
+  <view class="submission-admin-actions" wx:if="{{isEditMode && isTaskCreator}}">
+    <button class="notify-btn" wx:if="{{canNotifySubmitter}}" bindtap="notifyRejected" disabled="{{notifying}}">{{notifying ? '发送中...' : '通知审核不通过'}}</button>
+    <button class="delete-btn" bindtap="deleteSubmissionRecord" disabled="{{photoProcessing || backgroundProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">删除提交</button>
+  </view>
+
   <!-- 提交按钮 -->
   <view class="keyboard-spacer" wx:if="{{keyboardSpacerHeight > 0}}" style="height: {{keyboardSpacerHeight}}px;"></view>
   <view class="footer-placeholder"></view>
   <view class="footer">
-    <button class="delete-btn" wx:if="{{isEditMode}}" bindtap="deleteSubmissionRecord" disabled="{{photoProcessing || backgroundProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">删除提交</button>
     <button class="submit-btn" bindtap="submitPhoto" disabled="{{!photoPath || !!taskUnavailableMessage || !canSubmit || photoProcessing || (aiAnalysisEnabled && analysisState === 'analyzing')}}">
       {{taskUnavailableMessage ? '当前不可提交' : (backgroundProcessing ? '背景生成中...' : ((aiAnalysisEnabled && analysisState === 'analyzing') ? 'AI检查中...' : (photoProcessing ? '照片处理中...' : (isEditMode ? '更新' : '提交'))))}}
     </button>

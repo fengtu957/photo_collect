@@ -49,7 +49,7 @@ func main() {
 	exportSvc.StartRecovery(context.Background())
 
 	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo, vipUC)
-	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, ossSvc)
+	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, ossSvc, authSvc)
 
 	uploadSvc := service.NewUploadService(ossSvc, taskUC, vipUC)
 
@@ -92,6 +92,8 @@ func main() {
 	api.HandleFunc("/submissions/{id}", subSvc.GetSubmission).Methods("GET")
 	api.HandleFunc("/submissions/{id}", subSvc.UpdateSubmission).Methods("PUT")
 	api.HandleFunc("/submissions/{id}", subSvc.DeleteSubmission).Methods("DELETE")
+	api.HandleFunc("/submissions/{id}/rejection-notification", subSvc.SendRejectionNotification).Methods("POST")
+	api.HandleFunc("/notifications/rejection-config", subSvc.GetRejectionNotificationConfig).Methods("GET")
 	api.HandleFunc("/tasks/{taskId}/submissions", subSvc.ListSubmissions).Methods("GET")
 	api.HandleFunc("/upload/policy", uploadSvc.CreateUploadPolicy).Methods("POST")
 	api.HandleFunc("/photos/finalize", uploadSvc.FinalizePhoto).Methods("POST")

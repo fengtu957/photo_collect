@@ -15,11 +15,12 @@ import (
 )
 
 type SubmissionService struct {
-	uc     *biz.SubmissionUsecase
-	taskUC *biz.TaskUsecase
-	vipUC  *biz.VIPUsecase
-	evalUC *biz.EvaluationUsecase
-	ossSvc *AliyunOSSService
+	uc      *biz.SubmissionUsecase
+	taskUC  *biz.TaskUsecase
+	vipUC   *biz.VIPUsecase
+	evalUC  *biz.EvaluationUsecase
+	ossSvc  *AliyunOSSService
+	authSvc *AuthService
 }
 
 const submissionThumbnailProcess = "image/resize,m_lfit,w_320,h_320/quality,q_70"
@@ -62,8 +63,8 @@ func (s *SubmissionService) validatePhotoVerification(r *http.Request, sub *data
 	return nil
 }
 
-func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase, evalUC *biz.EvaluationUsecase, ossSvc *AliyunOSSService) *SubmissionService {
-	return &SubmissionService{uc: uc, taskUC: taskUC, vipUC: vipUC, evalUC: evalUC, ossSvc: ossSvc}
+func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase, evalUC *biz.EvaluationUsecase, ossSvc *AliyunOSSService, authSvc *AuthService) *SubmissionService {
+	return &SubmissionService{uc: uc, taskUC: taskUC, vipUC: vipUC, evalUC: evalUC, ossSvc: ossSvc, authSvc: authSvc}
 }
 
 func buildPhotoSpecText(task *data.Task) string {
@@ -231,6 +232,42 @@ func (s *SubmissionService) DeleteSubmission(w http.ResponseWriter, r *http.Requ
 
 	if err := s.uc.DeleteSubmission(context.Background(), id, userID); err != nil {
 		Error(w, 2009, err.Error())
+		return
+	}
+
+	Success(w, map[string]interface{}{"id": id})
+}
+
+func (s *SubmissionService) GetRejectionNotificationConfig(w http.ResponseWriter, r *http.Request) {
+	templateID := ""
+	if s.authSvc != nil {
+		templateID = s.authSvc.RejectionTemplateID()
+	}
+	Success(w, map[string]interface{}{
+		"enabled":     templateID != "",
+		"template_id": templateID,
+	})
+}
+
+func (s *SubmissionService) SendRejectionNotification(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 2013, "unauthorized")
+		return
+	}
+	if s.authSvc == nil {
+		Error(w, 2014, "审核通知服务不可用")
+		return
+	}
+
+	submission, task, err := s.uc.GetSubmissionForTaskCreator(context.Background(), id, userID)
+	if err != nil {
+		Error(w, 2014, err.Error())
+		return
+	}
+	if err := s.authSvc.SendRejectionSubscribeMessage(submission.UserID, task.ID.Hex(), submission.ID.Hex(), task.Title); err != nil {
+		Error(w, 2014, err.Error())
 		return
 	}
 

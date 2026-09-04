@@ -320,6 +320,29 @@ func (uc *SubmissionUsecase) GetSubmission(ctx context.Context, id string, userI
 	return submission, nil
 }
 
+func (uc *SubmissionUsecase) GetSubmissionForTaskCreator(ctx context.Context, id string, userID string) (*data.Submission, *data.Task, error) {
+	submission, err := uc.repo.FindByID(ctx, id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil, errors.New("提交记录不存在")
+		}
+		return nil, nil, err
+	}
+
+	task, err := uc.taskRepo.FindByID(ctx, submission.TaskID.Hex())
+	if err != nil {
+		return nil, nil, err
+	}
+	if task == nil {
+		return nil, nil, errors.New("任务不存在")
+	}
+	if task.UserID != userID {
+		return nil, nil, errors.New("只有创建者可以发送审核通知")
+	}
+
+	return submission, task, nil
+}
+
 func (uc *SubmissionUsecase) DeleteSubmission(ctx context.Context, id string, userID string) error {
 	submission, err := uc.repo.FindByID(ctx, id)
 	if err != nil {

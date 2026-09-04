@@ -15,10 +15,14 @@ import (
 )
 
 type AuthService struct {
-	appID     string
-	appSecret string
-	jwtSecret string
-	envVersion string
+	appID                string
+	appSecret            string
+	jwtSecret            string
+	envVersion           string
+	rejectionTemplateID  string
+	rejectionTaskField   string
+	rejectionResultField string
+	rejectionRemarkField string
 
 	accessToken          string
 	accessTokenExpiresAt time.Time
@@ -30,12 +34,28 @@ func NewAuthService() *AuthService {
 	if envVersion == "" {
 		envVersion = "release"
 	}
+	rejectionTaskField := strings.TrimSpace(os.Getenv("WECHAT_REJECTION_TASK_FIELD"))
+	if rejectionTaskField == "" {
+		rejectionTaskField = "thing1"
+	}
+	rejectionResultField := strings.TrimSpace(os.Getenv("WECHAT_REJECTION_RESULT_FIELD"))
+	if rejectionResultField == "" {
+		rejectionResultField = "phrase2"
+	}
+	rejectionRemarkField := strings.TrimSpace(os.Getenv("WECHAT_REJECTION_REMARK_FIELD"))
+	if rejectionRemarkField == "" {
+		rejectionRemarkField = "thing3"
+	}
 
 	return &AuthService{
-		appID:     os.Getenv("WECHAT_APPID"),
-		appSecret: os.Getenv("WECHAT_SECRET"),
-		jwtSecret: os.Getenv("JWT_SECRET"),
-		envVersion: envVersion,
+		appID:                os.Getenv("WECHAT_APPID"),
+		appSecret:            os.Getenv("WECHAT_SECRET"),
+		jwtSecret:            os.Getenv("JWT_SECRET"),
+		envVersion:           envVersion,
+		rejectionTemplateID:  strings.TrimSpace(os.Getenv("WECHAT_REJECTION_TEMPLATE_ID")),
+		rejectionTaskField:   rejectionTaskField,
+		rejectionResultField: rejectionResultField,
+		rejectionRemarkField: rejectionRemarkField,
 	}
 }
 
@@ -55,17 +75,30 @@ type WechatAccessTokenResponse struct {
 }
 
 type WechatMiniProgramCodeRequest struct {
-	Scene     string `json:"scene"`
-	Page      string `json:"page"`
-	CheckPath bool   `json:"check_path"`
+	Scene      string `json:"scene"`
+	Page       string `json:"page"`
+	CheckPath  bool   `json:"check_path"`
 	EnvVersion string `json:"env_version,omitempty"`
-	Width     int    `json:"width"`
-	IsHyaline bool   `json:"is_hyaline"`
+	Width      int    `json:"width"`
+	IsHyaline  bool   `json:"is_hyaline"`
 }
 
 type WechatAPIError struct {
 	ErrCode int    `json:"errcode"`
 	ErrMsg  string `json:"errmsg"`
+}
+
+type WechatSubscribeMessageValue struct {
+	Value string `json:"value"`
+}
+
+type WechatSubscribeMessageRequest struct {
+	ToUser           string                                 `json:"touser"`
+	TemplateID       string                                 `json:"template_id"`
+	Page             string                                 `json:"page"`
+	MiniProgramState string                                 `json:"miniprogram_state"`
+	Lang             string                                 `json:"lang"`
+	Data             map[string]WechatSubscribeMessageValue `json:"data"`
 }
 
 func (s *AuthService) Code2Session(code string) (*WechatSession, error) {
@@ -149,6 +182,130 @@ func (s *AuthService) resetAccessToken() {
 
 	s.accessToken = ""
 	s.accessTokenExpiresAt = time.Time{}
+}
+
+func (s *AuthService) RejectionTemplateID() string {
+	return s.rejectionTemplateID
+}
+
+func truncateRunes(value string, maxLength int) string {
+	runes := []rune(strings.TrimSpace(value))
+	if len(runes) <= maxLength {
+		return string(runes)
+	}
+	return string(runes[:maxLength])
+}
+
+func (s *AuthService) subscribeMessageState() string {
+	switch strings.ToLower(strings.TrimSpace(s.envVersion)) {
+	case "develop", "developer":
+		return "developer"
+	case "trial":
+		return "trial"
+	default:
+		return "formal"
+	}
+}
+
+func (s *AuthService) buildRejectionSubscribeMessage(openID string, taskID string, submissionID string, taskTitle string) WechatSubscribeMessageRequest {
+	taskName := truncateRunes(taskTitle, 20)
+	if taskName == "" {
+		taskName = "照片提交"
+	}
+
+	return WechatSubscribeMessageRequest{
+		ToUser:           openID,
+		TemplateID:       s.rejectionTemplateID,
+		Page:             "pages/photo-upload/photo-upload?taskId=" + taskID + "&submissionId=" + submissionID,
+		MiniProgramState: s.subscribeMessageState(),
+		Lang:             "zh_CN",
+		Data: map[string]WechatSubscribeMessageValue{
+			s.rejectionTaskField:   {Value: taskName},
+			s.rejectionResultField: {Value: "审核不通过"},
+			s.rejectionRemarkField: {Value: "请点击进入编辑并重新提交"},
+		},
+	}
+}
+
+func (s *AuthService) requestSubscribeMessage(accessToken string, message WechatSubscribeMessageRequest) (*WechatAPIError, error) {
+	reqBody, err := json.Marshal(message)
+	if err != nil {
+		return nil, err
+	}
+
+	url := "https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=" + accessToken
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("微信订阅消息接口返回异常状态: %s", resp.Status)
+	}
+
+	var apiResult WechatAPIError
+	if err := json.Unmarshal(body, &apiResult); err != nil {
+		return nil, err
+	}
+	if apiResult.ErrCode != 0 {
+		return &apiResult, nil
+	}
+	return nil, nil
+}
+
+func (s *AuthService) SendRejectionSubscribeMessage(openID string, taskID string, submissionID string, taskTitle string) error {
+	if s.rejectionTemplateID == "" {
+		return fmt.Errorf("审核不通过通知模板未配置")
+	}
+	if strings.TrimSpace(openID) == "" {
+		return fmt.Errorf("提交人信息无效")
+	}
+
+	message := s.buildRejectionSubscribeMessage(openID, taskID, submissionID, taskTitle)
+	accessToken, err := s.GetAccessToken()
+	if err != nil {
+		return err
+	}
+
+	apiErr, err := s.requestSubscribeMessage(accessToken, message)
+	if err != nil {
+		return err
+	}
+	if apiErr == nil {
+		return nil
+	}
+
+	if apiErr.ErrCode == 40001 || apiErr.ErrCode == 42001 {
+		s.resetAccessToken()
+		accessToken, err = s.GetAccessToken()
+		if err != nil {
+			return err
+		}
+		apiErr, err = s.requestSubscribeMessage(accessToken, message)
+		if err != nil {
+			return err
+		}
+		if apiErr == nil {
+			return nil
+		}
+	}
+
+	if apiErr.ErrCode == 43101 {
+		return fmt.Errorf("提交人未订阅或订阅次数已用完")
+	}
+	return fmt.Errorf("微信订阅消息发送失败: %s", apiErr.ErrMsg)
 }
 
 func (s *AuthService) requestMiniProgramCode(accessToken string, page string, scene string) ([]byte, string, *WechatAPIError, error) {

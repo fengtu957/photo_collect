@@ -1,6 +1,15 @@
 import { getTask } from '../../services/task';
 import { finalizePhoto, getUploadPolicy, OSSUploadPolicy } from '../../services/upload';
-import { analyzePhotoPreview, createSubmission, deleteSubmission, getSubmission, segmentPhoto, updateSubmission } from '../../services/submission';
+import {
+  analyzePhotoPreview,
+  createSubmission,
+  deleteSubmission,
+  getRejectionNotificationConfig,
+  getSubmission,
+  notifySubmissionRejected,
+  segmentPhoto,
+  updateSubmission
+} from '../../services/submission';
 import { SubmissionAnalysisResult } from '../../types/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { isEffectiveTime } from '../../utils/time';
@@ -239,6 +248,9 @@ Page({
     customData: {} as Record<string, any>,
     multiSelectState: {} as Record<string, Record<string, boolean>>,
     isEditMode: false,
+    canNotifySubmitter: false,
+    notificationTemplateId: '',
+    notifying: false,
     canvasWidth: 1,
     canvasHeight: 1,
     keyboardSpacerHeight: 0,
@@ -248,9 +260,9 @@ Page({
 
   async onLoad(options: any) {
     this.setData({
-      taskId: options.taskId,
-      submissionId: options.submissionId || '',
-      isEditMode: !!options.submissionId
+      taskId: String((options && options.taskId) || '').trim(),
+      submissionId: String((options && options.submissionId) || '').trim(),
+      isEditMode: !!(options && options.submissionId)
     });
 
     // 设置页面标题
@@ -258,11 +270,37 @@ Page({
       title: this.data.isEditMode ? '编辑提交' : '上传照片'
     });
 
-    await this.loadTask();
+    if (!this.data.taskId) {
+      showError('任务参数无效');
+      return;
+    }
+
+    try {
+      const appInstance = getApp<any>();
+      if (appInstance && typeof appInstance.autoLogin === 'function') {
+        await appInstance.autoLogin();
+      }
+    } catch (err) {}
+
+    await Promise.all([
+      this.loadTask(),
+      this.loadRejectionNotificationConfig()
+    ]);
 
     // 如果是编辑模式，加载已有的提交数据
     if (this.data.isEditMode) {
       await this.loadSubmission();
+    }
+  },
+
+  async loadRejectionNotificationConfig() {
+    try {
+      const config = await getRejectionNotificationConfig();
+      this.setData({
+        notificationTemplateId: config && config.enabled ? String(config.template_id || '') : ''
+      });
+    } catch (err) {
+      this.setData({ notificationTemplateId: '' });
     }
   },
 
@@ -324,7 +362,12 @@ Page({
         backgroundState: photoUrl && this.data.backgroundReplacementEnabled ? 'success' : '',
         backgroundError: '',
         backgroundProcessing: false,
-        canSubmit: !!photoUrl
+        canSubmit: !!photoUrl,
+        canNotifySubmitter: !!(
+          this.data.isTaskCreator
+          && submission.user_id
+          && submission.user_id !== String(wx.getStorageSync('openid') || '')
+        )
       });
     } catch (err: any) {
       showError(err.message || '加载提交数据失败');
@@ -832,7 +875,19 @@ Page({
     });
   },
 
-  submitPhoto() {
+  async requestRejectionSubscription() {
+    const templateId = String(this.data.notificationTemplateId || '').trim();
+    if (!templateId || this.data.isTaskCreator) return;
+
+    await new Promise<void>((resolve) => {
+      wx.requestSubscribeMessage({
+        tmplIds: [templateId],
+        complete: () => resolve()
+      });
+    });
+  },
+
+  async submitPhoto() {
     const verificationCode = normalizeDigitText(this.data.verificationCodeInput);
 
     if (this.data.taskUnavailableMessage) {
@@ -871,6 +926,7 @@ Page({
         return;
       }
 
+      await this.requestRejectionSubscription();
       showLoading('提交中...');
       this.saveSubmission(this.data.photoKey);
       return;
@@ -881,6 +937,7 @@ Page({
         showError('照片尚未处理完成，请重新选择');
         return;
       }
+      await this.requestRejectionSubscription();
       showLoading('提交中...');
       this.saveSubmission(this.data.photoKey, this.data.photoMeta);
       return;
@@ -891,6 +948,7 @@ Page({
       return;
     }
 
+    await this.requestRejectionSubscription();
     showLoading('提交中...');
     this.saveSubmission(this.data.photoKey, this.data.photoMeta);
   },
@@ -945,6 +1003,31 @@ Page({
         } catch (err: any) {
           hideLoading();
           showError(err.message || '删除失败');
+        }
+      }
+    });
+  },
+
+  notifyRejected() {
+    if (!this.data.canNotifySubmitter || !this.data.submissionId || this.data.notifying) return;
+
+    wx.showModal({
+      title: '确认发送通知',
+      content: '将通知提交人审核不通过，并引导对方进入编辑页面重新提交。',
+      confirmText: '发送通知',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          this.setData({ notifying: true });
+          showLoading('发送中...');
+          await notifySubmissionRejected(this.data.submissionId);
+          hideLoading();
+          this.setData({ notifying: false });
+          wx.showToast({ title: '通知已发送', icon: 'success' });
+        } catch (err: any) {
+          hideLoading();
+          this.setData({ notifying: false });
+          showError(err.message || '通知发送失败');
         }
       }
     });
