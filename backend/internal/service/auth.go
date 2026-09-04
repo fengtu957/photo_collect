@@ -20,7 +20,6 @@ type AuthService struct {
 	jwtSecret            string
 	envVersion           string
 	rejectionTemplateID  string
-	rejectionTaskField   string
 	rejectionResultField string
 	rejectionRemarkField string
 
@@ -34,17 +33,13 @@ func NewAuthService() *AuthService {
 	if envVersion == "" {
 		envVersion = "release"
 	}
-	rejectionTaskField := strings.TrimSpace(os.Getenv("WECHAT_REJECTION_TASK_FIELD"))
-	if rejectionTaskField == "" {
-		rejectionTaskField = "thing1"
-	}
 	rejectionResultField := strings.TrimSpace(os.Getenv("WECHAT_REJECTION_RESULT_FIELD"))
 	if rejectionResultField == "" {
-		rejectionResultField = "phrase2"
+		rejectionResultField = "phrase4"
 	}
 	rejectionRemarkField := strings.TrimSpace(os.Getenv("WECHAT_REJECTION_REMARK_FIELD"))
 	if rejectionRemarkField == "" {
-		rejectionRemarkField = "thing3"
+		rejectionRemarkField = "thing7"
 	}
 
 	return &AuthService{
@@ -53,7 +48,6 @@ func NewAuthService() *AuthService {
 		jwtSecret:            os.Getenv("JWT_SECRET"),
 		envVersion:           envVersion,
 		rejectionTemplateID:  strings.TrimSpace(os.Getenv("WECHAT_REJECTION_TEMPLATE_ID")),
-		rejectionTaskField:   rejectionTaskField,
 		rejectionResultField: rejectionResultField,
 		rejectionRemarkField: rejectionRemarkField,
 	}
@@ -188,14 +182,6 @@ func (s *AuthService) RejectionTemplateID() string {
 	return s.rejectionTemplateID
 }
 
-func truncateRunes(value string, maxLength int) string {
-	runes := []rune(strings.TrimSpace(value))
-	if len(runes) <= maxLength {
-		return string(runes)
-	}
-	return string(runes[:maxLength])
-}
-
 func (s *AuthService) subscribeMessageState() string {
 	switch strings.ToLower(strings.TrimSpace(s.envVersion)) {
 	case "develop", "developer":
@@ -207,12 +193,7 @@ func (s *AuthService) subscribeMessageState() string {
 	}
 }
 
-func (s *AuthService) buildRejectionSubscribeMessage(openID string, taskID string, submissionID string, taskTitle string) WechatSubscribeMessageRequest {
-	taskName := truncateRunes(taskTitle, 20)
-	if taskName == "" {
-		taskName = "照片提交"
-	}
-
+func (s *AuthService) buildRejectionSubscribeMessage(openID string, taskID string, submissionID string) WechatSubscribeMessageRequest {
 	return WechatSubscribeMessageRequest{
 		ToUser:           openID,
 		TemplateID:       s.rejectionTemplateID,
@@ -220,7 +201,6 @@ func (s *AuthService) buildRejectionSubscribeMessage(openID string, taskID strin
 		MiniProgramState: s.subscribeMessageState(),
 		Lang:             "zh_CN",
 		Data: map[string]WechatSubscribeMessageValue{
-			s.rejectionTaskField:   {Value: taskName},
 			s.rejectionResultField: {Value: "审核不通过"},
 			s.rejectionRemarkField: {Value: "请点击进入编辑并重新提交"},
 		},
@@ -265,7 +245,7 @@ func (s *AuthService) requestSubscribeMessage(accessToken string, message Wechat
 	return nil, nil
 }
 
-func (s *AuthService) SendRejectionSubscribeMessage(openID string, taskID string, submissionID string, taskTitle string) error {
+func (s *AuthService) SendRejectionSubscribeMessage(openID string, taskID string, submissionID string) error {
 	if s.rejectionTemplateID == "" {
 		return fmt.Errorf("审核不通过通知模板未配置")
 	}
@@ -273,7 +253,7 @@ func (s *AuthService) SendRejectionSubscribeMessage(openID string, taskID string
 		return fmt.Errorf("提交人信息无效")
 	}
 
-	message := s.buildRejectionSubscribeMessage(openID, taskID, submissionID, taskTitle)
+	message := s.buildRejectionSubscribeMessage(openID, taskID, submissionID)
 	accessToken, err := s.GetAccessToken()
 	if err != nil {
 		return err

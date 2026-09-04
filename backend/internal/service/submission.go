@@ -266,7 +266,7 @@ func (s *SubmissionService) SendRejectionNotification(w http.ResponseWriter, r *
 		Error(w, 2014, err.Error())
 		return
 	}
-	if err := s.authSvc.SendRejectionSubscribeMessage(submission.UserID, task.ID.Hex(), submission.ID.Hex(), task.Title); err != nil {
+	if err := s.authSvc.SendRejectionSubscribeMessage(submission.UserID, task.ID.Hex(), submission.ID.Hex()); err != nil {
 		Error(w, 2014, err.Error())
 		return
 	}

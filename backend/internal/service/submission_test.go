@@ -54,12 +54,11 @@ func TestBuildRejectionSubscribeMessageLinksToSubmissionEditor(t *testing.T) {
 	authSvc := &AuthService{
 		envVersion:           "trial",
 		rejectionTemplateID:  "template-id",
-		rejectionTaskField:   "thing1",
-		rejectionResultField: "phrase2",
-		rejectionRemarkField: "thing3",
+		rejectionResultField: "phrase4",
+		rejectionRemarkField: "thing7",
 	}
 
-	message := authSvc.buildRejectionSubscribeMessage("submitter-openid", "task-id", "submission-id", "证件照收集")
+	message := authSvc.buildRejectionSubscribeMessage("submitter-openid", "task-id", "submission-id")
 	if message.ToUser != "submitter-openid" {
 		t.Fatalf("ToUser = %q", message.ToUser)
 	}
@@ -69,7 +68,13 @@ func TestBuildRejectionSubscribeMessageLinksToSubmissionEditor(t *testing.T) {
 	if message.MiniProgramState != "trial" {
 		t.Fatalf("MiniProgramState = %q", message.MiniProgramState)
 	}
-	if message.Data["phrase2"].Value != "审核不通过" {
-		t.Fatalf("result = %q", message.Data["phrase2"].Value)
+	if len(message.Data) != 2 {
+		t.Fatalf("data length = %d", len(message.Data))
+	}
+	if message.Data["phrase4"].Value != "审核不通过" {
+		t.Fatalf("result = %q", message.Data["phrase4"].Value)
+	}
+	if message.Data["thing7"].Value != "请点击进入编辑并重新提交" {
+		t.Fatalf("remark = %q", message.Data["thing7"].Value)
 	}
 }

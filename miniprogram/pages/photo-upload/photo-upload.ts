@@ -363,11 +363,7 @@ Page({
         backgroundError: '',
         backgroundProcessing: false,
         canSubmit: !!photoUrl,
-        canNotifySubmitter: !!(
-          this.data.isTaskCreator
-          && submission.user_id
-          && submission.user_id !== String(wx.getStorageSync('openid') || '')
-        )
+        canNotifySubmitter: !!this.data.isTaskCreator
       });
     } catch (err: any) {
       showError(err.message || '加载提交数据失败');
