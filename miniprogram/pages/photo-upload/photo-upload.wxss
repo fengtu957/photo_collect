@@ -499,9 +499,12 @@
   box-shadow: 0 -2rpx 8rpx rgba(0,0,0,0.1);
   box-sizing: border-box;
   z-index: 100;
+  display: flex;
+  gap: 20rpx;
 }
 
 .submit-btn {
+  flex: 1;
   background: #07c160;
   color: white;
   border-radius: 8rpx;
@@ -510,6 +513,29 @@
   line-height: 88rpx;
   padding: 0;
   margin: 0;
+}
+
+.delete-btn {
+  flex: 1;
+  background: #fff0f0;
+  color: #ff4444;
+  border-radius: 8rpx;
+  border: 1rpx solid #ffcccc;
+  font-size: 32rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0;
+  margin: 0;
+}
+
+.delete-btn::after {
+  border: none;
+}
+
+.delete-btn[disabled] {
+  background: #f5f5f5;
+  color: #bbb;
+  border-color: #eee;
 }
 
 .submit-btn[disabled] {

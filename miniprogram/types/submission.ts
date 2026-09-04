@@ -1,5 +1,6 @@
 export interface PhotoInfo {
   url: string;
+  thumbnail_url?: string;
   file_size: number;
   width: number;
   height: number;

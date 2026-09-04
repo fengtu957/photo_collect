@@ -1,6 +1,6 @@
 import { getTask } from '../../services/task';
 import { finalizePhoto, getUploadPolicy, OSSUploadPolicy } from '../../services/upload';
-import { analyzePhotoPreview, createSubmission, getSubmission, segmentPhoto, updateSubmission } from '../../services/submission';
+import { analyzePhotoPreview, createSubmission, deleteSubmission, getSubmission, segmentPhoto, updateSubmission } from '../../services/submission';
 import { SubmissionAnalysisResult } from '../../types/submission';
 import { showError, showLoading, hideLoading } from '../../utils/request';
 import { isEffectiveTime } from '../../utils/time';
@@ -858,6 +858,30 @@ Page({
     });
 
     return photoMeta;
+  },
+
+  deleteSubmissionRecord() {
+    if (!this.data.isEditMode || !this.data.submissionId) return;
+
+    wx.showModal({
+      title: '确认删除',
+      content: '删除后该提交记录将无法恢复，确认删除？',
+      confirmText: '删除',
+      confirmColor: '#ff4444',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          showLoading('删除中...');
+          await deleteSubmission(this.data.submissionId);
+          hideLoading();
+          wx.showToast({ title: '删除成功', icon: 'success' });
+          setTimeout(() => wx.navigateBack(), 1000);
+        } catch (err: any) {
+          hideLoading();
+          showError(err.message || '删除失败');
+        }
+      }
+    });
   },
 
   saveSubmission(photoKey: string, preparedPhoto?: any) {

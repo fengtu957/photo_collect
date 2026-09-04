@@ -1,27 +1,20 @@
 import { getTask } from '../../services/task';
-import { deleteSubmission, listSubmissions } from '../../services/submission';
-import { hideLoading, showError, showLoading } from '../../utils/request';
+import { listSubmissions } from '../../services/submission';
+import { showError } from '../../utils/request';
 import { formatTime } from '../../utils/time';
-import { isTaskAIAnalysisEnabled } from '../../utils/task';
 
 const PAGE_SIZE = 20;
 
 function formatSubmissions(list: any[], customFields: any[]) {
-  const fieldLabelMap: Record<string, string> = {};
-  (customFields || []).forEach((field: any) => {
-    fieldLabelMap[field.id] = field.label;
-  });
+  const firstField = (customFields || [])[0] || null;
   return (list || []).map((submission: any) => {
-    const customDataList = Object.keys(submission.custom_data || {}).map((key: string) => ({
-      label: fieldLabelMap[key] || key,
-      value: Array.isArray(submission.custom_data[key])
-        ? submission.custom_data[key].join('、')
-        : submission.custom_data[key]
-    }));
+    const rawValue = firstField && submission.custom_data ? submission.custom_data[firstField.id] : '';
+    const firstFieldValue = Array.isArray(rawValue) ? rawValue.join('、') : String(rawValue || '').trim();
     return {
       ...submission,
       createdAtFormatted: submission.created_at ? formatTime(String(submission.created_at)) : '',
-      customDataList
+      firstFieldLabel: firstField ? String(firstField.label || '') : '',
+      firstFieldValue: firstFieldValue || '未填写'
     };
   });
 }
@@ -30,7 +23,6 @@ Page({
   data: {
     taskId: '',
     task: null as any,
-    aiAnalysisEnabled: true,
     submissions: [] as any[],
     page: 1,
     total: 0,
@@ -89,7 +81,6 @@ Page({
       const list = (result && result.list) || [];
       this.setData({
         task,
-        aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
         submissions: formatSubmissions(list, (task && task.custom_fields) || []),
         page: 1,
         total: (result && result.total) || 0,
@@ -131,29 +122,9 @@ Page({
     });
   },
 
-  deleteSubmissionRecord(e: any) {
-    const submissionId = String(e.currentTarget.dataset.id || '');
-    if (!submissionId) return;
-
-    wx.showModal({
-      title: '确认删除',
-      content: '删除后该提交记录将无法恢复，确认删除？',
-      confirmText: '删除',
-      confirmColor: '#ff4444',
-      success: async (res) => {
-        if (!res.confirm) return;
-        try {
-          showLoading('删除中...');
-          await deleteSubmission(submissionId);
-          hideLoading();
-          wx.showToast({ title: '删除成功', icon: 'success' });
-          this.setData({ page: 1, submissions: [], hasMore: true, pageLoading: true });
-          this.loadData();
-        } catch (err: any) {
-          hideLoading();
-          showError(err.message || '删除失败');
-        }
-      }
-    });
+  previewSubmissionPhoto(e: any) {
+    const photoUrl = String(e.currentTarget.dataset.url || '');
+    if (!photoUrl) return;
+    wx.previewImage({ current: photoUrl, urls: [photoUrl] });
   }
 });

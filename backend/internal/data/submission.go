@@ -7,11 +7,12 @@ import (
 )
 
 type PhotoInfo struct {
-	URL      string `bson:"url" json:"url"`
-	FileSize int64  `bson:"file_size" json:"file_size"`
-	Width    int    `bson:"width" json:"width"`
-	Height   int    `bson:"height" json:"height"`
-	Deleted  bool   `bson:"deleted" json:"deleted"`
+	URL          string `bson:"url" json:"url"`
+	ThumbnailURL string `bson:"-" json:"thumbnail_url,omitempty"`
+	FileSize     int64  `bson:"file_size" json:"file_size"`
+	Width        int    `bson:"width" json:"width"`
+	Height       int    `bson:"height" json:"height"`
+	Deleted      bool   `bson:"deleted" json:"deleted"`
 }
 
 type AIEvaluation struct {

@@ -195,191 +195,103 @@
 
 /* 提交卡片 */
 .submission-card {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  gap: 22rpx;
   background: white;
-  border-radius: 12rpx;
-  padding: 24rpx;
+  border-radius: 20rpx;
+  padding: 20rpx;
   margin-bottom: 16rpx;
-  border: 1rpx solid #eee;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+  border: 1rpx solid #edf1f5;
+  box-shadow: 0 8rpx 24rpx rgba(32, 55, 80, 0.06);
+}
+
+.submission-thumbnail {
+  width: 168rpx;
+  height: 208rpx;
+  flex-shrink: 0;
+  border-radius: 14rpx;
+  background: #f2f4f7;
+}
+
+.submission-content {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .submission-header {
   display: flex;
   align-items: center;
-  margin-bottom: 16rpx;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.submitter {
+  min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .avatar {
-  width: 64rpx;
-  height: 64rpx;
+  width: 40rpx;
+  height: 40rpx;
   border-radius: 50%;
-  margin-right: 16rpx;
-}
-
-.user-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  margin-right: 10rpx;
+  flex-shrink: 0;
 }
 
 .nickname {
-  font-size: 28rpx;
+  min-width: 0;
+  max-width: 220rpx;
+  font-size: 26rpx;
   color: #333;
-  font-weight: bold;
-  margin-bottom: 4rpx;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .time {
+  display: block;
+  margin-top: auto;
   font-size: 24rpx;
-  color: #999;
-}
-
-.submission-actions {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
+  color: #a0a7b0;
 }
 
 .edit-link {
-  font-size: 28rpx;
-  color: #1989fa;
-  padding: 8rpx 16rpx;
-}
-
-.delete-link {
-  font-size: 28rpx;
-  color: #ff4444;
-  padding: 8rpx 16rpx;
-}
-
-.status-badge {
-  padding: 8rpx 16rpx;
-  border-radius: 24rpx;
-  font-size: 24rpx;
-}
-
-.status-submitted {
-  background: #e8f4ff;
-  color: #1989fa;
-}
-
-.status-rejected {
-  background: #ffe8e8;
-  color: #ff4444;
-}
-
-.status-draft {
-  background: #f5f5f5;
-  color: #999;
-}
-
-/* AI评估 */
-.ai-evaluation {
-  background: #f8f9fa;
-  border-radius: 8rpx;
-  padding: 16rpx;
-  margin-bottom: 16rpx;
-}
-
-.score-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12rpx;
-}
-
-.score-label {
-  font-size: 28rpx;
-  color: #666;
-}
-
-.score-value {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #1989fa;
-  margin-left: 8rpx;
-}
-
-.breakdown {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  margin-bottom: 12rpx;
-}
-
-.breakdown-item {
-  flex: 0 0 calc(33.333% - 8rpx);
-  background: white;
-  border-radius: 6rpx;
-  padding: 12rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.breakdown-label {
-  font-size: 24rpx;
-  color: #999;
-  margin-bottom: 4rpx;
-}
-
-.breakdown-value {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
-}
-
-.issues, .suggestions {
-  margin-top: 12rpx;
-}
-
-.issues-title, .suggestions-title {
+  flex-shrink: 0;
   font-size: 26rpx;
-  color: #666;
-  font-weight: bold;
+  color: #1989fa;
+  padding: 6rpx 0 6rpx 16rpx;
+}
+
+.first-field {
+  margin-top: 20rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 12rpx;
+  background: #f7f9fc;
+}
+
+.first-field-label {
   display: block;
-  margin-bottom: 8rpx;
+  margin-bottom: 6rpx;
+  font-size: 23rpx;
+  color: #8a94a3;
 }
 
-.issue-item, .suggestion-item {
-  font-size: 24rpx;
-  color: #666;
-  display: block;
-  margin-bottom: 4rpx;
-  line-height: 1.5;
-}
-
-.ai-pending {
-  font-size: 26rpx;
-  color: #ff9500;
-}
-
-.ai-error {
-  font-size: 26rpx;
-  color: #ff4444;
-}
-
-/* 自定义数据 */
-.custom-data {
-  border-top: 1rpx solid #f5f5f5;
-  padding-top: 16rpx;
-}
-
-.custom-item {
-  display: flex;
-  margin-bottom: 8rpx;
-  font-size: 26rpx;
-}
-
-.custom-label {
-  color: #999;
-  min-width: 120rpx;
-}
-
-.custom-value {
-  color: #333;
-  flex: 1;
+.first-field-value {
+  display: -webkit-box;
+  font-size: 28rpx;
+  color: #2f3540;
+  line-height: 1.45;
   word-break: break-all;
   overflow-wrap: break-word;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* 悬浮按钮 */

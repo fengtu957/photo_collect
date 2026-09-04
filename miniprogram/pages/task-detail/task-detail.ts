@@ -1,6 +1,6 @@
 import { getTask, downloadTaskMiniProgramCode } from '../../services/task';
-import { listSubmissions, deleteSubmission } from '../../services/submission';
-import { showError, showLoading, hideLoading } from '../../utils/request';
+import { listSubmissions } from '../../services/submission';
+import { showError } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
 import { getTimeRemaining, isTaskActive } from '../../utils/format';
 import { isTaskAIAnalysisEnabled } from '../../utils/task';
@@ -32,19 +32,15 @@ function getTaskStatus(task: any): string {
 }
 
 function formatSubmissions(list: any[], customFields: any[]) {
-  const fieldLabelMap: Record<string, string> = {};
-  (customFields || []).forEach((f: any) => {
-    fieldLabelMap[f.id] = f.label;
-  });
+  const firstField = (customFields || [])[0] || null;
   return list.map((s: any) => {
-    const customDataList = Object.keys(s.custom_data || {}).map((key: string) => ({
-      label: fieldLabelMap[key] || key,
-      value: Array.isArray(s.custom_data[key]) ? s.custom_data[key].join('、') : s.custom_data[key]
-    }));
+    const rawValue = firstField && s.custom_data ? s.custom_data[firstField.id] : '';
+    const firstFieldValue = Array.isArray(rawValue) ? rawValue.join('、') : String(rawValue || '').trim();
     return {
       ...s,
       createdAtFormatted: s.created_at ? formatTime(String(s.created_at)) : '',
-      customDataList
+      firstFieldLabel: firstField ? String(firstField.label || '') : '',
+      firstFieldValue: firstFieldValue || '未填写'
     };
   });
 }
@@ -264,7 +260,6 @@ Page({
     endTime: '',
     isCreator: false,
     fromShare: false,
-    currentUserId: '',
     mySubmissionId: '',
     // 分页
     page: 1,
@@ -361,7 +356,6 @@ Page({
         endTime,
         isCreator,
         aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
-        currentUserId: currentOpenid,
         mySubmissionId: (mySubmission && mySubmission.id) || '',
         page: 1,
         total,
@@ -456,6 +450,12 @@ Page({
     wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${submissionId}` });
   },
 
+  previewSubmissionPhoto(e: any) {
+    const photoUrl = String(e.currentTarget.dataset.url || '');
+    if (!photoUrl) return;
+    wx.previewImage({ current: photoUrl, urls: [photoUrl] });
+  },
+
   editTask() {
     wx.navigateTo({ url: `/pages/task-create/task-create?id=${this.data.taskId}` });
   },
@@ -478,34 +478,5 @@ Page({
 
   copyTask() {
     wx.navigateTo({ url: `/pages/task-create/task-create?copyFrom=${this.data.taskId}` });
-  },
-
-  deleteSubmissionRecord(e: any) {
-    const submissionId = e.currentTarget.dataset.id;
-    if (!submissionId || !this.data.isCreator) {
-      return;
-    }
-
-    wx.showModal({
-      title: '确认删除',
-      content: '删除后该提交记录将无法恢复，确认删除？',
-      confirmText: '删除',
-      confirmColor: '#ff4444',
-      success: async (res) => {
-        if (!res.confirm) return;
-
-        try {
-          showLoading('删除中...');
-          await deleteSubmission(submissionId);
-          hideLoading();
-          wx.showToast({ title: '删除成功', icon: 'success' });
-          this.setData({ page: 1, submissions: [], hasMore: true });
-          this.loadData();
-        } catch (err: any) {
-          hideLoading();
-          showError(err.message || '删除失败');
-        }
-      }
-    });
   }
 });

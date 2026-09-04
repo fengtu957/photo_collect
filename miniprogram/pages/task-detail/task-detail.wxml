@@ -91,49 +91,26 @@
   </view>
 
   <view class="submission-card" wx:for="{{submissions}}" wx:key="id">
-    <view class="submission-header">
-      <image class="avatar" src="{{item.user_info.avatar_url}}" mode="aspectFill" />
-      <view class="user-info">
-        <text class="nickname">{{item.user_info.nick_name}}</text>
-        <text class="time">{{item.createdAtFormatted}}</text>
+    <image
+      class="submission-thumbnail"
+      src="{{item.photo.thumbnail_url || item.photo.url}}"
+      mode="aspectFill"
+      data-url="{{item.photo.url}}"
+      bindtap="previewSubmissionPhoto"
+    />
+    <view class="submission-content">
+      <view class="submission-header">
+        <view class="submitter">
+          <image class="avatar" src="{{item.user_info.avatar_url}}" mode="aspectFill" />
+          <text class="nickname">{{item.user_info.nick_name}}</text>
+        </view>
+        <text class="edit-link" catchtap="editSubmission" data-id="{{item.id}}">编辑</text>
       </view>
-      <view class="submission-actions">
-        <text class="edit-link" catchtap="editSubmission" data-id="{{item.id}}" wx:if="{{isCreator || item.user_id === currentUserId}}">
-          编辑
-        </text>
-        <text class="delete-link" catchtap="deleteSubmissionRecord" data-id="{{item.id}}" wx:if="{{isCreator}}">
-          删除
-        </text>
+      <view class="first-field" wx:if="{{item.firstFieldLabel}}">
+        <text class="first-field-label">{{item.firstFieldLabel}}</text>
+        <text class="first-field-value">{{item.firstFieldValue}}</text>
       </view>
-    </view>
-
-    <view class="ai-evaluation" wx:if="{{aiAnalysisEnabled && item.ai_evaluation && item.ai_evaluation.status === 'success'}}">
-      <text class="ai-success">照片已通过 AI 检查</text>
-
-      <view class="issues" wx:if="{{item.ai_evaluation.issues && item.ai_evaluation.issues.length > 0}}">
-        <text class="issues-title">问题：</text>
-        <text class="issue-item" wx:for="{{item.ai_evaluation.issues}}" wx:key="*this" wx:for-item="issue">• {{issue}}</text>
-      </view>
-
-      <view class="suggestions" wx:if="{{item.ai_evaluation.suggestions && item.ai_evaluation.suggestions.length > 0}}">
-        <text class="suggestions-title">建议：</text>
-        <text class="suggestion-item" wx:for="{{item.ai_evaluation.suggestions}}" wx:key="*this" wx:for-item="suggestion">• {{suggestion}}</text>
-      </view>
-    </view>
-
-    <view class="ai-evaluation" wx:if="{{aiAnalysisEnabled && item.ai_evaluation && item.ai_evaluation.status === 'pending'}}">
-      <text class="ai-pending">AI评估中...</text>
-    </view>
-
-    <view class="ai-evaluation" wx:if="{{aiAnalysisEnabled && item.ai_evaluation && item.ai_evaluation.status === 'failed'}}">
-      <text class="ai-error">AI评估失败：{{item.ai_evaluation.error}}</text>
-    </view>
-
-    <view class="custom-data" wx:if="{{item.customDataList && item.customDataList.length > 0}}">
-      <view class="custom-item" wx:for="{{item.customDataList}}" wx:key="label" wx:for-item="field">
-        <text class="custom-label">{{field.label}}：</text>
-        <text class="custom-value">{{field.value}}</text>
-      </view>
+      <text class="time">{{item.createdAtFormatted}}</text>
     </view>
   </view>
 

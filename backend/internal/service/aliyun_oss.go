@@ -151,10 +151,18 @@ func (s *AliyunOSSService) GetFileURL(key string) string {
 }
 
 func (s *AliyunOSSService) GetFileURLWithTTL(key string, ttl time.Duration) (string, error) {
-	return s.signedURL(http.MethodGet, key, ttl, nil)
+	return s.signedURLWithProcess(http.MethodGet, key, ttl, nil, "")
 }
 
 func (s *AliyunOSSService) signedURL(method string, key string, ttl time.Duration, headers map[string]string) (string, error) {
+	return s.signedURLWithProcess(method, key, ttl, headers, "")
+}
+
+func (s *AliyunOSSService) GetProcessedImageURLWithTTL(key string, process string, ttl time.Duration) (string, error) {
+	return s.signedURLWithProcess(http.MethodGet, key, ttl, nil, strings.TrimSpace(process))
+}
+
+func (s *AliyunOSSService) signedURLWithProcess(method string, key string, ttl time.Duration, headers map[string]string, process string) (string, error) {
 	if err := s.validateConfigured(); err != nil {
 		return "", err
 	}
@@ -166,6 +174,9 @@ func (s *AliyunOSSService) signedURL(method string, key string, ttl time.Duratio
 	expires := time.Now().Add(ttl).Unix()
 	canonicalHeaders := canonicalizeOSSHeaders(headers)
 	resource := "/" + s.bucket + "/" + key
+	if process != "" {
+		resource += "?x-oss-process=" + process
+	}
 	stringToSign := fmt.Sprintf("%s\n\n\n%d\n%s%s", method, expires, canonicalHeaders, resource)
 	h := hmac.New(sha1.New, []byte(s.accessKeySecret))
 	_, _ = h.Write([]byte(stringToSign))
@@ -174,6 +185,9 @@ func (s *AliyunOSSService) signedURL(method string, key string, ttl time.Duratio
 	query.Set("Expires", strconv.FormatInt(expires, 10))
 	query.Set("OSSAccessKeyId", s.accessKeyID)
 	query.Set("Signature", base64.StdEncoding.EncodeToString(h.Sum(nil)))
+	if process != "" {
+		query.Set("x-oss-process", process)
+	}
 	u.RawQuery = query.Encode()
 	return u.String(), nil
 }

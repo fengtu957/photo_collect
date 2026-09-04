@@ -22,6 +22,8 @@ type SubmissionService struct {
 	ossSvc *AliyunOSSService
 }
 
+const submissionThumbnailProcess = "image/resize,m_lfit,w_320,h_320/quality,q_70"
+
 type AnalyzePreviewRequest struct {
 	TaskID string `json:"task_id"`
 	Photo  struct {
@@ -332,12 +334,19 @@ func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Reque
 	// 转换 photo.url 从 key 到完整的签名 URL
 	for i := range result.List {
 		if result.List[i].Photo.URL != "" {
-			fileURL, err := s.ossSvc.GetFileURLWithTTL(result.List[i].Photo.URL, time.Hour)
+			photoKey := result.List[i].Photo.URL
+			fileURL, err := s.ossSvc.GetFileURLWithTTL(photoKey, time.Hour)
+			if err != nil {
+				Error(w, 2003, err.Error())
+				return
+			}
+			thumbnailURL, err := s.ossSvc.GetProcessedImageURLWithTTL(photoKey, submissionThumbnailProcess, time.Hour)
 			if err != nil {
 				Error(w, 2003, err.Error())
 				return
 			}
 			result.List[i].Photo.URL = fileURL
+			result.List[i].Photo.ThumbnailURL = thumbnailURL
 		}
 	}
 
