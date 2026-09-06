@@ -24,10 +24,11 @@ func main() {
 	}
 
 	vipRepo := data.NewVIPRepo(d)
+	taskRepo := data.NewTaskRepo(d)
 	if err := vipRepo.EnsureIndexes(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-	vipUC := biz.NewVIPUsecase(vipRepo)
+	vipUC := biz.NewVIPUsecase(vipRepo, taskRepo)
 
 	switch os.Args[1] {
 	case "create-codes":

@@ -29,11 +29,34 @@ func sanitizeTaskForViewer(task *data.Task, viewerID string) *data.Task {
 	}
 
 	safeTask := *task
+	safeTask.OwnerUserID = task.UserID
+	safeTask.ViewerRole = ""
+	if task.UserID == viewerID {
+		safeTask.ViewerRole = "creator"
+	} else {
+		for _, adminUserID := range task.AdminUserIDs {
+			if adminUserID == viewerID {
+				safeTask.ViewerRole = "admin"
+				break
+			}
+		}
+		if safeTask.ViewerRole == "" {
+			for _, collaboratorUserID := range task.CollaboratorUserIDs {
+				if collaboratorUserID == viewerID {
+					safeTask.ViewerRole = "collaborator"
+					break
+				}
+			}
+		}
+	}
 	safeTask.CanSubmitMultiple = task.AllowsMultipleSubmissions(viewerID)
 	safeTask.Expired = isTaskExpired(task, time.Now())
 	if task.CanManage(viewerID) {
 		// 兼容现有小程序：客户端通过 user_id 判断是否显示管理功能。
 		safeTask.UserID = viewerID
+		if safeTask.ViewerRole == "admin" {
+			safeTask.AdminUserIDs = nil
+		}
 	} else {
 		safeTask.VerificationCode = ""
 		safeTask.AdminUserIDs = nil
@@ -174,6 +197,37 @@ func (s *TaskService) CreateTaskInvitation(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	Success(w, invitation)
+}
+
+func (s *TaskService) GetTaskCollaborators(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(mux.Vars(r)["id"])
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1016, "unauthorized")
+		return
+	}
+	info, err := s.uc.GetTaskCollaborators(r.Context(), id, userID)
+	if err != nil {
+		Error(w, 1016, err.Error())
+		return
+	}
+	Success(w, info)
+}
+
+func (s *TaskService) RemoveTaskMember(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(mux.Vars(r)["id"])
+	role := strings.TrimSpace(mux.Vars(r)["role"])
+	targetUserID := strings.TrimSpace(mux.Vars(r)["userId"])
+	operatorID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok {
+		Error(w, 1017, "unauthorized")
+		return
+	}
+	if err := s.uc.RemoveTaskMember(r.Context(), id, operatorID, role, targetUserID); err != nil {
+		Error(w, 1017, err.Error())
+		return
+	}
+	Success(w, nil)
 }
 
 func (s *TaskService) GetTaskInvitation(w http.ResponseWriter, r *http.Request) {

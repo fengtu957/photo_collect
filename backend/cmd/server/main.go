@@ -35,23 +35,23 @@ func main() {
 	if err := exportRepo.EnsureIndexes(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-	vipUC := biz.NewVIPUsecase(vipRepo)
+	vipUC := biz.NewVIPUsecase(vipRepo, taskRepo)
 	taskUC := biz.NewTaskUsecase(taskRepo, subRepo, vipUC)
 	authSvc := service.NewAuthService()
 	taskSvc := service.NewTaskService(taskUC, authSvc)
 	vipSvc := service.NewVIPService(vipUC, taskRepo)
 
 	ossSvc := service.NewAliyunOSSService()
-	segmentSvc := service.NewSegmentService(ossSvc, service.NewAliyunImageSegService(), taskUC, vipUC)
+	segmentSvc := service.NewSegmentService(ossSvc, service.NewAliyunImageSegService(), taskUC)
 	qwenClient := pkg.NewQwenClient()
 	evalUC := biz.NewEvaluationUsecase(qwenClient)
 	exportSvc := service.NewExportService(taskRepo, subRepo, exportRepo, ossSvc, vipUC)
 	exportSvc.StartRecovery(context.Background())
 
 	subUC := biz.NewSubmissionUsecase(subRepo, taskRepo, vipUC)
-	subSvc := service.NewSubmissionService(subUC, taskUC, vipUC, evalUC, ossSvc, authSvc)
+	subSvc := service.NewSubmissionService(subUC, taskUC, evalUC, ossSvc, authSvc)
 
-	uploadSvc := service.NewUploadService(ossSvc, taskUC, vipUC)
+	uploadSvc := service.NewUploadService(ossSvc, taskUC)
 
 	adminSvc := service.NewAdminService(vipUC, taskRepo)
 
@@ -81,6 +81,8 @@ func main() {
 	api.HandleFunc("/tasks/{id}", taskSvc.GetTask).Methods("GET")
 	api.HandleFunc("/tasks/{id}/mini-code", taskSvc.GetTaskMiniCode).Methods("GET")
 	api.HandleFunc("/tasks/{id}/invitations", taskSvc.CreateTaskInvitation).Methods("POST")
+	api.HandleFunc("/tasks/{id}/collaborators", taskSvc.GetTaskCollaborators).Methods("GET")
+	api.HandleFunc("/tasks/{id}/collaborators/{role}/{userId}", taskSvc.RemoveTaskMember).Methods("DELETE")
 	api.HandleFunc("/task-invitations/{token}", taskSvc.GetTaskInvitation).Methods("GET")
 	api.HandleFunc("/task-invitations/{token}/accept", taskSvc.AcceptTaskInvitation).Methods("POST")
 	api.HandleFunc("/tasks/{id}", taskSvc.UpdateTask).Methods("PUT")

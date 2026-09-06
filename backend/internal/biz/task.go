@@ -43,6 +43,35 @@ type TaskInvitationInfo struct {
 	Accepted  bool   `json:"accepted,omitempty"`
 }
 
+type TaskCollaboratorsInfo struct {
+	TaskID                string   `json:"task_id"`
+	ViewerRole            string   `json:"viewer_role"`
+	AdminUserIDs          []string `json:"admin_user_ids"`
+	CollaboratorUserIDs   []string `json:"collaborator_user_ids"`
+	CanInviteAdmin        bool     `json:"can_invite_admin"`
+	CanInviteCollaborator bool     `json:"can_invite_collaborator"`
+}
+
+func taskViewerRole(task *data.Task, userID string) string {
+	if task == nil || userID == "" {
+		return ""
+	}
+	if task.UserID == userID {
+		return "creator"
+	}
+	for _, adminUserID := range task.AdminUserIDs {
+		if adminUserID == userID {
+			return "admin"
+		}
+	}
+	for _, collaboratorUserID := range task.CollaboratorUserIDs {
+		if collaboratorUserID == userID {
+			return "collaborator"
+		}
+	}
+	return ""
+}
+
 func normalizeTaskInvitationRole(role string) (string, bool) {
 	normalized := strings.TrimSpace(role)
 	if normalized == TaskInvitationRoleAdmin || normalized == TaskInvitationRoleCollaborator {
@@ -319,26 +348,22 @@ func (uc *TaskUsecase) UpdateTask(ctx context.Context, id string, userID string,
 		return err
 	}
 	if uc.vipUC != nil {
-		entitlements, err := uc.vipUC.GetUserEntitlements(ctx, existing.UserID)
-		if err != nil {
+		maxOpenDurationDays := FreeMaxOpenDurationDays
+		taskUsesVIPConfig := existing.MaxSubmissions == 0
+		if taskUsesVIPConfig {
+			maxOpenDurationDays = VIPMaxOpenDurationDays
+		}
+		if err := validateTaskOpenDurationLimitFrom(task, existing.CreatedAt, maxOpenDurationDays); err != nil {
 			return err
 		}
-		if err := validateTaskOpenDurationLimitFrom(task, existing.CreatedAt, entitlements.Limits.MaxOpenDurationDays); err != nil {
-			return err
-		}
-		if entitlements.IsVIP {
-			task.MaxSubmissions = 0
-		} else {
-			task.MaxSubmissions = entitlements.Limits.MaxSubmissionsPerTask
-		}
-		existingAIEnabled := existing.AIAnalysisEnabled != nil && *existing.AIAnalysisEnabled
+		existingAIEnabled := existing.IsAIAnalysisEnabled()
 		nextAIEnabled := task.AIAnalysisEnabled != nil && *task.AIAnalysisEnabled
-		if !entitlements.IsVIP && nextAIEnabled && !existingAIEnabled {
+		if !taskUsesVIPConfig && nextAIEnabled && !existingAIEnabled {
 			return errors.New("AI分析仅限VIP开启")
 		}
 		existingBackgroundEnabled := existing.IsBackgroundReplacementEnabled()
 		nextBackgroundEnabled := task.IsBackgroundReplacementEnabled()
-		if !entitlements.IsVIP && nextBackgroundEnabled && !existingBackgroundEnabled {
+		if !taskUsesVIPConfig && nextBackgroundEnabled && !existingBackgroundEnabled {
 			return errors.New("自动换背景仅限VIP开启")
 		}
 	}
@@ -460,8 +485,15 @@ func (uc *TaskUsecase) CreateTaskInvitation(ctx context.Context, taskID, userID,
 	if task == nil {
 		return nil, errors.New("任务不存在")
 	}
-	if !task.CanManage(userID) {
+	viewerRole := taskViewerRole(task, userID)
+	if viewerRole == "" {
 		return nil, errors.New("无权限创建协作邀请")
+	}
+	if normalizedRole == TaskInvitationRoleAdmin && viewerRole != "creator" {
+		return nil, errors.New("只有创建者可以邀请管理员")
+	}
+	if normalizedRole == TaskInvitationRoleCollaborator && viewerRole != "creator" && viewerRole != "admin" {
+		return nil, errors.New("无权限邀请协作员")
 	}
 	if !task.EndTime.IsZero() && time.Now().After(task.EndTime) {
 		return nil, errors.New("任务已结束，不能继续邀请")
@@ -491,6 +523,59 @@ func (uc *TaskUsecase) CreateTaskInvitation(ctx context.Context, taskID, userID,
 		Message:   "邀请待领取",
 		Valid:     true,
 	}, nil
+}
+
+func (uc *TaskUsecase) GetTaskCollaborators(ctx context.Context, taskID, userID string) (*TaskCollaboratorsInfo, error) {
+	task, err := uc.repo.FindByID(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	if task == nil {
+		return nil, errors.New("任务不存在")
+	}
+	role := taskViewerRole(task, userID)
+	if role != "creator" && role != "admin" {
+		return nil, errors.New("无权限管理协作成员")
+	}
+	info := &TaskCollaboratorsInfo{
+		TaskID:                task.ID.Hex(),
+		ViewerRole:            role,
+		AdminUserIDs:          []string{},
+		CollaboratorUserIDs:   append([]string{}, task.CollaboratorUserIDs...),
+		CanInviteAdmin:        role == "creator",
+		CanInviteCollaborator: true,
+	}
+	if role == "creator" {
+		info.AdminUserIDs = append([]string{}, task.AdminUserIDs...)
+	}
+	return info, nil
+}
+
+func (uc *TaskUsecase) RemoveTaskMember(ctx context.Context, taskID, operatorID, role, targetUserID string) error {
+	task, err := uc.repo.FindByID(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	if task == nil {
+		return errors.New("任务不存在")
+	}
+	role = strings.TrimSpace(role)
+	targetUserID = strings.TrimSpace(targetUserID)
+	if role != TaskInvitationRoleAdmin && role != TaskInvitationRoleCollaborator {
+		return errors.New("成员身份无效")
+	}
+	if targetUserID == "" || targetUserID == operatorID || targetUserID == task.UserID {
+		return errors.New("不能解除自己或创建者")
+	}
+	viewerRole := taskViewerRole(task, operatorID)
+	if viewerRole == "creator" {
+		// creator can remove either role
+	} else if viewerRole == "admin" && role == TaskInvitationRoleCollaborator {
+		// administrators can remove collaborators only
+	} else {
+		return errors.New("无权限解除该成员")
+	}
+	return uc.repo.RemoveTaskMember(ctx, taskID, role, targetUserID)
 }
 
 func (uc *TaskUsecase) GetTaskInvitation(ctx context.Context, token, viewerUserID string) (*TaskInvitationInfo, error) {

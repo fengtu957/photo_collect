@@ -1,0 +1,37 @@
+<view class="page">
+  <view wx:if="{{pageLoading}}" class="state">加载中...</view>
+  <view wx:elif="{{loadError}}" class="state error">{{loadError}}</view>
+  <block wx:else>
+    <view class="tabs">
+      <view class="tab {{activeTab === 'admin' ? 'active' : ''}}" wx:if="{{viewerRole === 'creator'}}" bindtap="switchTab" data-tab="admin">管理员</view>
+      <view class="tab {{activeTab === 'collaborator' ? 'active' : ''}}" bindtap="switchTab" data-tab="collaborator">协作人员</view>
+    </view>
+
+    <view class="panel">
+      <view class="panel-header">
+        <text class="panel-title">{{activeTab === 'admin' ? '管理员' : '协作人员'}}</text>
+        <text class="panel-count">{{activeTab === 'admin' ? adminUserIds.length : collaboratorUserIds.length}} 人</text>
+      </view>
+      <view class="member-row" wx:for="{{activeTab === 'admin' ? adminUserIds : collaboratorUserIds}}" wx:key="*this">
+        <view class="member-main">
+          <view class="avatar-placeholder">{{activeTab === 'admin' ? '管' : '协'}}</view>
+          <text class="member-id">{{item}}</text>
+        </view>
+        <button class="remove-button" wx:if="{{item !== currentUserId && item !== ownerUserId && (viewerRole === 'creator' || activeTab === 'collaborator')}}" data-user-id="{{item}}" data-role="{{activeTab}}" bindtap="removeMember">解除</button>
+      </view>
+      <view class="empty" wx:if="{{(activeTab === 'admin' ? adminUserIds.length : collaboratorUserIds.length) === 0}}">暂无成员</view>
+    </view>
+
+    <view class="invite-panel">
+      <view class="invite-title">发起邀请</view>
+      <view class="invite-actions">
+        <button class="invite-button admin" wx:if="{{canInviteAdmin}}" bindtap="prepareInvite" data-role="admin" disabled="{{preparingRole === 'admin'}}">{{preparingRole === 'admin' ? '生成中...' : '邀请管理员'}}</button>
+        <button class="invite-button collaborator" wx:if="{{canInviteCollaborator}}" bindtap="prepareInvite" data-role="collaborator" disabled="{{preparingRole === 'collaborator'}}">{{preparingRole === 'collaborator' ? '生成中...' : '邀请协作人员'}}</button>
+      </view>
+      <view class="share-box" wx:if="{{shareReadyRole}}">
+        <text class="share-tip">邀请已生成，请点击下方按钮转发给好友</text>
+        <button class="share-button" open-type="share" data-role="{{shareReadyRole}}">转发{{shareReadyRole === 'admin' ? '管理员' : '协作人员'}}邀请</button>
+      </view>
+    </view>
+  </block>
+</view>

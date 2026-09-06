@@ -117,6 +117,7 @@ Page({
     isCopyMode: false,
     startTimeEditable: true,
     taskLoaded: false,
+    taskUsesVIPConfig: false,
     initialAIAnalysisEnabled: false,
     initialBackgroundReplacementEnabled: false,
     maxSizeKBInput: '',
@@ -195,8 +196,9 @@ Page({
   },
 
   syncEntitlementState(entitlements: any) {
-    const canUseAI = canUseAIAnalysisFeature(entitlements);
-    const canUseBackgroundReplacement = canUseBackgroundReplacementFeature(entitlements);
+    const taskUsesVIPConfig = !!this.data.isEditMode && !!this.data.taskUsesVIPConfig;
+    const canUseAI = taskUsesVIPConfig || canUseAIAnalysisFeature(entitlements);
+    const canUseBackgroundReplacement = taskUsesVIPConfig || canUseBackgroundReplacementFeature(entitlements);
     const allowLegacyAI = !!this.data.isEditMode && !!this.data.initialAIAnalysisEnabled;
     const allowLegacyBackground = !!this.data.isEditMode && !!this.data.initialBackgroundReplacementEnabled;
     let currentAIEnabled = !!(this.data.form && this.data.form.ai_analysis_enabled);
@@ -243,6 +245,7 @@ Page({
 
       this.setData({
         taskLoaded: true,
+        taskUsesVIPConfig: !isCopyMode && Number(task.max_submissions || 0) === 0,
         startTimeEditable: isCopyMode || canEditTaskStartTime(task),
         taskCode: isCopyMode ? '' : String(task.task_code || ''),
         initialAIAnalysisEnabled: isCopyMode ? false : aiAnalysisEnabled,
@@ -302,7 +305,8 @@ Page({
 
   onAIAnalysisChange(e: any) {
     const nextValue = !!(e.detail && e.detail.value);
-    const canUseAI = canUseAIAnalysisFeature(this.data.entitlements);
+    const canUseAI = (!!this.data.isEditMode && !!this.data.taskUsesVIPConfig)
+      || canUseAIAnalysisFeature(this.data.entitlements);
     if (nextValue && !canUseAI) {
       showError('当前版本暂不支持开启AI分析');
       this.setData({ 'form.ai_analysis_enabled': false });
@@ -328,7 +332,8 @@ Page({
 
   onBackgroundReplacementChange(e: any) {
     const nextValue = !!(e.detail && e.detail.value);
-    const canUseBackgroundReplacement = canUseBackgroundReplacementFeature(this.data.entitlements);
+    const canUseBackgroundReplacement = (!!this.data.isEditMode && !!this.data.taskUsesVIPConfig)
+      || canUseBackgroundReplacementFeature(this.data.entitlements);
     if (nextValue && !canUseBackgroundReplacement) {
       showError('自动换背景仅限VIP开启');
       this.setData({ 'form.background_replacement_enabled': false });
@@ -397,8 +402,10 @@ Page({
   async onSubmit() {
     const appInstance = getApp<any>();
     const { form } = this.data;
-    const canUseAI = canUseAIAnalysisFeature(this.data.entitlements);
-    const canUseBackgroundReplacement = canUseBackgroundReplacementFeature(this.data.entitlements);
+    const taskUsesVIPConfig = !!this.data.isEditMode && !!this.data.taskUsesVIPConfig;
+    const canUseAI = taskUsesVIPConfig || canUseAIAnalysisFeature(this.data.entitlements);
+    const canUseBackgroundReplacement = taskUsesVIPConfig
+      || canUseBackgroundReplacementFeature(this.data.entitlements);
     const nextAIEnabled = !!(form && form.ai_analysis_enabled);
     const initialAIEnabled = !!this.data.initialAIAnalysisEnabled;
     const nextBackgroundEnabled = !!(form && form.background_replacement_enabled);

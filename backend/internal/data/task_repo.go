@@ -147,6 +147,23 @@ func (r *TaskRepo) CountActiveByUserID(ctx context.Context, userID string) (int6
 	return count, err
 }
 
+func (r *TaskRepo) UpgradeActiveTasksToVIP(ctx context.Context, userID string) error {
+	_, err := r.data.DB().Collection("tasks").UpdateMany(ctx, bson.M{
+		"user_id": userID,
+		"enabled": true,
+		"end_time": bson.M{
+			"$gt": time.Now(),
+		},
+		"max_submissions": bson.M{"$ne": 0},
+	}, bson.M{
+		"$set": bson.M{
+			"max_submissions": 0,
+			"updated_at":      time.Now(),
+		},
+	})
+	return err
+}
+
 func (r *TaskRepo) AdminListTasks(ctx context.Context, query AdminTaskListQuery) (*AdminTaskListResult, error) {
 	page := query.Page
 	if page <= 0 {
@@ -257,6 +274,28 @@ func (r *TaskRepo) UpdateCollaboratorUserIDs(ctx context.Context, id string, col
 			"collaborator_user_ids": collaboratorUserIDs,
 			"updated_at":            time.Now(),
 		},
+	})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return errors.New("任务不存在")
+	}
+	return nil
+}
+
+func (r *TaskRepo) RemoveTaskMember(ctx context.Context, id, role, userID string) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	field := "collaborator_user_ids"
+	if role == "admin" {
+		field = "admin_user_ids"
+	}
+	result, err := r.data.DB().Collection("tasks").UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$pull": bson.M{field: userID},
+		"$set":  bson.M{"updated_at": time.Now()},
 	})
 	if err != nil {
 		return err

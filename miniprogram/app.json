@@ -5,6 +5,7 @@
     "pages/photo-spec-select/photo-spec-select",
     "pages/task-detail/task-detail",
     "pages/task-invite/task-invite",
+    "pages/task-collaboration/task-collaboration",
     "pages/task-submissions/task-submissions",
     "pages/task-export/task-export",
     "pages/task-export-edit/task-export-edit",

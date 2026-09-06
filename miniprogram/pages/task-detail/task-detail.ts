@@ -1,4 +1,4 @@
-import { createTaskInvitation, getTask, downloadTaskMiniProgramCode } from '../../services/task';
+import { getTask, downloadTaskMiniProgramCode } from '../../services/task';
 import { listSubmissions } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime, isEffectiveTime } from '../../utils/time';
@@ -113,14 +113,6 @@ function buildTaskShareTitle(task: any): string {
   }
 
   return '邀请你参与照片采集';
-}
-
-function buildTaskInvitationShareTitle(task: any, roleText: string): string {
-  const title = String((task && task.title) || '').trim();
-  if (title) {
-    return `邀请你成为「${title}」的${roleText}`;
-  }
-  return `邀请你成为任务${roleText}`;
 }
 
 function normalizeTaskId(value: any): string {
@@ -306,6 +298,7 @@ Page({
     startTime: '',
     endTime: '',
     isCreator: false,
+    canManage: false,
     taskEnded: false,
     canSubmitMultiple: false,
     fromShare: false,
@@ -317,10 +310,7 @@ Page({
     total: 0,
     pageLoading: true,
     bootstrapping: false,
-    needsRefresh: false,
-    inviteModalVisible: false,
-    preparingInvitations: false,
-    invitationTokens: {} as Record<string, any>
+    needsRefresh: false
   },
 
   async onLoad(options: any) {
@@ -398,7 +388,10 @@ Page({
       const endTime = formatTime(String(task.end_time || ''));
 
       const currentOpenid = wx.getStorageSync('openid') || '';
-      const isCreator = task.user_id === currentOpenid;
+      const isCreator = task.viewer_role === 'creator'
+        || task.owner_user_id === currentOpenid
+        || task.user_id === currentOpenid;
+      const canManage = task.viewer_role === 'creator' || task.viewer_role === 'admin' || isCreator;
 
       const list = (result && result.list) || [];
       const customFields: any[] = (task && task.custom_fields) || [];
@@ -418,6 +411,7 @@ Page({
         startTime,
         endTime,
         isCreator,
+        canManage,
         taskEnded: isTaskEnded(task),
         canSubmitMultiple: !!task.can_submit_multiple,
         aiAnalysisEnabled: isTaskAIAnalysisEnabled(task),
@@ -495,43 +489,11 @@ Page({
     wx.navigateTo({ url: `/pages/task-export/task-export?taskId=${this.data.taskId}` });
   },
 
-  async openCollaboration() {
-    if (!this.data.isCreator || this.data.preparingInvitations) {
+  openCollaboration() {
+    if (!this.data.canManage) {
       return;
     }
-    if (isTaskEnded(this.data.task)) {
-      this.setData({ taskEnded: true });
-      showError('任务已结束，不能继续邀请');
-      return;
-    }
-
-    this.setData({ preparingInvitations: true });
-    wx.showLoading({ title: '准备邀请...', mask: true });
-    try {
-      const invitations = await Promise.all([
-        createTaskInvitation(this.data.taskId, 'admin'),
-        createTaskInvitation(this.data.taskId, 'collaborator')
-      ]);
-      this.setData({
-        invitationTokens: {
-          admin: invitations[0],
-          collaborator: invitations[1]
-        },
-        inviteModalVisible: true
-      });
-    } catch (err: any) {
-      showError((err && err.message) || '邀请创建失败');
-    } finally {
-      wx.hideLoading();
-      this.setData({ preparingInvitations: false });
-    }
-  },
-
-  closeInviteModal() {
-    this.setData({ inviteModalVisible: false });
-  },
-
-  stopPropagation() {
+    wx.navigateTo({ url: `/pages/task-collaboration/task-collaboration?taskId=${this.data.taskId}` });
   },
 
   viewAllSubmissions() {
@@ -563,20 +525,7 @@ Page({
     wx.navigateTo({ url: `/pages/task-create/task-create?id=${this.data.taskId}` });
   },
 
-  onShareAppMessage(options: any) {
-    const target = options && options.target;
-    const dataset = (target && target.dataset) || {};
-    const role = String(dataset.role || '');
-    const invitation = role ? this.data.invitationTokens[role] : null;
-    if (invitation && invitation.token) {
-      this.setData({ inviteModalVisible: false });
-      return {
-        title: buildTaskInvitationShareTitle(this.data.task, invitation.role_text || '协作者'),
-        path: `/pages/task-invite/task-invite?token=${encodeURIComponent(invitation.token)}`,
-        imageUrl: TASK_SHARE_IMAGE_URL
-      };
-    }
-
+  onShareAppMessage() {
     return {
       title: buildTaskShareTitle(this.data.task),
       path: buildTaskSharePath(this.data.taskId),

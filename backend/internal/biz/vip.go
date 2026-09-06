@@ -46,11 +46,12 @@ type CreateActivationCodesRequest struct {
 }
 
 type VIPUsecase struct {
-	repo *data.VIPRepo
+	repo     *data.VIPRepo
+	taskRepo *data.TaskRepo
 }
 
-func NewVIPUsecase(repo *data.VIPRepo) *VIPUsecase {
-	return &VIPUsecase{repo: repo}
+func NewVIPUsecase(repo *data.VIPRepo, taskRepo *data.TaskRepo) *VIPUsecase {
+	return &VIPUsecase{repo: repo, taskRepo: taskRepo}
 }
 
 func buildFreeEntitlements() *UserEntitlements {
@@ -133,6 +134,11 @@ func (uc *VIPUsecase) GrantVIP(ctx context.Context, userID string, planCode stri
 
 	if err := uc.repo.SaveMembership(ctx, membership); err != nil {
 		return nil, err
+	}
+	if uc.taskRepo != nil {
+		if err := uc.taskRepo.UpgradeActiveTasksToVIP(ctx, userID); err != nil {
+			return nil, err
+		}
 	}
 	return membership, nil
 }

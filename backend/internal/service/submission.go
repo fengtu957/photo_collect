@@ -18,7 +18,6 @@ import (
 type SubmissionService struct {
 	uc      *biz.SubmissionUsecase
 	taskUC  *biz.TaskUsecase
-	vipUC   *biz.VIPUsecase
 	evalUC  *biz.EvaluationUsecase
 	ossSvc  *AliyunOSSService
 	authSvc *AuthService
@@ -69,8 +68,8 @@ func (s *SubmissionService) validatePhotoVerification(r *http.Request, sub *data
 	return nil
 }
 
-func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase, evalUC *biz.EvaluationUsecase, ossSvc *AliyunOSSService, authSvc *AuthService) *SubmissionService {
-	return &SubmissionService{uc: uc, taskUC: taskUC, vipUC: vipUC, evalUC: evalUC, ossSvc: ossSvc, authSvc: authSvc}
+func NewSubmissionService(uc *biz.SubmissionUsecase, taskUC *biz.TaskUsecase, evalUC *biz.EvaluationUsecase, ossSvc *AliyunOSSService, authSvc *AuthService) *SubmissionService {
+	return &SubmissionService{uc: uc, taskUC: taskUC, evalUC: evalUC, ossSvc: ossSvc, authSvc: authSvc}
 }
 
 func buildPhotoSpecText(task *data.Task) string {
@@ -149,16 +148,6 @@ func (s *SubmissionService) evaluateTaskPhoto(userID string, taskID string, phot
 	if err := validateOSSPhotoSize(task, objectInfo.Size); err != nil {
 		return nil, err
 	}
-	if s.vipUC != nil {
-		entitlements, err := s.vipUC.GetUserEntitlements(context.Background(), task.UserID)
-		if err != nil {
-			return nil, err
-		}
-		if entitlements == nil || !entitlements.IsVIP || !entitlements.Limits.CanUseAIAnalysis {
-			return nil, errors.New("当前任务创建者未激活VIP，无法使用AI分析")
-		}
-	}
-
 	photoURL, err := s.ossSvc.GetFileURLWithTTL(photoKey, 10*time.Minute)
 	if err != nil {
 		return nil, err

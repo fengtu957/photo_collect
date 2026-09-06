@@ -39,6 +39,15 @@ export interface TaskInvitation {
   accepted?: boolean;
 }
 
+export interface TaskCollaboratorsResult {
+  task_id: string;
+  viewer_role: 'creator' | 'admin';
+  admin_user_ids: string[];
+  collaborator_user_ids: string[];
+  can_invite_admin: boolean;
+  can_invite_collaborator: boolean;
+}
+
 export async function createTask(params: CreateTaskParams) {
   return request<{ id: string }>('/tasks', {
     method: 'POST',
@@ -80,6 +89,16 @@ export async function createTaskInvitation(id: string, role: 'admin' | 'collabor
   return request<TaskInvitation>(`/tasks/${id}/invitations`, {
     method: 'POST',
     data: { role }
+  });
+}
+
+export async function getTaskCollaborators(id: string) {
+  return request<TaskCollaboratorsResult>(`/tasks/${id}/collaborators`, { method: 'GET' });
+}
+
+export async function removeTaskMember(id: string, role: 'admin' | 'collaborator', userID: string) {
+  return request<null>(`/tasks/${id}/collaborators/${role}/${encodeURIComponent(userID)}`, {
+    method: 'DELETE'
   });
 }
 

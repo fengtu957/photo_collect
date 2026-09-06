@@ -1,0 +1,31 @@
+.page {
+  min-height: 100vh;
+  padding: 20rpx;
+  box-sizing: border-box;
+  background: #f5f5f5;
+}
+.state { padding: 120rpx 0; text-align: center; color: #999; font-size: 28rpx; }
+.error { color: #e64340; }
+.tabs { display: flex; width: 100%; margin-bottom: 20rpx; background: #fff; border-radius: 12rpx; overflow: hidden; }
+.tab { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; color: #666; font-size: 30rpx; border-bottom: 4rpx solid transparent; }
+.tab.active { color: #1989fa; border-bottom-color: #1989fa; font-weight: 600; }
+.panel, .invite-panel { width: 100%; box-sizing: border-box; padding: 24rpx; margin-bottom: 20rpx; background: #fff; border-radius: 12rpx; border: 1rpx solid #eee; box-shadow: 0 2rpx 8rpx rgba(0,0,0,.05); }
+.panel-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 18rpx; border-bottom: 1rpx solid #f5f5f5; }
+.panel-title, .invite-title { font-size: 32rpx; color: #333; font-weight: 600; }
+.panel-count { color: #999; font-size: 26rpx; }
+.member-row { display: flex; justify-content: space-between; align-items: center; min-height: 92rpx; border-bottom: 1rpx solid #f5f5f5; }
+.member-row:last-of-type { border-bottom: none; }
+.member-main { display: flex; align-items: center; min-width: 0; }
+.avatar-placeholder { width: 56rpx; height: 56rpx; line-height: 56rpx; margin-right: 16rpx; border-radius: 50%; text-align: center; color: #fff; background: #1989fa; font-size: 24rpx; }
+.member-id { flex: 1; color: #333; font-size: 26rpx; word-break: break-all; }
+.remove-button { margin: 0 0 0 16rpx; padding: 0 20rpx; height: 56rpx; line-height: 54rpx; color: #e64340; background: #fff1f0; border: 1rpx solid #ffd8d5; border-radius: 28rpx; font-size: 24rpx; }
+.remove-button::after, .invite-button::after, .share-button::after { border: none; }
+.empty { padding: 36rpx 0 18rpx; text-align: center; color: #999; font-size: 26rpx; }
+.invite-title { margin-bottom: 20rpx; }
+.invite-actions { display: flex; gap: 16rpx; }
+.invite-button, .share-button { flex: 1; height: 80rpx; line-height: 80rpx; padding: 0; border-radius: 10rpx; font-size: 28rpx; }
+.invite-button.admin { color: #1989fa; background: #eef5ff; }
+.invite-button.collaborator { color: #d97706; background: #fff5e8; }
+.share-box { margin-top: 20rpx; padding-top: 20rpx; border-top: 1rpx solid #f5f5f5; }
+.share-tip { display: block; margin-bottom: 16rpx; color: #666; font-size: 25rpx; }
+.share-button { width: 100%; color: #fff; background: #07c160; }

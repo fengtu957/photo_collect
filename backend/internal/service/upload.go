@@ -14,7 +14,6 @@ import (
 type UploadService struct {
 	oss    *AliyunOSSService
 	taskUC *biz.TaskUsecase
-	vipUC  *biz.VIPUsecase
 }
 
 type UploadPolicyRequest struct {
@@ -37,8 +36,8 @@ type FinalizePhotoResponse struct {
 	VerificationToken string `json:"verification_token,omitempty"`
 }
 
-func NewUploadService(oss *AliyunOSSService, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase) *UploadService {
-	return &UploadService{oss: oss, taskUC: taskUC, vipUC: vipUC}
+func NewUploadService(oss *AliyunOSSService, taskUC *biz.TaskUsecase) *UploadService {
+	return &UploadService{oss: oss, taskUC: taskUC}
 }
 
 func (s *UploadService) CreateUploadPolicy(w http.ResponseWriter, r *http.Request) {
@@ -74,10 +73,6 @@ func (s *UploadService) CreateUploadPolicy(w http.ResponseWriter, r *http.Reques
 			}
 			policy, err = s.oss.CreateFinalUploadPolicy(userID, task.ID.Hex())
 			break
-		}
-		if err = s.validateBackgroundEntitlement(task); err != nil {
-			Error(w, 2014, err.Error())
-			return
 		}
 		if err = s.validateTemporarySource(task, userID, req.SourceKey, req.VerificationToken); err != nil {
 			Error(w, 2014, err.Error())
@@ -133,10 +128,6 @@ func (s *UploadService) FinalizePhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if task.IsBackgroundReplacementEnabled() {
-		if err := s.validateBackgroundEntitlement(task); err != nil {
-			Error(w, 2014, err.Error())
-			return
-		}
 		if !s.oss.IsOwnedFinalKey(userID, task.ID.Hex(), finalKey) {
 			Error(w, 2013, "final_key 无效")
 			return
@@ -208,20 +199,6 @@ func (s *UploadService) validateTemporarySource(task *data.Task, userID string, 
 	}
 	if task.IsAIAnalysisEnabled() {
 		return verifyPhotoVerificationToken(verificationToken, userID, task.ID.Hex(), key)
-	}
-	return nil
-}
-
-func (s *UploadService) validateBackgroundEntitlement(task *data.Task) error {
-	if task == nil || s.vipUC == nil {
-		return errors.New("自动换背景服务未配置")
-	}
-	entitlements, err := s.vipUC.GetUserEntitlements(context.Background(), task.UserID)
-	if err != nil {
-		return err
-	}
-	if entitlements == nil || !entitlements.IsVIP || !entitlements.Limits.CanUseBackgroundReplacement {
-		return errors.New("当前任务创建者未激活VIP，无法使用自动换背景")
 	}
 	return nil
 }

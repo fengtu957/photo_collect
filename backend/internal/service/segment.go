@@ -15,11 +15,10 @@ type SegmentService struct {
 	oss    *AliyunOSSService
 	aliyun *AliyunImageSegService
 	taskUC *biz.TaskUsecase
-	vipUC  *biz.VIPUsecase
 }
 
-func NewSegmentService(oss *AliyunOSSService, aliyun *AliyunImageSegService, taskUC *biz.TaskUsecase, vipUC *biz.VIPUsecase) *SegmentService {
-	return &SegmentService{oss: oss, aliyun: aliyun, taskUC: taskUC, vipUC: vipUC}
+func NewSegmentService(oss *AliyunOSSService, aliyun *AliyunImageSegService, taskUC *biz.TaskUsecase) *SegmentService {
+	return &SegmentService{oss: oss, aliyun: aliyun, taskUC: taskUC}
 }
 
 type SegmentRequest struct {
@@ -32,7 +31,7 @@ func (s *SegmentService) validateTaskAccess(taskID string) (*data.Task, error) {
 	if normalizedTaskID == "" {
 		return nil, errors.New("task_id 不能为空")
 	}
-	if s == nil || s.taskUC == nil || s.vipUC == nil {
+	if s == nil || s.taskUC == nil {
 		return nil, errors.New("自动换背景服务未配置")
 	}
 
@@ -47,13 +46,6 @@ func (s *SegmentService) validateTaskAccess(taskID string) (*data.Task, error) {
 		return nil, errors.New("当前任务未开启自动换背景")
 	}
 
-	entitlements, err := s.vipUC.GetUserEntitlements(context.Background(), task.UserID)
-	if err != nil {
-		return nil, err
-	}
-	if entitlements == nil || !entitlements.IsVIP || !entitlements.Limits.CanUseBackgroundReplacement {
-		return nil, errors.New("当前任务创建者未激活VIP，无法使用自动换背景")
-	}
 	return task, nil
 }
 

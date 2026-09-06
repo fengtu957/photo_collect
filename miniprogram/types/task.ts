@@ -61,6 +61,8 @@ export interface Task {
   export_info?: TaskExportInfo;
   created_at: string;
   updated_at: string;
+  viewer_role?: 'creator' | 'admin' | 'collaborator';
+  owner_user_id?: string;
 }
 
 export interface CreateTaskParams {

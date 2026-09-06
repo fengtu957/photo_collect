@@ -127,7 +127,7 @@ Page({
         total: (result && result.total) || 0,
         hasMore: (result && result.has_more) || false,
         pageLoading: false
-      });
+      }, () => this.ensureGridScrollable());
     } catch (err: any) {
       this.setData({ pageLoading: false });
       showError(err.message || '加载失败');
@@ -148,7 +148,7 @@ Page({
         page: nextPage,
         hasMore: (result && result.has_more) || false,
         loadingMore: false
-      });
+      }, () => this.ensureGridScrollable());
     } catch (err: any) {
       this.setData({ loadingMore: false });
       showError(err.message || '加载失败');
@@ -158,6 +158,30 @@ Page({
   toggleViewMode() {
     this.setData({
       viewMode: this.data.viewMode === 'list' ? 'grid' : 'list'
+    }, () => this.ensureGridScrollable());
+  },
+
+  ensureGridScrollable() {
+    if (this.data.viewMode !== 'grid' || !this.data.hasMore || this.data.loadingMore) return;
+
+    wx.nextTick(() => {
+      const query = wx.createSelectorQuery().in(this);
+      query.select('.page').boundingClientRect();
+      query.selectViewport().boundingClientRect();
+      query.exec((rects: any[]) => {
+        const pageRect = rects && rects[0];
+        const viewportRect = rects && rects[1];
+        if (
+          this.data.viewMode === 'grid' &&
+          this.data.hasMore &&
+          !this.data.loadingMore &&
+          pageRect &&
+          viewportRect &&
+          Number(pageRect.height || 0) <= Number(viewportRect.height || 0)
+        ) {
+          this.loadMoreSubmissions();
+        }
+      });
     });
   },
 

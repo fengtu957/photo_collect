@@ -79,6 +79,8 @@ type Task struct {
 	Invitations                  []TaskInvitation   `bson:"invitations,omitempty" json:"-"`
 	CreatedAt                    time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt                    time.Time          `bson:"updated_at" json:"updated_at"`
+	ViewerRole                   string             `bson:"-" json:"viewer_role,omitempty"`
+	OwnerUserID                  string             `bson:"-" json:"owner_user_id,omitempty"`
 }
 
 // CanManage reports whether the user is the task creator or a configured task administrator.

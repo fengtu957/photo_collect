@@ -279,6 +279,31 @@ func (s *AliyunOSSService) PutObject(key string, body []byte) error {
 	return nil
 }
 
+func (s *AliyunOSSService) PutObjectStream(key string, body io.Reader, size int64) error {
+	if body == nil || size <= 0 {
+		return errors.New("OSS 文件内容无效")
+	}
+	fileURL, err := s.signedURL(http.MethodPut, key, 10*time.Minute, nil)
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequest(http.MethodPut, fileURL, body)
+	if err != nil {
+		return err
+	}
+	request.ContentLength = size
+	resp, err := s.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		logOSSResponseError("upload", key, resp)
+		return fmt.Errorf("OSS 文件上传失败: %s", resp.Status)
+	}
+	return nil
+}
+
 func (s *AliyunOSSService) ReadSmallObject(key string, maxBytes int64) ([]byte, error) {
 	if maxBytes <= 0 || maxBytes > maxOSSControlObjectBytes {
 		return nil, errors.New("OSS 控制文件读取大小无效")
