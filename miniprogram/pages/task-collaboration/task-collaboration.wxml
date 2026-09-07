@@ -25,12 +25,8 @@
     <view class="invite-panel">
       <view class="invite-title">发起邀请</view>
       <view class="invite-actions">
-        <button class="invite-button admin" wx:if="{{canInviteAdmin}}" bindtap="prepareInvite" data-role="admin" disabled="{{preparingRole === 'admin'}}">{{preparingRole === 'admin' ? '生成中...' : '邀请管理员'}}</button>
-        <button class="invite-button collaborator" wx:if="{{canInviteCollaborator}}" bindtap="prepareInvite" data-role="collaborator" disabled="{{preparingRole === 'collaborator'}}">{{preparingRole === 'collaborator' ? '生成中...' : '邀请协作人员'}}</button>
-      </view>
-      <view class="share-box" wx:if="{{shareReadyRole}}">
-        <text class="share-tip">邀请已生成，请点击下方按钮转发给好友</text>
-        <button class="share-button" open-type="share" data-role="{{shareReadyRole}}">转发{{shareReadyRole === 'admin' ? '管理员' : '协作人员'}}邀请</button>
+        <button class="invite-button admin" wx:if="{{canInviteAdmin && invitationTokens.admin.token}}" open-type="share" data-role="admin">邀请管理员</button>
+        <button class="invite-button collaborator" wx:if="{{canInviteCollaborator && invitationTokens.collaborator.token}}" open-type="share" data-role="collaborator">邀请协作人员</button>
       </view>
     </view>
   </block>

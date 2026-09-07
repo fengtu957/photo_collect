@@ -14,8 +14,6 @@ Page({
     canInviteCollaborator: false,
     pageLoading: true,
     loadError: '',
-    preparingRole: '',
-    shareReadyRole: '',
     invitationTokens: {} as Record<string, TaskInvitation>
   },
 
@@ -49,8 +47,27 @@ Page({
         canInviteCollaborator: !!result.can_invite_collaborator,
         pageLoading: false
       });
+      await this.prepareInvitations(result.can_invite_admin, result.can_invite_collaborator);
     } catch (err: any) {
       this.setData({ pageLoading: false, loadError: (err && err.message) || '加载协作成员失败' });
+    }
+  },
+
+  async prepareInvitations(canInviteAdmin: boolean, canInviteCollaborator: boolean) {
+    const roles: Array<'admin' | 'collaborator'> = [];
+    if (canInviteAdmin) roles.push('admin');
+    if (canInviteCollaborator) roles.push('collaborator');
+    if (!roles.length) return;
+
+    try {
+      const invitations = await Promise.all(roles.map((role) => createTaskInvitation(this.data.taskId, role)));
+      const invitationTokens: Record<string, TaskInvitation> = { ...this.data.invitationTokens };
+      roles.forEach((role, index) => {
+        invitationTokens[role] = invitations[index];
+      });
+      this.setData({ invitationTokens });
+    } catch (err: any) {
+      this.setData({ loadError: (err && err.message) || '准备邀请失败' });
     }
   },
 
@@ -58,25 +75,6 @@ Page({
     const tab = String(e.currentTarget.dataset.tab || 'collaborator');
     if (tab === 'admin' && this.data.viewerRole !== 'creator') return;
     this.setData({ activeTab: tab });
-  },
-
-  async prepareInvite(e: any) {
-    const role = String(e.currentTarget.dataset.role || '') as 'admin' | 'collaborator';
-    if (!role || this.data.preparingRole) return;
-    this.setData({ preparingRole: role, shareReadyRole: '' });
-    wx.showLoading({ title: '准备邀请...', mask: true });
-    try {
-      const invitation = await createTaskInvitation(this.data.taskId, role);
-      this.setData({
-        invitationTokens: { ...this.data.invitationTokens, [role]: invitation },
-        shareReadyRole: role
-      });
-    } catch (err: any) {
-      showError((err && err.message) || '邀请创建失败');
-    } finally {
-      wx.hideLoading();
-      this.setData({ preparingRole: '' });
-    }
   },
 
   removeMember(e: any) {
@@ -106,7 +104,6 @@ Page({
     const role = String((options && options.target && options.target.dataset && options.target.dataset.role) || '');
     const invitation = role ? this.data.invitationTokens[role] : null;
     if (invitation && invitation.token) {
-      this.setData({ shareReadyRole: '' });
       return {
         title: `邀请你成为任务的${invitation.role_text || (role === 'admin' ? '管理员' : '协作员')}`,
         path: `/pages/task-invite/task-invite?token=${encodeURIComponent(invitation.token)}`,
