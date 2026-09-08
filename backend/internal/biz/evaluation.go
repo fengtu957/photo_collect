@@ -25,6 +25,7 @@ type EvaluationResult struct {
 	AdmissionPassed     bool           `json:"admission_passed"`
 	PersonCount         int            `json:"person_count"`
 	RealPerson          bool           `json:"real_person"`
+	IsRecapture         bool           `json:"is_recapture"`
 	FaceDetected        bool           `json:"face_detected"`
 	FaceComplete        bool           `json:"face_complete"`
 	HeadComplete        bool           `json:"head_complete"`
@@ -41,6 +42,7 @@ type EvaluationResult struct {
 type evaluationPayload struct {
 	PersonCount         json.RawMessage            `json:"person_count"`
 	RealPerson          *bool                      `json:"real_person"`
+	IsRecapture         *bool                      `json:"is_recapture"`
 	FaceDetected        *bool                      `json:"face_detected"`
 	FaceComplete        *bool                      `json:"face_complete"`
 	HeadComplete        *bool                      `json:"head_complete"`
@@ -139,7 +141,9 @@ func normalizeLimitedStrings(items []string, limit int) []string {
 func buildHardFailures(personCount int, payload evaluationPayload) []string {
 	failures := make([]string, 0, 2)
 
-	if personCount == 0 {
+	if *payload.IsRecapture {
+		failures = appendUniqueLimited(failures, "请勿翻拍屏幕或纸质照片", 2)
+	} else if personCount == 0 {
 		failures = appendUniqueLimited(failures, "未检测到人物", 2)
 	} else if personCount > 1 {
 		failures = appendUniqueLimited(failures, "画面中存在多人", 2)
@@ -157,9 +161,6 @@ func buildHardFailures(personCount int, payload evaluationPayload) []string {
 		if !*payload.ShouldersVisible {
 			failures = appendUniqueLimited(failures, "肩部未完整入镜", 2)
 		}
-		if !*payload.FaceSizeAppropriate {
-			failures = appendUniqueLimited(failures, "人脸大小不合适", 2)
-		}
 	}
 
 	return failures
@@ -167,6 +168,8 @@ func buildHardFailures(personCount int, payload evaluationPayload) []string {
 
 func suggestionForIssue(issue string) string {
 	switch issue {
+	case "请勿翻拍屏幕或纸质照片":
+		return "请上传电子原片或直接拍摄本人"
 	case "未检测到人物", "画面中存在多人":
 		return "请上传单人证件照"
 	case "非真人证件照":
@@ -264,7 +267,7 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 	if err := decoder.Decode(&payload); err != nil {
 		return nil, err
 	}
-	if len(payload.PersonCount) == 0 || payload.RealPerson == nil ||
+	if len(payload.PersonCount) == 0 || payload.RealPerson == nil || payload.IsRecapture == nil ||
 		payload.FaceDetected == nil || payload.FaceComplete == nil ||
 		payload.HeadComplete == nil || payload.ShouldersVisible == nil || payload.FaceCentered == nil ||
 		payload.FaceSizeAppropriate == nil || payload.Breakdown == nil ||
@@ -293,6 +296,9 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 			return nil, fmt.Errorf("breakdown.%s 无效: %w", dimension, err)
 		}
 		value = clampEvaluationScore(value)
+		if dimension == "composition" && !*payload.FaceSizeAppropriate && value > 59 {
+			value = 59
+		}
 		breakdown[dimension] = value
 		totalScore += value
 		if value < 60 {
@@ -301,12 +307,12 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 	}
 
 	hardConditionsPassed := personCount == 1 &&
+		!*payload.IsRecapture &&
 		*payload.RealPerson &&
 		*payload.FaceDetected &&
 		*payload.FaceComplete &&
 		*payload.HeadComplete &&
-		*payload.ShouldersVisible &&
-		*payload.FaceSizeAppropriate
+		*payload.ShouldersVisible
 	hardFailures := buildHardFailures(personCount, payload)
 	admissionPassed := hardConditionsPassed && len(hardFailures) == 0
 
@@ -321,7 +327,12 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 	} else {
 		score = (totalScore + len(evaluationDimensions)/2) / len(evaluationDimensions)
 		passed = score >= 70 && allDimensionsPassed
-		issues, suggestions = buildQualityFeedback(*payload.FaceCentered, passed, breakdown, *payload.Issues, *payload.Suggestions)
+		modelIssues, modelSuggestions := *payload.Issues, *payload.Suggestions
+		if !*payload.FaceSizeAppropriate {
+			modelIssues = append([]string{"人脸大小不合适"}, modelIssues...)
+			modelSuggestions = append([]string{suggestionForIssue("人脸大小不合适")}, modelSuggestions...)
+		}
+		issues, suggestions = buildQualityFeedback(*payload.FaceCentered, passed, breakdown, modelIssues, modelSuggestions)
 	}
 
 	return &EvaluationResult{
@@ -331,7 +342,8 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 		Passed:              passed,
 		AdmissionPassed:     admissionPassed,
 		PersonCount:         personCount,
-		RealPerson:          *payload.RealPerson,
+		RealPerson:          *payload.RealPerson && !*payload.IsRecapture,
+		IsRecapture:         *payload.IsRecapture,
 		FaceDetected:        *payload.FaceDetected,
 		FaceComplete:        *payload.FaceComplete,
 		HeadComplete:        *payload.HeadComplete,

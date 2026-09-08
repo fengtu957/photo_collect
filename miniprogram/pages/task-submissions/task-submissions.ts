@@ -188,7 +188,6 @@ Page({
   editSubmission(e: any) {
     const submissionId = String(e.currentTarget.dataset.id || '');
     if (!submissionId) return;
-    this.setData({ needsRefresh: true });
     wx.navigateTo({
       url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${submissionId}`
     });

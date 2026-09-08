@@ -1,16 +1,66 @@
 package biz
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
+
+func TestPhotoSourceAndProportionDecisions(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		recapture     interface{}
+		sizeOK        bool
+		wantError     bool
+		wantAdmission bool
+		wantPass      bool
+	}{
+		{"electronic original", false, true, false, true, true},
+		{"screen or printed photo despite high scores", true, true, false, false, false},
+		{"small portrait despite high scores", false, false, false, true, false},
+		{"missing source observation", nil, true, true, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := map[string]interface{}{
+				"person_count": 1, "real_person": true, "is_recapture": tc.recapture,
+				"face_detected": true, "face_complete": true, "head_complete": true,
+				"shoulders_visible": true, "face_centered": true, "face_size_appropriate": tc.sizeOK,
+				"breakdown": map[string]int{"clarity": 95, "lighting": 95, "angle": 95, "background": 95, "expression": 95, "composition": 95},
+				"issues":    []string{}, "suggestions": []string{},
+			}
+			content, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := parseEvaluationContent(string(content))
+			if tc.wantError {
+				if err == nil {
+					t.Fatal("missing source observation must trigger retry")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.AdmissionPassed != tc.wantAdmission || result.Passed != tc.wantPass || result.CanSubmit != tc.wantPass {
+				t.Fatalf("unexpected decision: %+v", result)
+			}
+			if tc.recapture == true && (result.RealPerson || result.Score != 0 || result.Issues[0] != "请勿翻拍屏幕或纸质照片") {
+				t.Fatalf("recapture must override other observations: %+v", result)
+			}
+			if !tc.sizeOK && (len(result.HardFailures) != 0 || result.Breakdown["composition"] != 59 || result.Issues[0] != "人脸大小不合适") {
+				t.Fatalf("proportion must produce quality feedback: %+v", result)
+			}
+		})
+	}
+}
 
 func TestParseEvaluationContentPrioritizesIncompleteFace(t *testing.T) {
 	content := `{
 		"passed": false,
 		"admission_passed": false,
 		"person_count": 1,
-		"real_person": true,
+		"real_person": true, "is_recapture": false,
 		"face_detected": true,
 		"face_complete": false,
 		"head_complete": true,
@@ -65,7 +115,7 @@ func TestParseEvaluationContentPrioritizesCenteringBeforeLightingWithoutModelHar
 		"passed": false,
 		"admission_passed": true,
 		"person_count": 1,
-		"real_person": true,
+		"real_person": true, "is_recapture": false,
 		"face_detected": true,
 		"face_complete": true,
 		"head_complete": true,
@@ -104,7 +154,7 @@ func TestParseEvaluationContentPassesQualifiedPhoto(t *testing.T) {
 		"passed": true,
 		"admission_passed": true,
 		"person_count": 1,
-		"real_person": true,
+		"real_person": true, "is_recapture": false,
 		"face_detected": true,
 		"face_complete": true,
 		"head_complete": true,
@@ -142,7 +192,7 @@ func TestParseEvaluationContentPassesQualifiedPhoto(t *testing.T) {
 }
 
 func TestParseEvaluationContentDerivesAdmissionAndPassResult(t *testing.T) {
-	content := `{"person_count":1,"real_person":true,"face_detected":true,"face_complete":true,"head_complete":true,"shoulders_visible":true,"face_centered":true,"face_size_appropriate":true,"breakdown":{"clarity":80,"lighting":70,"angle":80,"background":30,"expression":80,"composition":80},"issues":["背景色不符合白色要求"],"suggestions":["使用白色背景重拍"]}`
+	content := `{"person_count":1,"real_person":true,"is_recapture":false,"face_detected":true,"face_complete":true,"head_complete":true,"shoulders_visible":true,"face_centered":true,"face_size_appropriate":true,"breakdown":{"clarity":80,"lighting":70,"angle":80,"background":30,"expression":80,"composition":80},"issues":["背景色不符合白色要求"],"suggestions":["使用白色背景重拍"]}`
 
 	result, err := parseEvaluationContent(content)
 	if err != nil {

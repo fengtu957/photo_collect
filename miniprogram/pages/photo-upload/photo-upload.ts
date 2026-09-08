@@ -1017,6 +1017,7 @@ Page({
         try {
           showLoading('删除中...');
           await deleteSubmission(this.data.submissionId);
+          this.markSubmissionListsForRefresh();
           hideLoading();
           wx.showToast({ title: '删除成功', icon: 'success' });
           setTimeout(() => wx.navigateBack(), 1000);
@@ -1108,6 +1109,18 @@ Page({
     }
   },
 
+  markSubmissionListsForRefresh() {
+    // 仅在数据变更成功后通知同一任务的列表页，查看后返回保留分页。
+    getCurrentPages().forEach((page) => {
+      if (
+        (page.route === 'pages/task-detail/task-detail' || page.route === 'pages/task-submissions/task-submissions') &&
+        page.data.taskId === this.data.taskId
+      ) {
+        page.setData({ needsRefresh: true });
+      }
+    });
+  },
+
   saveSubmission(photoKey: string, preparedPhoto?: any) {
     const customData = normalizeCustomData(this.data.task, this.data.customData);
     const photoMeta = preparedPhoto || this.data.photoMeta || {};
@@ -1129,6 +1142,7 @@ Page({
       : createSubmission(params);
 
     submitPromise.then(() => {
+      this.markSubmissionListsForRefresh();
       hideLoading();
       wx.navigateBack();
     }).catch((err: any) => {

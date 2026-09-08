@@ -500,12 +500,10 @@ Page({
     if (!this.data.isCreator) {
       return;
     }
-    this.setData({ needsRefresh: true });
     wx.navigateTo({ url: `/pages/task-submissions/task-submissions?taskId=${this.data.taskId}` });
   },
 
   goToUpload() {
-    this.setData({ needsRefresh: true });
     if (!this.data.isCreator && !this.data.canSubmitMultiple && this.data.mySubmissionId) {
       wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${this.data.mySubmissionId}` });
     } else {
@@ -516,7 +514,6 @@ Page({
   editSubmission(e: any) {
     const submissionId = e.currentTarget.dataset.id;
     if (!submissionId) return;
-    this.setData({ needsRefresh: true });
     wx.navigateTo({ url: `/pages/photo-upload/photo-upload?taskId=${this.data.taskId}&submissionId=${submissionId}` });
   },
 
