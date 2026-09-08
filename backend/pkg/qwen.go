@@ -167,6 +167,44 @@ func (c *QwenClient) evaluatePhoto(imageURL, photoSpec, retryHint string) (strin
 	}
 	req.ResponseFormat.Type = "json_object"
 
+	// Locate the head independently of quality scoring. Run both requests in
+	// parallel so the existing two-attempt timeout budget remains unchanged.
+	type geometryResponse struct {
+		content string
+		err     error
+	}
+	geometryResult := make(chan geometryResponse, 1)
+	geometryReq := QwenRequest{Model: "qwen3-vl-plus", Messages: []QwenMessage{{Role: "user", Content: []QwenMessageContent{
+		{Type: "image_url", ImageURL: &QwenImageURL{URL: imageURL}},
+		{Type: "text", Text: `检测图中人物的头部（包括头发至下巴），输出 head_bbox：[左上x,左上y,右下x,右下y]。坐标使用0到1000的归一化整数，依据整张图片，不要先裁剪。并输出 source: direct或screen或print 判断是否翻拍屏幕或纸照。无可定位头部时 head_bbox 为 null。只输出JSON。`},
+	}}}}
+	geometryReq.ResponseFormat.Type = "json_object"
+	go func() {
+		content, err := c.sendEvaluationRequest(geometryReq)
+		geometryResult <- geometryResponse{content, err}
+	}()
+	content, err := c.sendEvaluationRequest(req)
+	geometry := <-geometryResult
+	if err != nil {
+		return "", err
+	}
+	if geometry.err != nil {
+		return "", geometry.err
+	}
+	var result map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		return "", err
+	}
+	if result == nil || !json.Valid([]byte(geometry.content)) {
+		return "", fmt.Errorf("模型定位结果无效")
+	}
+	result["geometry"] = json.RawMessage(geometry.content)
+	merged, err := json.Marshal(result)
+	return string(merged), err
+}
+
+func (c *QwenClient) sendEvaluationRequest(req QwenRequest) (string, error) {
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return "", err
@@ -192,7 +230,7 @@ func (c *QwenClient) evaluatePhoto(imageURL, photoSpec, retryHint string) (strin
 		return "", err
 	}
 
-	log.Printf("[qwen] evaluate photo model=%s status=%s response_bytes=%d", c.model, resp.Status, len(respBody))
+	log.Printf("[qwen] evaluate photo model=%s status=%s response_bytes=%d", req.Model, resp.Status, len(respBody))
 
 	var qwenResp QwenResponse
 	if err := json.Unmarshal(respBody, &qwenResp); err != nil {
@@ -212,7 +250,7 @@ func (c *QwenClient) evaluatePhoto(imageURL, photoSpec, retryHint string) (strin
 	if len(qwenResp.Choices) > 0 {
 		content := extractResponseContent(qwenResp.Choices[0].Message.Content)
 		if content != "" {
-			log.Printf("[qwen] extracted content model=%s content_bytes=%d", c.model, len(content))
+			log.Printf("[qwen] extracted content model=%s content_bytes=%d", req.Model, len(content))
 			return content, nil
 		}
 	}

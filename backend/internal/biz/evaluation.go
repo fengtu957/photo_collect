@@ -40,6 +40,7 @@ type EvaluationResult struct {
 }
 
 type evaluationPayload struct {
+	Geometry            json.RawMessage            `json:"geometry"`
 	PersonCount         json.RawMessage            `json:"person_count"`
 	RealPerson          *bool                      `json:"real_person"`
 	IsRecapture         *bool                      `json:"is_recapture"`
@@ -168,6 +169,8 @@ func buildHardFailures(personCount int, payload evaluationPayload) []string {
 
 func suggestionForIssue(issue string) string {
 	switch issue {
+	case "身体入镜过多":
+		return "裁剪或靠近拍摄，保留完整头部和双肩"
 	case "请勿翻拍屏幕或纸质照片":
 		return "请上传电子原片或直接拍摄本人"
 	case "未检测到人物", "画面中存在多人":
@@ -283,6 +286,40 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 		return nil, fmt.Errorf("person_count 无效")
 	}
 
+	tooWide := false
+	if len(payload.Geometry) > 0 {
+		var geometry struct {
+			Source   string `json:"source"`
+			HeadBBox []int  `json:"head_bbox"`
+		}
+		if err := json.Unmarshal(payload.Geometry, &geometry); err != nil {
+			return nil, fmt.Errorf("头部定位结果无效: %w", err)
+		}
+		switch geometry.Source {
+		case "screen", "print":
+			*payload.IsRecapture = true
+		case "direct":
+		default:
+			return nil, fmt.Errorf("照片来源定位结果无效")
+		}
+		box := geometry.HeadBBox
+		if len(box) == 0 {
+			if personCount == 1 && *payload.FaceDetected && !*payload.IsRecapture {
+				return nil, fmt.Errorf("未返回可用的头部定位")
+			}
+		} else {
+			if len(box) != 4 || box[0] < 0 || box[1] < 0 || box[2] > 1000 || box[3] > 1000 || box[2] <= box[0] || box[3] <= box[1] {
+				return nil, fmt.Errorf("头部定位坐标无效")
+			}
+			// Sample-calibrated framing check: a small head together with a
+			// large area below the chin indicates excessive body coverage.
+			tooWide = box[3]-box[1] < 333 && 1000-box[3] > 420
+			if tooWide {
+				*payload.FaceSizeAppropriate = false
+			}
+		}
+	}
+
 	breakdown := make(map[string]int, len(evaluationDimensions))
 	totalScore := 0
 	allDimensionsPassed := true
@@ -329,8 +366,12 @@ func parseEvaluationContent(content string) (*EvaluationResult, error) {
 		passed = score >= 70 && allDimensionsPassed
 		modelIssues, modelSuggestions := *payload.Issues, *payload.Suggestions
 		if !*payload.FaceSizeAppropriate {
-			modelIssues = append([]string{"人脸大小不合适"}, modelIssues...)
-			modelSuggestions = append([]string{suggestionForIssue("人脸大小不合适")}, modelSuggestions...)
+			issue := "人脸大小不合适"
+			if tooWide {
+				issue = "身体入镜过多"
+			}
+			modelIssues = append([]string{issue}, modelIssues...)
+			modelSuggestions = append([]string{suggestionForIssue(issue)}, modelSuggestions...)
 		}
 		issues, suggestions = buildQualityFeedback(*payload.FaceCentered, passed, breakdown, modelIssues, modelSuggestions)
 	}

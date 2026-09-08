@@ -55,6 +55,61 @@ func TestPhotoSourceAndProportionDecisions(t *testing.T) {
 	}
 }
 
+func TestGeometryOverridesMissedRecaptureAndWideFraming(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		source    string
+		box       []int
+		wantPass  bool
+		wantError bool
+		wantIssue string
+	}{
+		{"printed photo missed by scoring model", "print", []int{257, 207, 733, 631}, false, false, "请勿翻拍屏幕或纸质照片"},
+		{"screen missed by scoring model", "screen", []int{270, 145, 769, 653}, false, false, "请勿翻拍屏幕或纸质照片"},
+		{"wide framing with otherwise high scores", "direct", []int{321, 267, 628, 559}, false, false, "身体入镜过多"},
+		{"normal chest portrait", "direct", []int{270, 209, 745, 703}, true, false, ""},
+		{"small head without excessive area below chin", "direct", []int{362, 370, 631, 602}, true, false, ""},
+		{"invalid coordinates", "direct", []int{0, 700, 500, 600}, false, true, ""},
+		{"out of bounds", "direct", []int{0, 0, 1001, 600}, false, true, ""},
+		{"missing box for detected face", "direct", nil, false, true, ""},
+		{"unknown source", "unknown", []int{0, 0, 500, 600}, false, true, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := map[string]interface{}{
+				"person_count": 1, "real_person": true, "is_recapture": false,
+				"face_detected": true, "face_complete": true, "head_complete": true,
+				"shoulders_visible": true, "face_centered": true, "face_size_appropriate": true,
+				"breakdown": map[string]int{"clarity": 95, "lighting": 95, "angle": 95, "background": 95, "expression": 95, "composition": 95},
+				"issues":    []string{}, "suggestions": []string{},
+				"geometry": map[string]interface{}{"source": tc.source, "head_bbox": tc.box},
+			}
+			raw, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := parseEvaluationContent(string(raw))
+			if tc.wantError {
+				if err == nil {
+					t.Fatal("invalid geometry must trigger retry")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.CanSubmit != tc.wantPass {
+				t.Fatalf("unexpected decision: %+v", result)
+			}
+			if tc.wantIssue != "" && (len(result.Issues) == 0 || result.Issues[0] != tc.wantIssue) {
+				t.Fatalf("unexpected issues: %v", result.Issues)
+			}
+			if tc.wantPass && result.Score != 95 {
+				t.Fatal("normal portrait quality scores must remain unchanged")
+			}
+		})
+	}
+}
+
 func TestParseEvaluationContentPrioritizesIncompleteFace(t *testing.T) {
 	content := `{
 		"passed": false,
