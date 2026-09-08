@@ -2,6 +2,7 @@ import { getTask } from '../../services/task';
 import { listSubmissions, setSubmissionStarred } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime } from '../../utils/time';
+import { isTaskAIAnalysisEnabled } from '../../utils/task';
 
 const PAGE_SIZE = 20;
 
@@ -22,10 +23,8 @@ function formatSubmissions(list: any[], customFields: any[]) {
     return {
       ...submission,
       aiScoreText: submission.ai_evaluation && submission.ai_evaluation.status === 'success'
-        ? `AI ${submission.ai_evaluation.score}分` : '无分析结果',
+        ? `AI ${submission.ai_evaluation.score}分` : '',
       aiNeedsAttention: !!(submission.ai_evaluation && submission.ai_evaluation.status === 'success' && submission.ai_evaluation.score < 80),
-      aiIssue: submission.ai_evaluation && submission.ai_evaluation.status === 'success'
-        ? (submission.ai_evaluation.issues || []).join('；') : '',
       createdAtFormatted: submission.created_at ? formatTime(String(submission.created_at)) : '',
       customFieldItems
     };
@@ -70,6 +69,7 @@ Page({
     initialized: false,
     needsRefresh: false,
     starredOnly: false,
+    aiAnalysisEnabled: false,
     aiNeedsAttentionOnly: false,
     listLoading: false,
     starringId: '',
@@ -109,22 +109,27 @@ Page({
     }
   },
 
-  async loadData(showPageLoading: boolean = true) {
+  async loadData(showPageLoading: boolean = true, refreshTask: boolean = true) {
     this.setData({ listLoading: true });
     if (showPageLoading) {
       this.setData({ pageLoading: true });
     }
 
     try {
-      const task = await getTask(this.data.taskId);
+      const task = refreshTask || !this.data.task ? await getTask(this.data.taskId) : this.data.task;
       const currentOpenid = String(wx.getStorageSync('openid') || '');
       if (!task || task.user_id !== currentOpenid) {
         this.setData({ pageLoading: false });
         showError('只有创建者可查看全部提交');
         setTimeout(() => wx.navigateBack(), 800);
-        return;
+        return false;
       }
 
+      const aiAnalysisEnabled = isTaskAIAnalysisEnabled(task);
+      this.setData({
+        aiAnalysisEnabled,
+        aiNeedsAttentionOnly: aiAnalysisEnabled && this.data.aiNeedsAttentionOnly
+      });
       const result = await listSubmissions(this.data.taskId, 1, PAGE_SIZE, 'all', this.getFilters());
       const list = (result && result.list) || [];
       this.setData({
@@ -138,9 +143,11 @@ Page({
         hasMore: (result && result.has_more) || false,
         pageLoading: false
       }, () => this.ensureGridScrollable());
+      return true;
     } catch (err: any) {
       this.setData({ pageLoading: false });
       showError(err.message || '加载失败');
+      return false;
     } finally {
       this.setData({ listLoading: false }, () => this.ensureGridScrollable());
     }
@@ -174,21 +181,27 @@ Page({
   },
 
   getFilters() {
-    return { starred: this.data.starredOnly, ai_needs_attention: this.data.aiNeedsAttentionOnly };
+    return { starred: this.data.starredOnly, ai_needs_attention: this.data.aiAnalysisEnabled && this.data.aiNeedsAttentionOnly };
   },
 
-  toggleFilter(e: any) {
+  async toggleFilter(e: any) {
     if (this.data.listLoading || this.data.loadingMore || this.data.starringId) return;
+    const previousFilters = {
+      starredOnly: this.data.starredOnly,
+      aiNeedsAttentionOnly: this.data.aiNeedsAttentionOnly
+    };
     const filter = String(e.currentTarget.dataset.filter || '');
     if (filter === 'starred') {
       this.setData({ starredOnly: !this.data.starredOnly });
-    } else if (filter === 'ai') {
+    } else if (filter === 'ai' && this.data.aiAnalysisEnabled) {
       this.setData({ aiNeedsAttentionOnly: !this.data.aiNeedsAttentionOnly });
     } else {
       return;
     }
-    this.setData({ submissions: [], total: 0, page: 1, hasMore: false });
-    this.loadData();
+    const loaded = await this.loadData(false, false);
+    if (!loaded) {
+      this.setData(previousFilters);
+    }
   },
 
   async toggleStar(e: any) {

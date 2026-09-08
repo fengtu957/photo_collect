@@ -11,6 +11,40 @@
   padding-bottom: 40rpx;
 }
 
+.form-edit {
+  padding-bottom: 160rpx;
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+}
+
+.edit-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: white;
+  box-shadow: 0 -2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.edit-footer .submit-btn {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: 8rpx;
+}
+
+.edit-footer .submit-btn::after {
+  border: none;
+}
+
 .section {
   background: white;
   border-radius: 12rpx;

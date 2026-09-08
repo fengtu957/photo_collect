@@ -153,7 +153,7 @@
   gap: 22rpx;
   background: white;
   border-radius: 20rpx;
-  padding: 20rpx 20rpx 52rpx;
+  padding: 20rpx;
   margin-bottom: 16rpx;
   border: 1rpx solid #edf1f5;
   box-shadow: 0 8rpx 24rpx rgba(32, 55, 80, 0.06);
@@ -214,10 +214,20 @@
   text-overflow: ellipsis;
 }
 
+.submission-bottom {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: auto;
+  padding-top: 12rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .time {
-  position: absolute;
-  right: 20rpx;
-  bottom: 20rpx;
+  margin-left: auto;
   font-size: 24rpx;
   line-height: 1;
   color: #a0a7b0;
@@ -286,7 +296,7 @@
   padding: 24rpx 0;
 }
 
-.filter-bar, .submission-labels {
+.filter-bar {
   width: 100%;
   box-sizing: border-box;
   display: flex;
@@ -308,23 +318,23 @@
 .filter-chip::after, .star-button::after { border: none; }
 .filter-chip.filter-active { background: #e8f3ff; color: #1989fa; }
 .filter-hint { display: block; margin-bottom: 16rpx; color: #999; font-size: 24rpx; }
-.submission-labels { justify-content: space-between; }
 .star-button {
   flex-shrink: 0;
-  width: 64rpx;
-  height: 64rpx;
-  line-height: 64rpx;
+  width: 52rpx;
+  height: 52rpx;
+  line-height: 52rpx;
   padding: 0;
-  margin: 0;
-  font-size: 40rpx;
+  margin: 0 0 0 auto;
+  font-size: 32rpx;
   color: #999;
   background: #f5f5f5;
   border-radius: 50%;
 }
 .star-button.star-active { color: #ff9500; background: #fff4df; }
-.ai-score, .grid-ai { font-size: 24rpx; color: #999; }
+.card-star { position: absolute; top: 20rpx; right: 20rpx; z-index: 1; }
+.ai-score { font-size: 24rpx; color: #999; }
 .ai-attention { color: #b86b00; }
-.ai-issue { display: block; margin-top: 8rpx; font-size: 24rpx; color: #666; word-break: break-all; }
 .submission-grid-item { position: relative; width: calc((100% - 36rpx) / 4); box-sizing: border-box; }
 .grid-star { position: absolute; top: 6rpx; right: 6rpx; }
-.grid-ai { display: block; text-align: center; padding: 6rpx 0; }
+.star-button.grid-star { background: rgba(255, 255, 255, 0.25); }
+.star-button.grid-star.star-active { background: rgba(255, 244, 223, 0.75); }
