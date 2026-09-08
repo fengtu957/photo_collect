@@ -156,7 +156,12 @@ func (s *UploadService) FinalizePhoto(w http.ResponseWriter, r *http.Request) {
 
 	response := FinalizePhotoResponse{PhotoKey: finalKey, FileSize: objectInfo.Size}
 	if task.IsAIAnalysisEnabled() {
-		response.VerificationToken = issuePhotoVerificationToken(userID, task.ID.Hex(), finalKey)
+		claims, err := readPhotoVerificationToken(req.VerificationToken, userID, task.ID.Hex(), sourceKey)
+		if err != nil {
+			Error(w, 2014, err.Error())
+			return
+		}
+		response.VerificationToken = issuePhotoVerificationToken(userID, task.ID.Hex(), finalKey, claims.Evaluation)
 	}
 	Success(w, response)
 }

@@ -138,7 +138,7 @@
 }
 
 .submission-grid-photo {
-  width: 168rpx;
+  width: 100%;
   height: 208rpx;
   flex-shrink: 0;
   border-radius: 12rpx;
@@ -153,7 +153,7 @@
   gap: 22rpx;
   background: white;
   border-radius: 20rpx;
-  padding: 20rpx;
+  padding: 20rpx 20rpx 52rpx;
   margin-bottom: 16rpx;
   border: 1rpx solid #edf1f5;
   box-shadow: 0 8rpx 24rpx rgba(32, 55, 80, 0.06);
@@ -285,3 +285,46 @@
   text-align: center;
   padding: 24rpx 0;
 }
+
+.filter-bar, .submission-labels {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.filter-chip {
+  margin: 0;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  line-height: 64rpx;
+  border-radius: 32rpx;
+  background: #fff;
+  color: #666;
+}
+
+.filter-chip::after, .star-button::after { border: none; }
+.filter-chip.filter-active { background: #e8f3ff; color: #1989fa; }
+.filter-hint { display: block; margin-bottom: 16rpx; color: #999; font-size: 24rpx; }
+.submission-labels { justify-content: space-between; }
+.star-button {
+  flex-shrink: 0;
+  width: 64rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0;
+  margin: 0;
+  font-size: 40rpx;
+  color: #999;
+  background: #f5f5f5;
+  border-radius: 50%;
+}
+.star-button.star-active { color: #ff9500; background: #fff4df; }
+.ai-score, .grid-ai { font-size: 24rpx; color: #999; }
+.ai-attention { color: #b86b00; }
+.ai-issue { display: block; margin-top: 8rpx; font-size: 24rpx; color: #666; word-break: break-all; }
+.submission-grid-item { position: relative; width: calc((100% - 36rpx) / 4); box-sizing: border-box; }
+.grid-star { position: absolute; top: 6rpx; right: 6rpx; }
+.grid-ai { display: block; text-align: center; padding: 6rpx 0; }

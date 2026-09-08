@@ -99,6 +99,7 @@ func main() {
 	api.HandleFunc("/submissions/{id}", subSvc.GetSubmission).Methods("GET")
 	api.HandleFunc("/submissions/{id}", subSvc.UpdateSubmission).Methods("PUT")
 	api.HandleFunc("/submissions/{id}", subSvc.DeleteSubmission).Methods("DELETE")
+	api.HandleFunc("/submissions/{id}/star", subSvc.SetStarred).Methods("PUT")
 	api.HandleFunc("/submissions/{id}/photo/authorize", subSvc.AuthorizeSubmissionPhotoLink).Methods("POST")
 	api.HandleFunc("/submissions/{id}/rejection-notification", subSvc.SendRejectionNotification).Methods("POST")
 	api.HandleFunc("/notifications/rejection-config", subSvc.GetRejectionNotificationConfig).Methods("GET")

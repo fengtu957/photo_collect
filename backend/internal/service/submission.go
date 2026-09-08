@@ -41,6 +41,8 @@ func (s *SubmissionService) validatePhotoVerification(r *http.Request, sub *data
 	if sub == nil || sub.TaskID.IsZero() || sub.Photo.URL == "" {
 		return errors.New("照片不存在")
 	}
+	// Only trust the evaluation signed by the server, never the request body.
+	sub.AIEvaluation = data.AIEvaluation{}
 	task, err := s.taskUC.GetTask(context.Background(), sub.TaskID.Hex())
 	if err != nil {
 		return err
@@ -61,8 +63,12 @@ func (s *SubmissionService) validatePhotoVerification(r *http.Request, sub *data
 	}
 	sub.Photo.FileSize = objectInfo.Size
 	if task != nil && task.IsAIAnalysisEnabled() {
-		if err := verifyPhotoVerificationToken(sub.VerificationToken, userID, sub.TaskID.Hex(), sub.Photo.URL); err != nil {
+		claims, err := readPhotoVerificationToken(sub.VerificationToken, userID, sub.TaskID.Hex(), sub.Photo.URL)
+		if err != nil {
 			return err
+		}
+		if claims.Evaluation != nil {
+			sub.AIEvaluation = *claims.Evaluation
 		}
 	}
 	return nil
@@ -233,6 +239,27 @@ func (s *SubmissionService) DeleteSubmission(w http.ResponseWriter, r *http.Requ
 	Success(w, map[string]interface{}{"id": id})
 }
 
+func (s *SubmissionService) SetStarred(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(UserIDKey).(string)
+	if !ok || userID == "" {
+		Error(w, 2004, "unauthorized")
+		return
+	}
+	var req struct {
+		Starred *bool `json:"starred"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Starred == nil {
+		Error(w, 2004, "重点标记参数无效")
+		return
+	}
+	id := mux.Vars(r)["id"]
+	if err := s.uc.SetStarred(r.Context(), id, userID, *req.Starred); err != nil {
+		Error(w, 2005, err.Error())
+		return
+	}
+	Success(w, map[string]interface{}{"id": id, "starred": *req.Starred})
+}
+
 func (s *SubmissionService) GetRejectionNotificationConfig(w http.ResponseWriter, r *http.Request) {
 	templateID := ""
 	if s.authSvc != nil {
@@ -310,7 +337,11 @@ func (s *SubmissionService) AnalyzePreview(w http.ResponseWriter, r *http.Reques
 		resultMap := map[string]interface{}{}
 		encoded, _ := json.Marshal(result)
 		_ = json.Unmarshal(encoded, &resultMap)
-		resultMap["verification_token"] = issuePhotoVerificationToken(userID, req.TaskID, req.Photo.URL)
+		evaluation := &data.AIEvaluation{
+			Status: "success", Score: result.Score, Issues: result.Issues,
+			Suggestions: result.Suggestions, Breakdown: result.Breakdown, EvaluatedAt: time.Now(),
+		}
+		resultMap["verification_token"] = issuePhotoVerificationToken(userID, req.TaskID, req.Photo.URL, evaluation)
 		Success(w, resultMap)
 		return
 	}
@@ -397,7 +428,11 @@ func (s *SubmissionService) ListSubmissions(w http.ResponseWriter, r *http.Reque
 		limit = 20
 	}
 
-	result, err := s.uc.ListSubmissions(context.Background(), taskID, userID, page, limit)
+	filter := data.SubmissionFilter{
+		Starred:          r.URL.Query().Get("starred") == "true",
+		AINeedsAttention: r.URL.Query().Get("ai_needs_attention") == "true",
+	}
+	result, err := s.uc.ListSubmissions(context.Background(), taskID, userID, page, limit, filter)
 	if err != nil {
 		Error(w, 2003, err.Error())
 		return

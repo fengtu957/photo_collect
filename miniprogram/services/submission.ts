@@ -61,9 +61,16 @@ export async function submitPhoto(params: SubmitPhotoParams) {
   });
 }
 
-export async function listSubmissions(taskId: string, page: number = 1, limit: number = 20, scope: 'mine' | 'all' = 'mine') {
+export async function setSubmissionStarred(id: string, starred: boolean) {
+  return request<{ id: string; starred: boolean }>(`/submissions/${id}/star`, {
+    method: 'PUT',
+    data: { starred }
+  });
+}
+
+export async function listSubmissions(taskId: string, page: number = 1, limit: number = 20, scope: 'mine' | 'all' = 'mine', filters: { starred?: boolean; ai_needs_attention?: boolean } = {}) {
   return request<SubmissionListResponse>(
-    `/tasks/${taskId}/submissions?page=${page}&limit=${limit}&scope=${scope}`,
+    `/tasks/${taskId}/submissions?page=${page}&limit=${limit}&scope=${scope}&starred=${!!filters.starred}&ai_needs_attention=${!!filters.ai_needs_attention}`,
     { method: 'GET' }
   );
 }

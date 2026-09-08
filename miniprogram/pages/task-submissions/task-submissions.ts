@@ -1,5 +1,5 @@
 import { getTask } from '../../services/task';
-import { listSubmissions } from '../../services/submission';
+import { listSubmissions, setSubmissionStarred } from '../../services/submission';
 import { showError } from '../../utils/request';
 import { formatTime } from '../../utils/time';
 
@@ -21,6 +21,11 @@ function formatSubmissions(list: any[], customFields: any[]) {
     });
     return {
       ...submission,
+      aiScoreText: submission.ai_evaluation && submission.ai_evaluation.status === 'success'
+        ? `AI ${submission.ai_evaluation.score}分` : '无分析结果',
+      aiNeedsAttention: !!(submission.ai_evaluation && submission.ai_evaluation.status === 'success' && submission.ai_evaluation.score < 80),
+      aiIssue: submission.ai_evaluation && submission.ai_evaluation.status === 'success'
+        ? (submission.ai_evaluation.issues || []).join('；') : '',
       createdAtFormatted: submission.created_at ? formatTime(String(submission.created_at)) : '',
       customFieldItems
     };
@@ -64,6 +69,10 @@ Page({
     pageLoading: true,
     initialized: false,
     needsRefresh: false,
+    starredOnly: false,
+    aiNeedsAttentionOnly: false,
+    listLoading: false,
+    starringId: '',
     viewMode: 'list' as 'list' | 'grid'
   },
 
@@ -101,6 +110,7 @@ Page({
   },
 
   async loadData(showPageLoading: boolean = true) {
+    this.setData({ listLoading: true });
     if (showPageLoading) {
       this.setData({ pageLoading: true });
     }
@@ -115,7 +125,7 @@ Page({
         return;
       }
 
-      const result = await listSubmissions(this.data.taskId, 1, PAGE_SIZE, 'all');
+      const result = await listSubmissions(this.data.taskId, 1, PAGE_SIZE, 'all', this.getFilters());
       const list = (result && result.list) || [];
       this.setData({
         task,
@@ -131,16 +141,18 @@ Page({
     } catch (err: any) {
       this.setData({ pageLoading: false });
       showError(err.message || '加载失败');
+    } finally {
+      this.setData({ listLoading: false }, () => this.ensureGridScrollable());
     }
   },
 
   async loadMoreSubmissions() {
-    if (!this.data.hasMore || this.data.loadingMore) return;
+    if (!this.data.hasMore || this.data.loadingMore || this.data.listLoading || this.data.starringId) return;
 
     const nextPage = this.data.page + 1;
     this.setData({ loadingMore: true });
     try {
-      const result = await listSubmissions(this.data.taskId, nextPage, PAGE_SIZE, 'all');
+      const result = await listSubmissions(this.data.taskId, nextPage, PAGE_SIZE, 'all', this.getFilters());
       const list = (result && result.list) || [];
       const more = formatSubmissions(list, (this.data.task && this.data.task.custom_fields) || []);
       this.setData({
@@ -159,6 +171,46 @@ Page({
     this.setData({
       viewMode: this.data.viewMode === 'list' ? 'grid' : 'list'
     }, () => this.ensureGridScrollable());
+  },
+
+  getFilters() {
+    return { starred: this.data.starredOnly, ai_needs_attention: this.data.aiNeedsAttentionOnly };
+  },
+
+  toggleFilter(e: any) {
+    if (this.data.listLoading || this.data.loadingMore || this.data.starringId) return;
+    const filter = String(e.currentTarget.dataset.filter || '');
+    if (filter === 'starred') {
+      this.setData({ starredOnly: !this.data.starredOnly });
+    } else if (filter === 'ai') {
+      this.setData({ aiNeedsAttentionOnly: !this.data.aiNeedsAttentionOnly });
+    } else {
+      return;
+    }
+    this.setData({ submissions: [], total: 0, page: 1, hasMore: false });
+    this.loadData();
+  },
+
+  async toggleStar(e: any) {
+    if (this.data.starringId || this.data.listLoading || this.data.loadingMore) return;
+    const id = String(e.currentTarget.dataset.id || '');
+    const submission = this.data.submissions.find((item: any) => item.id === id);
+    if (!submission) return;
+    this.setData({ starringId: id });
+    try {
+      const result = await setSubmissionStarred(id, !submission.starred);
+      this.setData({
+        submissions: this.data.submissions.map((item: any) => item.id === id ? { ...item, starred: result.starred } : item)
+      });
+      if (this.data.starredOnly && !result.starred) {
+        this.setData({ submissions: [], total: 0, hasMore: false });
+        await this.loadData(false);
+      }
+    } catch (err: any) {
+      showError(err.message || '重点标记失败');
+    } finally {
+      this.setData({ starringId: '' }, () => this.ensureGridScrollable());
+    }
   },
 
   ensureGridScrollable() {

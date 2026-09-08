@@ -39,6 +39,7 @@ export interface Submission {
   custom_data: Record<string, string | string[]>;
   photo: PhotoInfo;
   ai_evaluation: AIEvaluation;
+  starred: boolean;
   status: 'draft' | 'submitted' | 'rejected';
   created_at: string;
   updated_at: string;

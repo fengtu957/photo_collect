@@ -39,6 +39,7 @@ type Submission struct {
 	CustomData        map[string]interface{} `bson:"custom_data" json:"custom_data"`
 	Photo             PhotoInfo              `bson:"photo" json:"photo"`
 	AIEvaluation      AIEvaluation           `bson:"ai_evaluation" json:"ai_evaluation"`
+	Starred           bool                   `bson:"starred" json:"starred"`
 	Status            string                 `bson:"status" json:"status"`
 	CreatedAt         time.Time              `bson:"created_at" json:"created_at"`
 	UpdatedAt         time.Time              `bson:"updated_at" json:"updated_at"`

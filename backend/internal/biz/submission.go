@@ -236,7 +236,7 @@ func (uc *SubmissionUsecase) CreateSubmission(ctx context.Context, sub *data.Sub
 	}
 
 	sub.Status = "submitted"
-	sub.AIEvaluation = data.AIEvaluation{}
+	sub.Starred = false
 	return uc.repo.Create(ctx, sub)
 }
 
@@ -289,9 +289,11 @@ func (uc *SubmissionUsecase) UpdateSubmission(ctx context.Context, id string, us
 		return err
 	}
 
-	// 当前 AI 分析为即时返回，不再持久化写回 submission
+	// Editing metadata must retain the evaluation of the unchanged photo.
+	if existing.Photo.URL == sub.Photo.URL {
+		sub.AIEvaluation = existing.AIEvaluation
+	}
 	sub.Status = "submitted"
-	sub.AIEvaluation = data.AIEvaluation{}
 
 	return uc.repo.Update(ctx, id, sub)
 }
@@ -372,7 +374,14 @@ type SubmissionListResult struct {
 	HasMore bool               `json:"has_more"`
 }
 
-func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string, userID string, page, limit int) (*SubmissionListResult, error) {
+func (uc *SubmissionUsecase) SetStarred(ctx context.Context, id, userID string, starred bool) error {
+	if _, _, err := uc.GetSubmissionForTaskCreator(ctx, id, userID); err != nil {
+		return err
+	}
+	return uc.repo.SetStarred(ctx, id, starred)
+}
+
+func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string, userID string, page, limit int, filters ...data.SubmissionFilter) (*SubmissionListResult, error) {
 	task, err := uc.taskRepo.FindByID(ctx, taskID)
 	if err != nil {
 		return nil, err
@@ -385,17 +394,17 @@ func (uc *SubmissionUsecase) ListSubmissions(ctx context.Context, taskID string,
 	var total int64
 
 	if task.CanManage(userID) {
-		list, err = uc.repo.FindByTaskID(ctx, taskID, page, limit)
+		list, err = uc.repo.FindByTaskID(ctx, taskID, page, limit, filters...)
 		if err != nil {
 			return nil, err
 		}
-		total, err = uc.repo.CountByTaskID(ctx, taskID)
+		total, err = uc.repo.CountByTaskID(ctx, taskID, filters...)
 	} else {
-		list, err = uc.repo.FindByTaskIDAndUserID(ctx, taskID, userID, page, limit)
+		list, err = uc.repo.FindByTaskIDAndUserID(ctx, taskID, userID, page, limit, filters...)
 		if err != nil {
 			return nil, err
 		}
-		total, err = uc.repo.CountByTaskIDAndUserID(ctx, taskID, userID)
+		total, err = uc.repo.CountByTaskIDAndUserID(ctx, taskID, userID, filters...)
 	}
 	if err != nil {
 		return nil, err

@@ -1,11 +1,52 @@
 package service
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"photo-backend/internal/data"
 )
+
+func TestPhotoEvaluationSurvivesFinalizationToken(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret")
+	evaluation := &data.AIEvaluation{
+		Status: "success", Score: 76, Issues: []string{"清晰度偏低"},
+		Breakdown: map[string]int{"clarity": 70}, EvaluatedAt: time.Now().UTC(),
+	}
+	preview := issuePhotoVerificationToken("user", "task", "temporary/photo", evaluation)
+	claims, err := readPhotoVerificationToken(preview, "user", "task", "temporary/photo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	final := issuePhotoVerificationToken("user", "task", "final/photo", claims.Evaluation)
+	got, err := readPhotoVerificationToken(final, "user", "task", "final/photo")
+	if err != nil || !reflect.DeepEqual(got.Evaluation, evaluation) {
+		t.Fatalf("evaluation lost during finalization: claims=%+v err=%v", got, err)
+	}
+	if err := verifyPhotoVerificationToken(final, "user", "task", "another/photo"); err == nil {
+		t.Fatal("evaluation token must be bound to its photo")
+	}
+	parts := strings.Split(final, ".")
+	got.Evaluation.Score = 100
+	payload, _ := json.Marshal(got)
+	tampered := base64.RawURLEncoding.EncodeToString(payload) + "." + parts[1]
+	if err := verifyPhotoVerificationToken(tampered, "user", "task", "final/photo"); err == nil {
+		t.Fatal("client must not be able to change the signed score")
+	}
+}
+
+func TestLegacyPhotoTokenHasNoEvaluation(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret")
+	token := issuePhotoVerificationToken("user", "task", "photo")
+	claims, err := readPhotoVerificationToken(token, "user", "task", "photo")
+	if err != nil || claims.Evaluation != nil {
+		t.Fatalf("old tokens should not acquire a zero-score evaluation: claims=%+v err=%v", claims, err)
+	}
+}
 
 func TestBuildPhotoSpecTextIncludesIDPhotoDimensions(t *testing.T) {
 	task := &data.Task{
