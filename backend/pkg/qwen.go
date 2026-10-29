@@ -13,9 +13,10 @@ import (
 )
 
 type QwenClient struct {
-	apiKey string
-	apiURL string
-	model  string
+	apiKey        string
+	apiURL        string
+	model         string
+	geometryModel string
 }
 
 func NewQwenClient() *QwenClient {
@@ -29,10 +30,16 @@ func NewQwenClient() *QwenClient {
 		model = "qwen3-vl-flash"
 	}
 
+	geometryModel := os.Getenv("QWEN_GEOMETRY_MODEL")
+	if geometryModel == "" {
+		geometryModel = "qwen3-vl-plus"
+	}
+
 	return &QwenClient{
-		apiKey: apiKey,
-		apiURL: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-		model:  model,
+		apiKey:        apiKey,
+		apiURL:        "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+		model:         model,
+		geometryModel: geometryModel,
 	}
 }
 
@@ -174,7 +181,7 @@ func (c *QwenClient) evaluatePhoto(imageURL, photoSpec, retryHint string) (strin
 		err     error
 	}
 	geometryResult := make(chan geometryResponse, 1)
-	geometryReq := QwenRequest{Model: "qwen3-vl-plus", Messages: []QwenMessage{{Role: "user", Content: []QwenMessageContent{
+	geometryReq := QwenRequest{Model: c.geometryModel, Messages: []QwenMessage{{Role: "user", Content: []QwenMessageContent{
 		{Type: "image_url", ImageURL: &QwenImageURL{URL: imageURL}},
 		{Type: "text", Text: `检测图中人物的头部（包括头发至下巴），输出 head_bbox：[左上x,左上y,右下x,右下y]。坐标使用0到1000的归一化整数，依据整张图片，不要先裁剪。并输出 source: direct或screen或print 判断是否翻拍屏幕或纸照。无可定位头部时 head_bbox 为 null。只输出JSON。`},
 	}}}}

@@ -37,6 +37,10 @@ cp .env.example .env
 - `ALIYUN_OSS_EXPORT_JOB_PREFIX`（可选，默认 `export-jobs`）
 - `ALIYUN_IMAGESEG_ENDPOINT`（可选，默认 `https://imageseg.cn-shanghai.aliyuncs.com/`）
 - `QWEN_API_KEY`
+- `QWEN_MODEL`（可选，照片质量评估模型，默认 `qwen3-vl-flash`）
+- `QWEN_GEOMETRY_MODEL`（可选，头部定位和翻拍检测模型，默认 `qwen3-vl-plus`）
+
+模型配置在服务启动时读取，修改环境变量后重启服务即可生效，无需重新构建。
 
 ## 本地开发
 
